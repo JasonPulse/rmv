@@ -24,7 +24,7 @@ WWWROOT="$REPO_ROOT/src/Rmv.Web/wwwroot"
 OUT="$WWWROOT/img/logo"
 
 # Logo on a near-black field. Used for everything.
-SRC_FLAT="${SRC_FLAT:-$HOME/Downloads/Gemini_Generated_Image_gvahlzgvahlzgvah.jpg}"
+SRC_FLAT="${SRC_FLAT:-$HOME/Downloads/Gemini_Generated_Image_vt8qlxvt8qlxvt8q.jpg}"
 # Same logo composited on a stone wall. Kept for reference; not built into an
 # asset yet.
 SRC_STONE="${SRC_STONE:-$HOME/Downloads/Gemini_Generated_Image_cefv21cefv21cefv.jpg}"
@@ -35,13 +35,21 @@ SRC_STONE="${SRC_STONE:-$HOME/Downloads/Gemini_Generated_Image_cefv21cefv21cefv.
 # which shows up as a washed-out logo on a light background.
 KEY_LEVELS="${KEY_LEVELS:-0.5%,5%}"
 
-# Crop rectangles within the keyed, trimmed logo (659x679).
-CROP_LOGO='659x679+373+45'   # the whole logo out of the 1408x768 source
-CROP_CREST='659x420+0+0'     # crest, stopping above the banner
-CROP_MARK='250x250+205+0'    # the helm, with enough margin for the horns
-# At 16px the standard crop loses the horns entirely, so that one slice of the
-# .ico gets a tighter crop where the helm fills more of the frame.
-CROP_MARK_16='190x190+235+15'
+# Where the logo sits in the source canvas is measured, not hardcoded: the
+# artwork gets regenerated and lands in a slightly different place each time.
+# 4% picks up the blue rune glow, which is part of the design.
+BBOX_THRESHOLD="${BBOX_THRESHOLD:-4%}"
+
+# The crops *within* the logo are fractions of its measured size, so a
+# regenerated logo at a different scale still works. They assume the same
+# composition: crest on top, banner across the bottom, helm at top centre.
+# Re-check these against a contact sheet if the layout itself changes.
+CREST_H_FRAC=0.671   # crest ends, banner begins
+MARK_X_FRAC=0.312    # helm crop, left edge
+MARK_W_FRAC=0.380    # helm crop, width (square)
+MARK16_X_FRAC=0.358  # tighter helm crop for the 16px icon
+MARK16_W_FRAC=0.289
+MARK16_Y_FRAC=0.022
 
 log() { printf '\033[36m==>\033[0m %s\n' "$*"; }
 die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
@@ -54,12 +62,25 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 # --- key the background out ------------------------------------------------
+BBOX="$(magick "$SRC_FLAT" -colorspace Gray -threshold "$BBOX_THRESHOLD" -format '%@' info:)"
+log "logo bbox in source: $BBOX (threshold $BBOX_THRESHOLD)"
+
 log "keying background (levels $KEY_LEVELS)"
 magick "$SRC_FLAT" \
   \( +clone -colorspace Gray -level "$KEY_LEVELS" \) \
   -alpha off -compose CopyOpacity -composite \
-  -crop "$CROP_LOGO" +repage \
+  -crop "$BBOX" +repage \
   "$WORK/logo.png"
+
+read -r LW LH < <(magick identify -format '%w %h\n' "$WORK/logo.png")
+px() { awk -v a="$1" -v b="$2" 'BEGIN{printf "%d", a*b}'; }
+
+CROP_CREST="${LW}x$(px "$LH" "$CREST_H_FRAC")+0+0"
+MARK_W="$(px "$LW" "$MARK_W_FRAC")"
+CROP_MARK="${MARK_W}x${MARK_W}+$(px "$LW" "$MARK_X_FRAC")+0"
+MARK16_W="$(px "$LW" "$MARK16_W_FRAC")"
+CROP_MARK_16="${MARK16_W}x${MARK16_W}+$(px "$LW" "$MARK16_X_FRAC")+$(px "$LH" "$MARK16_Y_FRAC")"
+log "logo ${LW}x${LH}; crest $CROP_CREST; mark $CROP_MARK; mark16 $CROP_MARK_16"
 
 # --- lockup and crest ------------------------------------------------------
 # WebP, not PNG. The artwork is photographic, so PNG lands at 1.5MB for the

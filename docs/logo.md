@@ -11,6 +11,19 @@ SRC_FLAT=~/path/to/new-logo.jpg ./tools/build-logo-assets.sh
 The source is not in the repo. It lives in `~/Downloads` and the script takes its
 path from `SRC_FLAT`.
 
+## Geometry is measured, not hardcoded
+
+Where the logo sits in the source canvas is found by thresholding at 4%, which
+picks up the blue rune glow. The crops *inside* the logo are fractions of its
+measured size, so a regenerated logo at a different scale still works without
+re-measurement. They assume the same composition: crest on top, banner across
+the bottom, helm at top centre. If the layout itself changes, re-check them
+against a contact sheet.
+
+The fractions were calibrated by eye and then confirmed against hand
+measurements on a regenerated logo: derived crest 456 against 455 measured,
+derived helm 253+208 against 250+205.
+
 ## Keying the background out
 
 The source is a raster logo on a near-black field. The field measures 0 to 2 and
@@ -81,9 +94,10 @@ The second source image is the same logo composited on a stone wall. The script
 records its path and builds nothing from it. It would work as a hero backdrop,
 but the logo is already the hero, so it would be the logo twice.
 
-## Worth a look before this is final
+## Still slightly redundant
 
-The artwork says "DARK AGE OF CAMELOT" on the small banner and "EST. DARK AGE OF
-CAMELOT" below the name, so the phrase appears twice. "GUILD SINCE 2001" and
-"EST." are also doing the same job. Both are the sort of thing an image
-generator produces and a person would tidy up.
+The duplicate "DARK AGE OF CAMELOT" ribbon is gone from the artwork. What remains
+is "GUILD SINCE 2001" directly above "EST. DARK AGE OF CAMELOT", which say
+roughly the same thing twice. The masthead tagline also reads "SINCE DARK AGE OF
+CAMELOT", though the masthead crop excludes the logo's own text so they never
+appear together.
