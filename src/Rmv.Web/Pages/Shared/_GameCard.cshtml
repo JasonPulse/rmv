@@ -6,6 +6,7 @@
 <article class="gamecard @(Model.IsActive ? "gamecard--active" : "")">
     <header class="gamecard__head">
         <h3 class="gamecard__name">@Model.Game</h3>
+        <div class="gamecard__rule" aria-hidden="true"></div>
         @if (!string.IsNullOrWhiteSpace(Model.Period))
         {
             <p class="gamecard__period">@Model.Period</p>

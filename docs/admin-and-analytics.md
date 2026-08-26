@@ -3,22 +3,43 @@
 ## Authorisation, not just authentication
 
 Discord sign-in proves someone has a Discord account. That is not a
-qualification for editing the site, so admin pages require the caller's Discord
-user id to appear in an allowlist:
+qualification for editing the site. Admin comes from one of two places.
+
+**Root admins, from configuration.**
 
 ```
 Admin__DiscordIds=123456789012345678,987654321098765432
 ```
 
-Comma, space or newline separated. Applied by convention in `Program.cs`:
+Comma, space, semicolon or newline separated. These cannot be revoked from inside
+the app, and they are checked **before** the database is touched, so a root admin
+can still get in when Postgres is unreachable or when a grant has gone wrong.
+That is what stops you locking yourself out of your own site.
+
+**Granted admins, from the database.** Any existing admin can promote someone at
+`/admin/members`. A `Member` row is created the first time each person signs in,
+so the page lists real people rather than asking for snowflakes to be typed in.
+
+Two guards:
+
+- You cannot remove your own admin access. It is the one mistake with no route
+  back from inside the app.
+- Root admins show as `root` and have no revoke action, because the flag would
+  have no effect on them anyway.
+
+Applied by convention in `Program.cs`:
 
 ```csharp
 o.Conventions.AuthorizePage("/Status", AdminPolicy.Name);
 o.Conventions.AuthorizeFolder("/Admin", AdminPolicy.Name);
 ```
 
-**It fails closed.** With no ids configured the policy denies everyone, including
-signed-in users. An empty allowlist must not mean open access.
+**It fails closed.** With no config ids and no database admin, the policy denies
+everyone including signed-in users. An empty allowlist must not mean open access,
+and a database outage must not grant access either.
+
+Admin links in the account menu render from the policy result, not from whether
+any admin exists, so a signed-in non-admin sees only Profile and Sign out.
 
 Admin pages are open in Development so they can be used before Discord exists.
 

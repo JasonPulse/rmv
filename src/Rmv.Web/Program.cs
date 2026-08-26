@@ -3,13 +3,15 @@ using Rmv.Web.Configuration;
 using System.Security.Claims;
 using AspNet.Security.OAuth.Discord;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Rmv.Web.Analytics;
 using Rmv.Web.Tools;
-using Microsoft.EntityFrameworkCore;
 using Rmv.Web.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -146,15 +148,22 @@ if (discordEnabled)
                 context.Identity?.AddClaim(new Claim(DiscordUser.AvatarClaim, hash));
             }
 
-            return Task.CompletedTask;
+            // Record the member, so /admin/members lists people who have actually
+            // signed in rather than asking for Discord ids to be typed in.
+            return UpsertMemberAsync(context);
         };
     });
 }
 
-// Discord sign-in only proves someone has a Discord account. Editing the site
-// requires being on this list.
+// Discord sign-in only proves someone has a Discord account. Admin is either a
+// root id from configuration or a Member row flagged in the database; see
+// AdminPolicy. Scoped, because the handler resolves the DbContext.
 var adminIds = AdminPolicy.Parse(builder.Configuration["Admin:DiscordIds"]);
-builder.Services.AddAuthorization(o => AdminPolicy.Configure(o, adminIds));
+builder.Services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(AdminPolicy.Name, p => p
+        .RequireAuthenticatedUser()
+        .AddRequirements(new AdminRequirement()));
 
 // ---------------------------------------------------------------------------
 // Rate limiting
@@ -250,6 +259,68 @@ app.MapHealthChecks("/healthz/live", new() { Predicate = _ => false });
 app.MapHealthChecks("/healthz/ready", new() { Predicate = c => c.Tags.Contains("ready") });
 
 app.Run();
+
+/// <summary>
+/// Upserts the signed-in member. Failures are swallowed on purpose: not being
+/// able to record the visit must not stop the sign-in itself.
+/// </summary>
+static async Task UpsertMemberAsync(OAuthCreatingTicketContext context)
+{
+    var services = context.HttpContext.RequestServices;
+    var db = services.GetService<RmvDbContext>();
+    if (db is null)
+    {
+        return;
+    }
+
+    var user = context.User;
+    if (!user.TryGetProperty("id", out var idNode) || idNode.GetString() is not { Length: > 0 } id)
+    {
+        return;
+    }
+
+    // global_name is the display name Discord shows now; username is the fallback.
+    var name = (user.TryGetProperty("global_name", out var g) ? g.GetString() : null)
+               ?? (user.TryGetProperty("username", out var u) ? u.GetString() : null)
+               ?? id;
+
+    var avatar = user.TryGetProperty("avatar", out var a) ? a.GetString() : null;
+    var now = DateTimeOffset.UtcNow;
+
+    try
+    {
+        var member = await db.Members.FirstOrDefaultAsync(m => m.DiscordId == id);
+        if (member is null)
+        {
+            db.Members.Add(new Member
+            {
+                DiscordId = id,
+                DisplayName = name,
+                AvatarHash = avatar,
+                FirstSeenAt = now,
+                LastSeenAt = now,
+                // Root admins are admins by configuration; the flag is not set
+                // here, so revoking config access genuinely revokes it.
+                IsAdmin = false,
+            });
+        }
+        else
+        {
+            member.DisplayName = name;
+            member.AvatarHash = avatar;
+            member.LastSeenAt = now;
+        }
+
+        await db.SaveChangesAsync();
+    }
+    catch (Exception ex)
+    {
+        context.HttpContext.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("MemberUpsert")
+            .LogWarning(ex, "Could not record member {Id}.", id);
+    }
+}
 
 /// <summary>
 /// Site-wide facts the views need. Injected rather than read from configuration

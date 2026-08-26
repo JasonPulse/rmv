@@ -1,0 +1,107 @@
+@page "/admin/members"
+@model Rmv.Web.Pages.Admin.MembersModel
+@{ ViewData["Title"] = "Members"; }
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>Members</h1></div>
+        <p>Everyone who has signed in. Promote whoever should be able to edit.</p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    @if (Model.Error is not null)
+    {
+        <p class="notice">@Model.Error</p>
+    }
+    @if (Model.Notice is not null)
+    {
+        <p class="notice notice--ok">@Model.Notice</p>
+    }
+
+    <section class="section">
+        <div class="panel">
+            <p class="panel__title">Signed in at least once</p>
+
+            @if (Model.Rows.Count == 0)
+            {
+                <p class="dim">
+                    Nobody yet. A member appears here the first time they sign in
+                    with Discord.
+                </p>
+            }
+            else
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Member</th>
+                            <th scope="col">Last seen</th>
+                            <th scope="col">Admin</th>
+                            <th scope="col"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td>
+                                @row.Member.DisplayName
+                                @if (row.IsSelf)
+                                {
+                                    <span class="pill">you</span>
+                                }
+                            </td>
+                            <td class="dim">@row.Member.LastSeenAt.ToString("yyyy-MM-dd")</td>
+                            <td>
+                                @if (row.IsRoot)
+                                {
+                                    <span class="pill pill--warn">root</span>
+                                }
+                                else if (row.Member.IsAdmin)
+                                {
+                                    <span class="pill pill--ok">yes</span>
+                                }
+                                else
+                                {
+                                    <span class="dim">no</span>
+                                }
+                            </td>
+                            <td class="row-actions">
+                                @if (row.IsRoot)
+                                {
+                                    <span class="dim">set in config</span>
+                                }
+                                else if (row.Member.IsAdmin)
+                                {
+                                    <form method="post" asp-page-handler="Revoke" asp-route-id="@row.Member.Id"
+                                          onsubmit="return confirm('Remove admin from @row.Member.DisplayName?')">
+                                        <button class="linkish linkish--danger" type="submit">revoke</button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <form method="post" asp-page-handler="Grant" asp-route-id="@row.Member.Id">
+                                        <button class="linkish" type="submit">make admin</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+
+            <hr class="rule rule--fine" />
+
+            <p class="dim">
+                <strong>root</strong> means the id is in <span class="mono">Admin__DiscordIds</span>.
+                Those cannot be changed here on purpose: they are the way back in if
+                a grant goes wrong or the database is unreachable. You also cannot
+                remove your own access.
+            </p>
+        </div>
+    </section>
+</div>

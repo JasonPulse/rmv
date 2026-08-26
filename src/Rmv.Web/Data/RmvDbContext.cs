@@ -18,6 +18,8 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
 
     public DbSet<GameLink> GameLinks => Set<GameLink>();
 
+    public DbSet<Member> Members => Set<Member>();
+
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
 
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -74,6 +76,17 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
                 Url = "https://herald.uthgard.net/herald.php?view=overview",
                 SortOrder = 0,
             });
+        });
+
+        b.Entity<Member>(e =>
+        {
+            e.ToTable("members");
+            e.Property(m => m.DiscordId).HasMaxLength(32).IsRequired();
+            e.Property(m => m.DisplayName).HasMaxLength(80).IsRequired();
+            e.Property(m => m.AvatarHash).HasMaxLength(64);
+            // The identity Discord guarantees is stable, so it is the natural key.
+            e.HasIndex(m => m.DiscordId).IsUnique();
+            e.HasIndex(m => m.IsAdmin);
         });
 
         b.Entity<RequestLog>(e =>

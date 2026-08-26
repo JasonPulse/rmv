@@ -1,6 +1,6 @@
 @inject SiteOptions Site
 @inject IConfiguration Config
-@using Rmv.Web.Data
+@inject IAuthorizationService Auth
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -68,9 +68,10 @@
 
                     <div class="menu" id="account-menu" role="menu" hidden data-account-menu>
                         <a class="menu__item" role="menuitem" href="/Account/Profile">Profile</a>
-                        @if (Site.AdminsConfigured)
+                        @if ((await Auth.AuthorizeAsync(User, AdminPolicy.Name)).Succeeded)
                         {
                             <a class="menu__item" role="menuitem" href="/admin/history">Edit history</a>
+                            <a class="menu__item" role="menuitem" href="/admin/members">Members</a>
                             <a class="menu__item" role="menuitem" href="/admin/analytics">Analytics</a>
                             <a class="menu__item" role="menuitem" href="/status">Status</a>
                         }
