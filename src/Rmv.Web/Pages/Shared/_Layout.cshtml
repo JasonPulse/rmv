@@ -34,7 +34,7 @@
         <nav aria-label="Main">
             <ul class="nav">
                 <li><a href="/" aria-current="@Current("/Index")">Hall</a></li>
-                <li><a href="/tools" aria-current="@Current("/Tools/Index")">Tools</a></li>
+                <li><a href="/tools" aria-current="@Section("/Tools")">Tools</a></li>
                 @if (Site.DiscordEnabled)
                 {
                     @if (User.Identity?.IsAuthenticated == true)
@@ -73,9 +73,14 @@
 </html>
 
 @functions {
-    // Renders aria-current="page" on the active nav item, and nothing elsewhere.
+    private string Page => ViewContext.RouteData.Values["page"] as string ?? "";
+
+    // Exact match, for a nav item that maps to one page.
     string? Current(string page) =>
-        string.Equals(ViewContext.RouteData.Values["page"] as string, page, StringComparison.OrdinalIgnoreCase)
-            ? "page"
-            : null;
+        string.Equals(Page, page, StringComparison.OrdinalIgnoreCase) ? "page" : null;
+
+    // Prefix match, so Tools stays lit on /tools/daoc and below. Without this the
+    // nav goes blank as soon as you open a tool.
+    string? Section(string prefix) =>
+        Page.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? "page" : null;
 }

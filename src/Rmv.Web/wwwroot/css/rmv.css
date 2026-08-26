@@ -505,6 +505,115 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
 }
 .footer a { color: var(--ink-dim); }
 
+/* --- Forms -------------------------------------------------------------- */
+
+.field {
+  display: grid;
+  gap: 0.4rem;
+}
+.field label {
+  font: 600 0.78rem/1 var(--font-display);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bronze);
+}
+
+.input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  color: var(--ink);
+  background: #0d1016;
+  border: 1px solid color-mix(in srgb, var(--stone) 55%, transparent);
+  font: inherit;
+  font-size: 0.95rem;
+}
+.input:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--accent);
+}
+textarea.input {
+  resize: vertical;
+  min-height: 6.5rem;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+/* The file button is the one control browsers style themselves. */
+.input[type="file"] { padding: 0.5rem; cursor: pointer; }
+.input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.35rem 0.9rem;
+  font: 600 0.78rem/1 var(--font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-warm);
+  background: #1a1e27;
+  border: 1px solid color-mix(in srgb, var(--stone) 60%, transparent);
+  cursor: pointer;
+}
+.input[type="file"]::file-selector-button:hover { color: var(--gold-bright); }
+
+.hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+  max-width: none;
+}
+
+.notice {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.9rem;
+  max-width: none;
+  font-size: 0.92rem;
+  color: var(--ink);
+  background: color-mix(in srgb, #a4463c 16%, transparent);
+  border-left: 3px solid #a4463c;
+}
+
+/* --- Tables ------------------------------------------------------------- */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.table th {
+  text-align: left;
+  font: 600 0.75rem/1 var(--font-display);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 0 0.6rem 0.5rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--stone) 45%, transparent);
+}
+.table td {
+  padding: 0.45rem 0.6rem 0.45rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--stone) 18%, transparent);
+  vertical-align: top;
+}
+.table tbody tr:first-child td { color: var(--trim-bright); }
+.table td:first-child { width: 4.5rem; font-variant-numeric: tabular-nums; }
+
+.winner {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  margin: 0 0 0.5rem;
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  color: var(--accent-warm);
+}
+.winner small {
+  font: 400 1rem/1.3 var(--font-body);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* Two-up rather than three-up: the parser needs the width. */
+.grid--wide {
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+}
+
 /* --- Utilities ---------------------------------------------------------- */
 
 .stack > * + * { margin-top: var(--stack-gap, 1.5rem); }

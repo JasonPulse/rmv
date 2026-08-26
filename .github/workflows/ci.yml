@@ -36,12 +36,7 @@ jobs:
         run: dotnet build --no-restore -c Release
 
       - name: Test
-        run: |
-          if ls **/*Tests*.csproj >/dev/null 2>&1; then
-            dotnet test --no-build -c Release --verbosity normal
-          else
-            echo "No test projects yet. Add one and this step starts running."
-          fi
+        run: dotnet test --no-build -c Release --verbosity normal
 
   image:
     name: publish image

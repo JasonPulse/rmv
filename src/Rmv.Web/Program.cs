@@ -3,7 +3,10 @@ using System.Security.Claims;
 using AspNet.Security.OAuth.Discord;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
+using Rmv.Web.Tools;
 using Microsoft.EntityFrameworkCore;
 using Rmv.Web.Data;
 
@@ -122,6 +125,28 @@ if (discordEnabled)
 }
 
 builder.Services.AddAuthorization();
+
+// ---------------------------------------------------------------------------
+// Rate limiting
+//
+// Only the upload endpoints need it. They are the one place an anonymous
+// visitor can make the server do work proportional to what they send. Keyed on
+// the forwarded client address, which is why UseForwardedHeaders has to run
+// before UseRateLimiter or every visitor shares cloudflared's pod address.
+// ---------------------------------------------------------------------------
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    o.AddPolicy(RateLimitPolicies.Upload, http => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
+});
 builder.Services.AddSingleton(new SiteOptions(discordEnabled, databaseConfigured));
 
 // ---------------------------------------------------------------------------
@@ -175,6 +200,10 @@ app.UseStatusCodePagesWithReExecute("/Error", "?code={0}");
 
 app.UseStaticFiles();
 app.UseRouting();
+
+// After UseForwardedHeaders, so the limiter partitions on the real client
+// address rather than on cloudflared's.
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

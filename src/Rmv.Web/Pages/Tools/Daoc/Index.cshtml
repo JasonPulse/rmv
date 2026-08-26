@@ -1,0 +1,38 @@
+@page "/tools/daoc"
+@{
+    ViewData["Title"] = "Dark Age of Camelot tools";
+    ViewData["Description"] = "Utilities for Dark Age of Camelot: chat log parsing and more to come.";
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>Camelot</h1></div>
+        <p>Where it started, so it gets its own shelf.</p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    <div class="bar"><h2>Dark Age of Camelot</h2></div>
+
+    <section class="section grid">
+        <article class="panel">
+            <p class="panel__title">Chat log</p>
+            <h3>Roll parser</h3>
+            <p class="dim">
+                Drop in a chat log and get every /random grouped by value, highest
+                first, ties and rerolls included.
+            </p>
+            <p><a class="btn" href="/tools/daoc/roll-parser">Open</a></p>
+        </article>
+
+        <article class="panel panel--inset">
+            <p class="panel__title">Planned</p>
+            <h3>More to come</h3>
+            <p class="dim">
+                Other log parsers will land on this shelf as they get written.
+            </p>
+        </article>
+    </section>
+</div>

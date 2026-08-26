@@ -1,0 +1,95 @@
+@page "/tools/daoc/roll-parser"
+@model Rmv.Web.Pages.Tools.Daoc.RollParserModel
+@{
+    ViewData["Title"] = "Roll parser";
+    ViewData["Description"] = "Paste or upload a Dark Age of Camelot chat log and see who rolled highest.";
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>Roll parser</h1></div>
+        <p>Who actually won the roll. Highest first, ties included.</p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    <section class="section grid grid--wide">
+        <article class="panel">
+            <p class="panel__title">Your log</p>
+
+            @if (Model.Error is not null)
+            {
+                <p class="notice">@Model.Error</p>
+            }
+
+            <form method="post" enctype="multipart/form-data" class="stack" style="--stack-gap:1.1rem">
+                <div class="field">
+                    <label for="LogFile">Chat log file</label>
+                    <input class="input" type="file" id="LogFile" name="LogFile"
+                           accept=".log,.txt,text/plain" />
+                    <p class="hint">Up to @(Rmv.Web.Pages.Tools.Daoc.RollParserModel.MaxFileBytes / 1024 / 1024)MB. Nothing is stored: it is read, parsed, and discarded.</p>
+                </div>
+
+                <p class="dim center" style="margin:0">or</p>
+
+                <div class="field">
+                    <label for="Pasted">Paste lines</label>
+                    <textarea class="input" id="Pasted" name="Pasted" rows="6"
+                              placeholder="[12:00:00] Playername picks a random number between 1 and 100: 87"></textarea>
+                </div>
+
+                <p style="margin:0"><button class="btn" type="submit">Sort them</button></p>
+            </form>
+        </article>
+
+        @if (Model.Report is { RollsFound: > 0 } report)
+        {
+            <article class="panel">
+                <p class="panel__title">Result</p>
+
+                @if (report.Winner is { } winner)
+                {
+                    <h3 class="winner">
+                        @winner.Value
+                        <small>@string.Join(", ", winner.Names)</small>
+                    </h3>
+                    @if (winner.Names.Count > 1)
+                    {
+                        <p class="dim">A @(winner.Names.Count)-way tie at the top.</p>
+                    }
+                }
+
+                <hr class="rule rule--fine" />
+
+                <table class="table">
+                    <caption class="visually-hidden">Rolls grouped by value, highest first</caption>
+                    <thead>
+                        <tr><th scope="col">Roll</th><th scope="col">Who</th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var group in report.Groups)
+                    {
+                        <tr>
+                            <td class="mono">@group.Value</td>
+                            <td>@string.Join(", ", group.Names)</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+
+                <hr class="rule rule--fine" />
+
+                <p class="dim">
+                    @report.RollsFound roll@(report.RollsFound == 1 ? "" : "s")
+                    across @report.LinesScanned line@(report.LinesScanned == 1 ? "" : "s").
+                    @if (report.Truncated)
+                    {
+                        <text>Stopped early: the log is larger than this tool reads in one go.</text>
+                    }
+                </p>
+            </article>
+        }
+    </section>
+</div>

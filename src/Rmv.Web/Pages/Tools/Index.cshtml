@@ -1,32 +1,38 @@
 @page "/tools"
 @{
     ViewData["Title"] = "Tools";
-    ViewData["Description"] = "Player utilities for Results May Vary. Under construction.";
+    ViewData["Description"] = "Player utilities from Results May Vary.";
 }
 
-@* .hero sits outside .shell so its background spans the full viewport width.
-   Nested inside, the pattern stops at the shell edge and shows a hard seam. *@
 <section class="hero">
     <div class="shell">
         <div class="hero__plaque"><h1>Tools</h1></div>
-        <p>Nothing here yet. This is what is coming.</p>
+        <p>Utilities for players. Sorted by the game they belong to.</p>
     </div>
 </section>
 
 <div class="shell">
     <hr class="rule" />
 
+    <div class="bar"><h2>By game</h2></div>
+
     <section class="section grid">
-        <article class="panel panel--inset">
-            <p class="panel__title">Planned</p>
-            <h3>Log and image upload</h3>
-            <p class="dim">Drop in a combat log or a screenshot and get it parsed.</p>
+        <article class="panel">
+            <p class="panel__title">Dark Age of Camelot</p>
+            <h3>Camelot</h3>
+            <p class="dim">
+                Chat log parsing, starting with the roll parser. Where the guild
+                started, so it gets its own shelf.
+            </p>
+            <p><a class="btn" href="/tools/daoc">Open</a></p>
         </article>
 
         <article class="panel panel--inset">
             <p class="panel__title">Planned</p>
-            <h3>Daily stat scrape</h3>
-            <p class="dim">Two public stats pages, pulled once a day and kept in Postgres.</p>
+            <h3>Everything else</h3>
+            <p class="dim">
+                Screenshot reading and a daily stats scrape. Not built yet.
+            </p>
         </article>
     </section>
 </div>
