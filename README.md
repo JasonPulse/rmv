@@ -53,6 +53,15 @@ connection string. Requirements, including every configuration value, are in
 `docker-compose.yml` is local development only: Postgres for `dotnet watch`, plus
 the app in a container on :5080 for a quick smoke test.
 
+## Admin
+
+`/admin/history` edits the "where we've been" list. `/admin/analytics` is the
+server-side request log: paths, statuses, 404s, referrers, countries, latency.
+
+Both require the caller's Discord id to be in `Admin__DiscordIds`, not merely a
+valid sign-in, and the policy fails closed when that list is empty. Open in
+Development. See `docs/admin-and-analytics.md`.
+
 ## /status
 
 Build sha, hostname, boot count and database state. Not for members, so it

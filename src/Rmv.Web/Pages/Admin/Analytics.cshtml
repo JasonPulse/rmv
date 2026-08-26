@@ -1,0 +1,163 @@
+@page "/admin/analytics"
+@model Rmv.Web.Pages.Admin.AnalyticsModel
+@{
+    ViewData["Title"] = "Analytics";
+    var peak = Model.PerDay.Count > 0 ? Model.PerDay.Max(d => d.Total) : 1;
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>Analytics</h1></div>
+        <p>Server-side, so it sees every request: 404s, probes and bots included.</p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    <nav class="chips" aria-label="Range">
+        @foreach (var d in new[] { 1, 7, 30, 90 })
+        {
+            <a class="chip @(Model.Days == d ? "chip--on" : "")"
+               href="/admin/analytics?days=@d&bots=@(Model.ExcludeBots ? "false" : "true")">@d d</a>
+        }
+        <a class="chip @(Model.ExcludeBots ? "" : "chip--on")"
+           href="/admin/analytics?days=@Model.Days&bots=@(Model.ExcludeBots ? "true" : "false")">
+            @(Model.ExcludeBots ? "include bots" : "bots included")
+        </a>
+    </nav>
+
+    <section class="section grid grid--wide">
+        <article class="panel panel--inset">
+            <p class="panel__title">Requests, last @Model.Days day@(Model.Days == 1 ? "" : "s")</p>
+            <dl class="facts">
+                <dt>Total</dt><dd>@Model.TotalRequests.ToString("N0")</dd>
+                <dt>Human</dt><dd>@Model.HumanRequests.ToString("N0")</dd>
+                <dt>Bot</dt><dd>@((Model.TotalRequests - Model.HumanRequests).ToString("N0"))</dd>
+            </dl>
+
+            @if (Model.PerDay.Count > 0)
+            {
+                <hr class="rule rule--fine" />
+                <div class="spark" role="img" aria-label="Requests per day">
+                    @foreach (var d in Model.PerDay)
+                    {
+                        <span class="spark__bar" style="--h:@(Math.Max(3, d.Total * 100 / peak))%"
+                              title="@d.Day.ToString("yyyy-MM-dd"): @d.Total"></span>
+                    }
+                </div>
+            }
+
+            <hr class="rule rule--fine" />
+            <p class="panel__title">Status codes</p>
+            @if (Model.Statuses.Count == 0)
+            {
+                <p class="dim">@Model.EmptyReason</p>
+            }
+            else
+            {
+                <dl class="facts">
+                    @foreach (var s in Model.Statuses)
+                    {
+                        <dt>@s.Status</dt><dd>@s.Total.ToString("N0")</dd>
+                    }
+                </dl>
+            }
+        </article>
+
+        <article class="panel panel--inset">
+            <p class="panel__title">Not found (bots included)</p>
+            @if (Model.TopMisses.Count == 0)
+            {
+                <p class="dim">Nothing 404ing. Unusual and good.</p>
+            }
+            else
+            {
+                <table class="table table--tight">
+                    <tbody>
+                    @foreach (var m in Model.TopMisses)
+                    {
+                        <tr><td class="mono wrap">@m.Key</td><td class="num">@m.Total</td></tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </article>
+
+        <article class="panel panel--inset">
+            <p class="panel__title">Top paths</p>
+            @if (Model.TopPaths.Count == 0)
+            {
+                <p class="dim">@Model.EmptyReason</p>
+            }
+            else
+            {
+                <table class="table table--tight">
+                    <tbody>
+                    @foreach (var pth in Model.TopPaths)
+                    {
+                        <tr><td class="mono wrap">@pth.Key</td><td class="num">@pth.Total</td></tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </article>
+
+        <article class="panel panel--inset">
+            <p class="panel__title">Referrers</p>
+            @if (Model.TopReferrers.Count == 0)
+            {
+                <p class="dim">No referrers recorded yet.</p>
+            }
+            else
+            {
+                <table class="table table--tight">
+                    <tbody>
+                    @foreach (var r in Model.TopReferrers)
+                    {
+                        <tr><td class="wrap">@r.Key</td><td class="num">@r.Total</td></tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </article>
+
+        <article class="panel panel--inset">
+            <p class="panel__title">Countries</p>
+            @if (Model.TopCountries.Count == 0)
+            {
+                <p class="dim">No country header seen. That comes from Cloudflare.</p>
+            }
+            else
+            {
+                <table class="table table--tight">
+                    <tbody>
+                    @foreach (var c in Model.TopCountries)
+                    {
+                        <tr><td>@c.Key</td><td class="num">@c.Total</td></tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </article>
+
+        <article class="panel panel--inset">
+            <p class="panel__title">Slowest paths (worst ms)</p>
+            @if (Model.Slowest.Count == 0)
+            {
+                <p class="dim">Needs at least three hits on a path before it shows here.</p>
+            }
+            else
+            {
+                <table class="table table--tight">
+                    <tbody>
+                    @foreach (var s in Model.Slowest)
+                    {
+                        <tr><td class="mono wrap">@s.Path</td><td class="num">@s.WorstMs</td></tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </article>
+    </section>
+</div>

@@ -1,0 +1,101 @@
+# Umami: self-hosted visitor analytics, the client-side half.
+#
+# It answers a different question from the app's own request log. Umami sees
+# sessions, devices, screen sizes and journeys, because it runs in the browser.
+# It cannot see 404s, scanner probes, or anything that never executes JavaScript,
+# which is exactly what /admin/analytics is for. The two are complementary, not
+# redundant.
+#
+# Needs its own database on the existing Postgres. Create it first:
+#
+#   CREATE DATABASE umami;
+#   CREATE USER umami WITH PASSWORD '...';
+#   GRANT ALL PRIVILEGES ON DATABASE umami TO umami;
+#   \c umami
+#   GRANT ALL ON SCHEMA public TO umami;
+#
+# Then create the secret:
+#
+#   kubectl -n rmv create secret generic umami \
+#     --from-literal=DATABASE_URL='postgresql://umami:PW@HOST:5432/umami' \
+#     --from-literal=APP_SECRET="$(openssl rand -hex 32)"
+#
+# Umami applies its own migrations on start. Default login is admin / umami;
+# change it immediately.
+#
+# Expose it on its own tunnel hostname (e.g. stats.resultsmayvary.org) pointing
+# at http://umami.rmv.svc.cluster.local:3000. Do not make it public without an
+# Access policy in front, or put it behind the tunnel only on your tailnet.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: umami
+spec:
+  selector:
+    app.kubernetes.io/name: umami
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: umami
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: umami
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: umami
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: umami
+          image: ghcr.io/umami-software/umami:postgresql-latest
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: DATABASE_TYPE
+              value: postgresql
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: umami, key: DATABASE_URL }
+            - name: APP_SECRET
+              valueFrom:
+                secretKeyRef: { name: umami, key: APP_SECRET }
+            # Do not phone home.
+            - name: DISABLE_TELEMETRY
+              value: "1"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            # Not read-only: the Next.js server writes into its own cache
+            # directory at runtime.
+            readOnlyRootFilesystem: false
+          readinessProbe:
+            httpGet: { path: /api/heartbeat, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/heartbeat, port: http }
+            initialDelaySeconds: 45
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 768Mi

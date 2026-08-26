@@ -1,4 +1,5 @@
 @inject SiteOptions Site
+@inject IConfiguration Config
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,6 +35,7 @@
         <nav aria-label="Main">
             <ul class="nav">
                 <li><a href="/" aria-current="@Current("/Index")">Hall</a></li>
+                <li><a href="/history" aria-current="@Current("/History")">History</a></li>
                 <li><a href="/tools" aria-current="@Section("/Tools")">Tools</a></li>
                 @if (Site.DiscordEnabled)
                 {
@@ -68,6 +70,16 @@
 </footer>
 
 <script src="~/js/htmx.min.js" defer></script>
+@{
+    // Umami, the client-side half of analytics. Renders nothing until both
+    // values are configured, so the site loads no third-party script by default.
+    var umamiSrc = Config["Analytics:UmamiScriptUrl"];
+    var umamiId = Config["Analytics:UmamiWebsiteId"];
+}
+@if (!string.IsNullOrWhiteSpace(umamiSrc) && !string.IsNullOrWhiteSpace(umamiId))
+{
+    <script defer src="@umamiSrc" data-website-id="@umamiId"></script>
+}
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

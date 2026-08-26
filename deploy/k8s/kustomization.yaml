@@ -10,6 +10,9 @@ resources:
   - namespace.yaml
   - web.yaml
   - cloudflared.yaml
+  # Client-side analytics. Comment out if you only want the app's own request
+  # log at /admin/analytics.
+  - umami.yaml
 
 # No Postgres here: the cluster already has an instance. The app reaches it
 # through the connection string in the rmv-app secret. See docs/deploy.md for

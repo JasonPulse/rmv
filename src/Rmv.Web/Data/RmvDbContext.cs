@@ -14,6 +14,10 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
 {
     public DbSet<Deployment> Deployments => Set<Deployment>();
 
+    public DbSet<GamePresence> GamePresences => Set<GamePresence>();
+
+    public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
+
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -25,6 +29,37 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             e.Property(d => d.Host).HasMaxLength(128).IsRequired();
             // Newest-first is the only way this table is ever read.
             e.HasIndex(d => d.StartedAt).IsDescending();
+        });
+
+        b.Entity<GamePresence>(e =>
+        {
+            e.ToTable("game_presences");
+            e.Property(g => g.Game).HasMaxLength(80).IsRequired();
+            e.Property(g => g.Guilds).HasMaxLength(240).IsRequired();
+            e.Property(g => g.Period).HasMaxLength(40);
+            e.HasIndex(g => new { g.IsActive, g.SortOrder });
+
+            // Seeded so the page has content the moment it deploys, and so the
+            // admin screen has something to edit rather than an empty list.
+            e.HasData(
+                new GamePresence { Id = 1, Game = "Blackthorn DAoC", Guilds = "Dark Auspices", IsActive = true, SortOrder = 0 },
+                new GamePresence { Id = 2, Game = "Uthgard DAoC", Guilds = "RMV, Legends, Dark Auspices", IsActive = false, SortOrder = 0 },
+                new GamePresence { Id = 3, Game = "World of Warcraft", Guilds = "RMV, Omen, Etc.", IsActive = false, SortOrder = 1 },
+                new GamePresence { Id = 4, Game = "Final Fantasy XI", Guilds = "RMV", IsActive = false, SortOrder = 2 });
+        });
+
+        b.Entity<RequestLog>(e =>
+        {
+            e.ToTable("request_logs");
+            e.Property(r => r.Path).HasMaxLength(400).IsRequired();
+            e.Property(r => r.Method).HasMaxLength(10).IsRequired();
+            e.Property(r => r.Referrer).HasMaxLength(400);
+            e.Property(r => r.UserAgent).HasMaxLength(400);
+            e.Property(r => r.Country).HasMaxLength(2);
+            // Every query is either recent-first or grouped by path over a window.
+            e.HasIndex(r => r.At).IsDescending();
+            e.HasIndex(r => new { r.Path, r.At });
+            e.HasIndex(r => new { r.Status, r.At });
         });
 
         b.Entity<DataProtectionKey>().ToTable("data_protection_keys");

@@ -1,0 +1,118 @@
+@page "/admin/history"
+@model Rmv.Web.Pages.Admin.HistoryModel
+@{ ViewData["Title"] = "Edit history"; }
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>Edit history</h1></div>
+        <p>The "where we've been" list. Changes are live immediately.</p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    @if (Model.Notice is not null)
+    {
+        <p class="notice notice--ok">@Model.Notice</p>
+    }
+
+    <section class="section grid grid--wide">
+        <article class="panel">
+            <p class="panel__title">Add or edit</p>
+
+            <form method="post" asp-page-handler="Save" class="stack" style="--stack-gap:1rem">
+                <input type="hidden" asp-for="Input.Id" />
+
+                <div class="field">
+                    <label asp-for="Input.Game">Game</label>
+                    <input class="input" asp-for="Input.Game" placeholder="Blackthorn DAoC" />
+                    <span class="hint" asp-validation-for="Input.Game"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Input.Guilds">Guild tags</label>
+                    <input class="input" asp-for="Input.Guilds" placeholder="RMV, Legends, Dark Auspices" />
+                    <p class="hint">Comma separated. Each becomes its own tag on the page.</p>
+                    <span class="hint" asp-validation-for="Input.Guilds"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Input.Period">Period</label>
+                    <input class="input" asp-for="Input.Period" placeholder="2001-2012" />
+                    <p class="hint">Optional.</p>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Input.SortOrder">Sort order</label>
+                    <input class="input" asp-for="Input.SortOrder" type="number" min="0" max="999" />
+                    <p class="hint">Lowest first, within its list.</p>
+                </div>
+
+                <label class="check">
+                    <input asp-for="Input.IsActive" type="checkbox" />
+                    <span>Still active</span>
+                </label>
+
+                <p style="margin:0"><button class="btn" type="submit">Save</button></p>
+            </form>
+        </article>
+
+        <article class="panel">
+            <p class="panel__title">Current list</p>
+            <table class="table">
+                <thead>
+                    <tr><th scope="col">Game</th><th scope="col">Tags</th><th scope="col"></th></tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>
+                        <td>
+                            @row.Game
+                            @if (row.IsActive)
+                            {
+                                <span class="pill pill--ok">active</span>
+                            }
+                        </td>
+                        <td class="dim">@row.Guilds</td>
+                        <td class="row-actions">
+                            <a href="#"
+                               class="linkish"
+                               data-edit
+                               data-id="@row.Id"
+                               data-game="@row.Game"
+                               data-guilds="@row.Guilds"
+                               data-period="@row.Period"
+                               data-sort="@row.SortOrder"
+                               data-active="@(row.IsActive ? "true" : "false")">edit</a>
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@row.Id"
+                                  onsubmit="return confirm('Delete @row.Game?')">
+                                <button class="linkish linkish--danger" type="submit">delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </article>
+    </section>
+</div>
+
+@section Scripts {
+<script>
+// Clicking edit fills the form rather than navigating. Values come from data
+// attributes Razor has already HTML-encoded.
+document.querySelectorAll('[data-edit]').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault();
+    const d = a.dataset;
+    document.querySelector('#Input_Id').value = d.id;
+    document.querySelector('#Input_Game').value = d.game;
+    document.querySelector('#Input_Guilds').value = d.guilds;
+    document.querySelector('#Input_Period').value = d.period ?? '';
+    document.querySelector('#Input_SortOrder').value = d.sort;
+    document.querySelector('#Input_IsActive').checked = d.active === 'true';
+    document.querySelector('#Input_Game').focus();
+}));
+</script>
+}

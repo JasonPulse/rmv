@@ -1,0 +1,104 @@
+# Admin and analytics
+
+## Authorisation, not just authentication
+
+Discord sign-in proves someone has a Discord account. That is not a
+qualification for editing the site, so admin pages require the caller's Discord
+user id to appear in an allowlist:
+
+```
+Admin__DiscordIds=123456789012345678,987654321098765432
+```
+
+Comma, space or newline separated. Applied by convention in `Program.cs`:
+
+```csharp
+o.Conventions.AuthorizePage("/Status", AdminPolicy.Name);
+o.Conventions.AuthorizeFolder("/Admin", AdminPolicy.Name);
+```
+
+**It fails closed.** With no ids configured the policy denies everyone, including
+signed-in users. An empty allowlist must not mean open access.
+
+Admin pages are open in Development so they can be used before Discord exists.
+
+### Turning on Discord sign-in
+
+1. https://discord.com/developers/applications, New Application.
+2. OAuth2, add the redirect URI exactly:
+   `https://resultsmayvary.org/signin-discord`
+   Add a second for `https://www.resultsmayvary.org/signin-discord` if both
+   hostnames serve the site.
+3. Copy the client id and client secret into the `rmv-app` secret as
+   `Discord__ClientId` and `Discord__ClientSecret`.
+4. Get your own Discord user id: in Discord, Settings, Advanced, turn on
+   Developer Mode, then right-click your name and Copy User ID. Put it in
+   `Admin__DiscordIds`.
+
+Until step 4, sign-in works but no admin page does.
+
+## /admin/history
+
+Edits the "where we've been" list behind `/history`. Add, edit, delete, with a
+sort order and an optional period. Guild tags are one comma-separated field,
+because that is how the list reads and how it is edited; each tag renders as its
+own chip.
+
+Seeded with the four entries the guild started from, so the page has content the
+moment it deploys.
+
+## /admin/analytics
+
+The server-side half. Middleware records every request that reaches routing:
+path with query, status, duration, referrer, user agent, and country from
+Cloudflare's `CF-IPCountry` header.
+
+**What this sees that a JavaScript beacon cannot:** 404s, redirects, scanner
+probes, and anything that never executes JavaScript. "Which URLs are people
+trying to hit" is a question only the server can answer, which is why the
+Not Found panel includes bots by default.
+
+Deliberately holds **no IP address and no cookie**. Country is coarse enough not
+to identify anyone, so there is nothing here needing a consent banner.
+
+### Two things worth knowing
+
+`UseStatusCodePagesWithReExecute` runs the pipeline a second time to render
+`/Error`, which reaches the middleware again. Without a guard, every 404 records
+twice: once as the path the visitor asked for and once as `/Error?code=404`. The
+middleware skips requests carrying `IStatusCodeReExecuteFeature`.
+
+Writes are batched on a background loop, not on the request path. The queue is
+bounded at 10k and drops on overflow: losing analytics rows under load is always
+better than slowing down the actual request. Static assets and `/healthz/*` are
+skipped, since kubelet alone would otherwise be most of the table.
+
+### Grouped queries
+
+Every grouped query projects an anonymous type and maps to a record afterwards.
+Projecting straight into a record constructor inside a `GroupBy` is not
+translatable by EF Core and throws at runtime rather than compile time. It looks
+fine until the page 500s.
+
+## Umami
+
+The client-side half, `deploy/k8s/umami.yaml`. It answers a different question:
+sessions, devices, screen sizes, journeys. Needs its own database on the existing
+Postgres instance; the manifest header has the SQL and the secret command.
+
+The tracking snippet renders only when both values are set, so the site loads no
+third-party script by default:
+
+```
+Analytics__UmamiScriptUrl=https://stats.example.org/script.js
+Analytics__UmamiWebsiteId=<from the Umami dashboard>
+```
+
+Put Umami behind its own tunnel hostname with a Cloudflare Access policy, or
+keep it reachable only on your tailnet. It is an admin surface.
+
+## Retention
+
+Nothing prunes `request_logs` yet. At this site's traffic that is fine for a long
+while, but it grows without bound. When it matters, a nightly delete of rows
+older than 90 days is the whole job.

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Rmv.Web.Analytics;
 using Rmv.Web.Tools;
 using Microsoft.EntityFrameworkCore;
 using Rmv.Web.Data;
@@ -34,7 +35,8 @@ builder.Services.AddRazorPages(o =>
     // wired up; sign-in required everywhere else.
     if (!builder.Environment.IsDevelopment())
     {
-        o.Conventions.AuthorizePage("/Status");
+        o.Conventions.AuthorizePage("/Status", AdminPolicy.Name);
+        o.Conventions.AuthorizeFolder("/Admin", AdminPolicy.Name);
     }
 });
 
@@ -70,6 +72,11 @@ if (databaseConfigured)
     // Migrations and the boot record run here, in the background, rather than
     // blocking startup. See DatabaseInitializer for why.
     builder.Services.AddHostedService<DatabaseInitializer>();
+
+    // Buffers request records and flushes them in batches. Registered as a
+    // singleton as well so the middleware can resolve the same instance.
+    builder.Services.AddSingleton<RequestLogWriter>();
+    builder.Services.AddHostedService(sp => sp.GetRequiredService<RequestLogWriter>());
 }
 else
 {
@@ -124,7 +131,10 @@ if (discordEnabled)
     });
 }
 
-builder.Services.AddAuthorization();
+// Discord sign-in only proves someone has a Discord account. Editing the site
+// requires being on this list.
+var adminIds = AdminPolicy.Parse(builder.Configuration["Admin:DiscordIds"]);
+builder.Services.AddAuthorization(o => AdminPolicy.Configure(o, adminIds));
 
 // ---------------------------------------------------------------------------
 // Rate limiting
@@ -147,7 +157,7 @@ builder.Services.AddRateLimiter(o =>
             QueueLimit = 0,
         }));
 });
-builder.Services.AddSingleton(new SiteOptions(discordEnabled, databaseConfigured));
+builder.Services.AddSingleton(new SiteOptions(discordEnabled, databaseConfigured, adminIds.Length > 0));
 
 // ---------------------------------------------------------------------------
 // Health
@@ -205,6 +215,13 @@ app.UseRouting();
 // address rather than on cloudflared's.
 app.UseRateLimiter();
 
+// Records every request that reaches routing, including 404s. Only registered
+// when there is a database to write to.
+if (databaseConfigured)
+{
+    app.UseMiddleware<RequestLogMiddleware>();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -218,4 +235,4 @@ app.Run();
 /// Site-wide facts the views need. Injected rather than read from configuration
 /// in the view, so the "is Discord wired up" test lives in exactly one place.
 /// </summary>
-public record SiteOptions(bool DiscordEnabled, bool DatabaseConfigured);
+public record SiteOptions(bool DiscordEnabled, bool DatabaseConfigured, bool AdminsConfigured);
