@@ -28,42 +28,44 @@ PSD="$WORK/kit.psd"
 # site, doubled for retina. Textured assets keep their detail; assets that are
 # just stretched geometry get cut down hard.
 MANIFEST=(
-  # Panels and cards. Used as border-image, so corner detail has to survive.
-  401:panel-frame-tall:700
-  470:panel-frame-card:651
-  496:panel-frame-inset:693
-  # Layer 490 (the card fill) is flat #000 at 99.9% alpha, so it trims to 1x1.
-  # It lives in CSS as --rmv-panel instead of shipping as an image.
-
-  # Bars, headers, title plaques. Stone texture, stretched horizontally.
-  581:header-bar-bg:900
-  582:header-bar-frame:900
-  573:navbar-bg:900
-  575:title-plaque-bg:900
-  576:title-plaque-frame:900
-
-  # Dividers
-  348:divider-hairline:1200
-  337:divider-ornate:1200
-  381:divider-wide:1400
-
-  # Controls
-  600:button-bg:600
-  599:button-frame:600
-  590:button-bg-pill:600
-  243:input-frame:700
-  246:progress-track:600
-  244:progress-fill:600
-
-  # Diamond slots (the kit's signature motif). Already small, kept at source size.
-  903:slot-bg:210
-  952:slot-frame:214
-  904:slot-frame-notched:218
-
-  # Tiling background textures
-  491:pattern-lattice:400
-  397:pattern-knotwork:700
+  # --- In use by rmv.css ---------------------------------------------------
+  470:panel-frame-card:651       # trinity-knot corners, on every panel and game card
+  582:header-bar-frame:900       # section bars
+  576:title-plaque-frame:900     # page titles and game wordmarks
+  575:title-plaque-bg:900        # stone fill behind those
+  348:divider-hairline:1200      # thin rule inside panels
+  337:divider-ornate:1200        # rule between sections
+  491:pattern-lattice:400        # hero backdrop, fades downward, repeat-x only
+  397:pattern-knotwork:700       # footer band, same
 )
+
+# --- Sliced previously, not currently referenced -----------------------------
+#
+# Not shipped, because unreferenced files still go into the image and get served.
+# The layer indices are the expensive part and are kept here: to bring one back,
+# move its line into MANIFEST above and rerun.
+#
+# Why each one lost its job:
+#
+#   600:button-bg:600            } the kit's button art has a stepped bracket on
+#   599:button-frame:600         } two corners only, which at button size reads as
+#   590:button-bg-pill:600       } a lopsided outline. Buttons are CSS now.
+#   243:input-frame:700          form controls are CSS: a sliced frame cannot
+#                                follow a textarea that the user resizes.
+#   246:progress-track:600       } nothing has a progress bar yet.
+#   244:progress-fill:600        }
+#   581:header-bar-bg:900        stretching a 16:1 texture into a 4:1 bar
+#   573:navbar-bg:900            misaligned its baked-in ends; gradients instead.
+#   401:panel-frame-tall:700     ornament is one top-centre diamond, which
+#                                border-image cannot place.
+#   496:panel-frame-inset:693    bracket on the top two corners only, so no slice
+#                                both keeps it and avoids stretching the leftover
+#                                down the edges. Drawn in CSS: see .panel--inset.
+#   381:divider-wide:1400        redundant next to divider-ornate.
+#   903:slot-bg:210              } the diamond slot motif; the masthead uses the
+#   952:slot-frame:214          } guild logo mark instead.
+#   904:slot-frame-notched:218   }
+#   420:crest-skull:260          the kit's own emblem, replaced by the real logo.
 
 log() { printf '\033[36m==>\033[0m %s\n' "$*"; }
 die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }

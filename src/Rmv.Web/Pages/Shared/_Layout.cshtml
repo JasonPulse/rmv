@@ -44,13 +44,13 @@
                         <li><a href="/Account/Profile">@User.Identity!.Name</a></li>
                         <li>
                             <form method="post" action="/Account/Logout">
-                                <button class="btn btn--ghost" type="submit">Leave</button>
+                                <button class="nav__action" type="submit">Leave</button>
                             </form>
                         </li>
                     }
                     else
                     {
-                        <li><a class="btn" href="/Account/Login">Sign in</a></li>
+                        <li><a class="nav__action" href="/Account/Login">Sign in</a></li>
                     }
                 }
             </ul>

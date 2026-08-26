@@ -15,7 +15,10 @@
 set -euo pipefail
 
 IMG_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/src/Rmv.Web/wwwroot/img/ui}"
-FRAMES=(panel-frame-card header-bar-frame title-plaque-frame button-frame input-frame)
+# Only the frames still used as border-image. button-frame and input-frame were
+# dropped when buttons and form controls moved to plain CSS borders; see the
+# commented section of tools/slice-nordic-ui.sh.
+FRAMES=(panel-frame-card header-bar-frame title-plaque-frame)
 
 # The alpha heuristic thresholds against the mean density of the plain border,
 # so it misreads two shapes. These values were measured off a pixel grid and

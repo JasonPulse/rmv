@@ -105,18 +105,28 @@ made the first few builds look broken.
    is exactly what a hero wants. Size them to the container height and
    `repeat-x`: the fade shows in full and no edge is ever visible.
 
+## Buttons and form controls are CSS, not kit art
+
+The kit's button frame carries a stepped bracket on the top-left and
+bottom-right corners only. At button size that reads as a lopsided, doubled
+outline rather than as detail, so `.btn` is a single 1px rule plus the stone
+gradient. Form controls are CSS for a harder reason: a sliced frame cannot follow
+a textarea the user drags to resize.
+
+The nav sign-in link was the case that forced it. `.nav a` is more specific than
+`.btn`, so the nav's `padding: 0.35rem 0` won and the label sat cramped and
+off-centre inside the frame. Nav actions are now `.nav__action`, shaped like the
+other nav items.
+
 ## Asset inventory
 
-Eleven of the 22 sliced assets are not referenced by any stylesheet:
-`input-frame`, `progress-track`, `progress-fill`, `header-bar-bg`, `navbar-bg`,
-`button-bg`, `button-bg-pill`, `divider-wide`, `panel-frame-tall`,
-`panel-frame-inset`, `slot-frame-notched`.
+Eight assets ship, 372KB, and every one is referenced by `rmv.css`. Unreferenced
+files still go into the image and get served, so they are not kept "just in case".
 
-The first three are wanted by the file-upload tool, so they are kept rather than
-deleted and re-sliced. `header-bar-bg`, `navbar-bg`, `button-bg` and
-`button-bg-pill` lost their jobs to rule 2 above. `panel-frame-tall` and
-`panel-frame-inset` are the two frames no slice can place; see the note in
-`tools/measure-border-slices.sh`.
+Fourteen were sliced at some point and then lost their job. Their layer indices
+are the expensive part, so they stay in `tools/slice-nordic-ui.sh` as a commented
+block with a note on why each was dropped. Bringing one back is moving its line
+into `MANIFEST` and rerunning.
 
 ## The kit's own crest
 

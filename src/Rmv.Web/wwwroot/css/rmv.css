@@ -232,6 +232,27 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
 .nav a:hover { color: var(--trim-bright); border-bottom-color: var(--accent); }
 .nav a[aria-current="page"] { color: var(--accent-warm); border-bottom-color: var(--accent-warm); }
 
+/* Sign in and Leave. Same shape as the other nav items so the bar reads as one
+   row, distinguished by colour rather than by a box. Not .btn: .nav a is more
+   specific, so .btn's padding lost and the label sat cramped and off-centre. */
+.nav__action {
+  display: block;
+  padding: 0.35rem 0;
+  font: 600 0.98rem/1 var(--font-display);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent-warm);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+}
+.nav__action:hover {
+  color: var(--gold-bright);
+  border-bottom-color: var(--accent-warm);
+}
+.nav form { display: flex; }
+
 /* --- Hero ---------------------------------------------------------------- */
 
 .hero {
@@ -399,36 +420,45 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
 
 /* --- Buttons ------------------------------------------------------------ */
 
+/* No kit frame. The kit's button art carries a stepped bracket at top-left and
+   bottom-right only, which at button size reads as a doubled, lopsided outline
+   rather than as detail. A single rule plus the stone gradient sits better and
+   matches the .glink treatment on the game cards. */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 46px;
-  padding: 0.5rem 1.6rem;
-  font: 600 0.92rem/1 var(--font-display);
+  min-height: 42px;
+  padding: 0.55rem 1.5rem;
+  font: 600 0.88rem/1 var(--font-display);
   letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--accent-warm);
   text-decoration: none;
   cursor: pointer;
-  background: linear-gradient(180deg, #26262c 0%, #191920 60%, #121217 100%) border-box;
-  border-style: solid;
-  border-color: transparent;
-  border-width: var(--w-button);
-  border-image: url("../img/ui/button-frame.png")
-    var(--slice-button-frame) / var(--w-button) / 0 stretch;
-  transition: color 120ms ease, filter 120ms ease;
+  background: linear-gradient(180deg, #23252c 0%, #191b22 60%, #12141a 100%);
+  border: 1px solid color-mix(in srgb, var(--accent-warm) 34%, transparent);
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
-.btn:hover { color: var(--gold-bright); filter: brightness(1.35); }
-.btn:active { filter: brightness(0.9); }
+.btn:hover {
+  color: var(--gold-bright);
+  border-color: color-mix(in srgb, var(--accent-warm) 62%, transparent);
+  background: linear-gradient(180deg, #2b2e37 0%, #1f222a 60%, #171a21 100%);
+}
+.btn:active { background: #14161c; }
 .btn[disabled] { opacity: 0.45; pointer-events: none; }
 
 .btn--ghost {
   background: none;
   color: var(--ink-dim);
+  border-color: color-mix(in srgb, var(--stone) 45%, transparent);
 }
-.btn--ghost:hover { color: var(--trim-bright); }
+.btn--ghost:hover {
+  background: none;
+  color: var(--trim-bright);
+  border-color: var(--accent);
+}
 
 /* --- Definition rows (used by the status panel) -------------------------- */
 
