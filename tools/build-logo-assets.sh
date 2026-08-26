@@ -8,11 +8,13 @@
 #
 # Three crops come out of one source image:
 #   lockup  the whole thing, crest over the banner. Used as the home page hero.
-#   crest   crest only, no banner text. Used in the masthead, where the banner
-#           would be illegible.
-#   mark    the horned helm alone, in a circle with a gold rim. Every icon and
-#           favicon derives from this: at 32px the full crest is unreadable mush,
-#           and the helm is the only element that survives.
+#   mark    the horned helm alone, in a circle with a gold rim. Used in the
+#           masthead and by every icon and favicon: at small sizes the full
+#           crest is unreadable, and the helm is the only element that survives.
+#
+# A crest-only crop was tried for the masthead and abandoned. Any crop height
+# slices the gold banner beneath the shield, so it reads as a truncated logo
+# rather than a smaller one. CREST_H_FRAC is kept below for reference.
 #
 # Rerun after replacing the source artwork. Crop rectangles are tied to this
 # exact image and are the first thing to re-check if the logo is redrawn.
@@ -44,7 +46,7 @@ BBOX_THRESHOLD="${BBOX_THRESHOLD:-4%}"
 # regenerated logo at a different scale still works. They assume the same
 # composition: crest on top, banner across the bottom, helm at top centre.
 # Re-check these against a contact sheet if the layout itself changes.
-CREST_H_FRAC=0.671   # crest ends, banner begins
+CREST_H_FRAC=0.671   # where the crest ends and the banner begins. Unused: see above.
 MARK_X_FRAC=0.312    # helm crop, left edge
 MARK_W_FRAC=0.380    # helm crop, width (square)
 MARK16_X_FRAC=0.358  # tighter helm crop for the 16px icon
@@ -75,22 +77,19 @@ magick "$SRC_FLAT" \
 read -r LW LH < <(magick identify -format '%w %h\n' "$WORK/logo.png")
 px() { awk -v a="$1" -v b="$2" 'BEGIN{printf "%d", a*b}'; }
 
-CROP_CREST="${LW}x$(px "$LH" "$CREST_H_FRAC")+0+0"
 MARK_W="$(px "$LW" "$MARK_W_FRAC")"
 CROP_MARK="${MARK_W}x${MARK_W}+$(px "$LW" "$MARK_X_FRAC")+0"
 MARK16_W="$(px "$LW" "$MARK16_W_FRAC")"
 CROP_MARK_16="${MARK16_W}x${MARK16_W}+$(px "$LW" "$MARK16_X_FRAC")+$(px "$LH" "$MARK16_Y_FRAC")"
-log "logo ${LW}x${LH}; crest $CROP_CREST; mark $CROP_MARK; mark16 $CROP_MARK_16"
+log "logo ${LW}x${LH}; mark $CROP_MARK; mark16 $CROP_MARK_16"
 
 # --- lockup and crest ------------------------------------------------------
 # WebP, not PNG. The artwork is photographic, so PNG lands at 1.5MB for the
 # lockup against 240K for WebP at a quality that shows no difference at display
 # size. Icons stay PNG because .ico and the web manifest need it.
-log "building lockup and crest (webp)"
+log "building lockup (webp)"
 magick "$WORK/logo.png" -resize 720x \
   -quality 82 -define webp:alpha-quality=92 -strip "$OUT/rmv-lockup.webp"
-magick "$WORK/logo.png" -crop "$CROP_CREST" +repage -trim +repage -resize 320x \
-  -quality 84 -define webp:alpha-quality=92 -strip "$OUT/rmv-crest.webp"
 
 # --- the mark, and every icon from it --------------------------------------
 # A raw crop of the crest reads as a busy rectangle at favicon size. Masking the

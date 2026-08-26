@@ -172,14 +172,18 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
   flex-wrap: wrap;
 }
 
-/* The guild crest, banner cropped off because its text is illegible at this
-   size. No kit diamond behind it: the logo carries its own frame and the two
-   competed. */
+/* The circular mark, not a crop of the full crest. Cropping the crest cuts
+   through the gold banner beneath the shield, which reads as a truncated logo
+   however high the crop is taken. The mark is a complete emblem and stays
+   legible at this size.
+
+   1/1 is safe to hardcode: build-logo-assets.sh always emits the mark at
+   512x512, so this cannot drift the way the crest's ratio did. */
 .sigil {
   flex: none;
-  width: clamp(58px, 6vw, 78px);
-  aspect-ratio: 320 / 204;
-  background: url("../img/logo/rmv-crest.webp") center / contain no-repeat;
+  width: clamp(54px, 5.5vw, 72px);
+  aspect-ratio: 1 / 1;
+  background: url("../img/logo/rmv-mark.png") center / contain no-repeat;
 }
 
 .wordmark {

@@ -42,18 +42,21 @@ Push the top of that window up and the logo's dark areas go translucent. That is
 invisible on this site's near-black background and obvious on a white one, which
 is how it was caught.
 
-## Three crops, because one does not work everywhere
+## Two crops, because one does not work everywhere
 
 | Asset | What it is | Where |
 |---|---|---|
 | `rmv-lockup.webp` | crest over the banner | home hero |
-| `rmv-crest.webp` | crest, banner cropped | masthead |
-| `rmv-mark.png` | helm in a gold ring | every icon |
+| `rmv-mark.png` | helm in a gold ring | masthead, every icon |
 
-The banner text is illegible below roughly 300px wide, so the masthead gets the
-crest without it. At 32px the whole crest is unreadable mush; the horned helm is
-the only element that survives, which is why every icon derives from it rather
-than from the full logo.
+The banner text is illegible below roughly 300px wide, and at 32px the whole
+crest is unreadable mush. The horned helm is the only element that survives, so
+the masthead and every icon derive from it rather than from the full logo.
+
+A crest-only crop was tried for the masthead and abandoned. Every crop height
+slices the gold banner beneath the shield, so it reads as a *truncated* logo
+rather than a smaller one — which is exactly how it was reported. The mark is a
+complete emblem, so there is nothing to look cut off.
 
 The helm is masked into a circle with a gold rim taken from the logo
 (`#c6a97a`). A raw crop reads as a busy rectangle with clipped horns; the ring
