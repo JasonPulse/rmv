@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using System.Security.Claims;
 using AspNet.Security.OAuth.Discord;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -55,6 +56,14 @@ if (databaseConfigured)
 
     builder.Services.AddScoped<IDeploymentStore, PostgresDeploymentStore>();
 
+    // Keep the Data Protection key ring in Postgres. Without it every process
+    // mints its own keys, so a sign-in cookie stops validating on redeploy and
+    // never validates across replicas. SetApplicationName has to match on every
+    // instance or they derive different keys from the same ring.
+    builder.Services.AddDataProtection()
+        .PersistKeysToDbContext<RmvDbContext>()
+        .SetApplicationName("results-may-vary");
+
     // Migrations and the boot record run here, in the background, rather than
     // blocking startup. See DatabaseInitializer for why.
     builder.Services.AddHostedService<DatabaseInitializer>();
@@ -62,6 +71,9 @@ if (databaseConfigured)
 else
 {
     builder.Services.AddScoped<IDeploymentStore, NullDeploymentStore>();
+    // No database, so no shared key ring. Keys stay in memory, which is fine
+    // for a single local instance and is why sign-in needs a database in
+    // production.
 }
 
 // ---------------------------------------------------------------------------

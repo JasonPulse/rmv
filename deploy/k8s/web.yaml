@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector:
+    app.kubernetes.io/name: rmv-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  # Safe to scale. The Data Protection key ring lives in Postgres, so sign-in
+  # cookies validate across pods and survive a redeploy. Without that, every
+  # pod would mint its own keys.
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rmv-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rmv-web
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 64198        # APP_UID in the aspnet base image
+        runAsGroup: 64198
+        # Required, not cosmetic. Secret volume files are owned by root, so
+        # without fsGroup the container cannot read them and the app dies at
+        # startup with UnauthorizedAccessException on /run/secrets. fsGroup makes
+        # kubelet set the volume's group ownership to this gid.
+        fsGroup: 64198
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: ghcr.io/jasonpulse/rmv:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production
+            # Everything else comes from the mounted secret. See the volume
+            # below and docs/deploy.md.
+          volumeMounts:
+            # Each key in the secret becomes a file here, and the app reads the
+            # directory via AddKeyPerFile. A key named ConnectionStrings__Postgres
+            # becomes the config key ConnectionStrings:Postgres.
+            - name: app-secret
+              mountPath: /run/secrets
+              readOnly: true
+            # The root filesystem is read-only, and .NET needs somewhere to
+            # write. Nothing here needs to survive a restart.
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # Liveness and readiness both use /healthz/live, which only asks
+          # whether the process is serving. Not /healthz/ready, which also
+          # requires Postgres: no public page reads the database, so a database
+          # outage must not pull the whole site out of the Service or restart
+          # pods. /healthz/ready is for monitoring, and is what to alert on.
+          startupProbe:
+            httpGet:
+              path: /healthz/live
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz/live
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz/live
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: app-secret
+          secret:
+            secretName: rmv-app
+            # 0440 and not 0400: the files are owned by root:fsGroup, so the
+            # group bit is what actually grants the app read access.
+            defaultMode: 0440
+        - name: tmp
+          emptyDir: {}
+---
+# Keeps one pod serving during a node drain or a rollout.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rmv-web

@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: rmv
+
+commonLabels:
+  app.kubernetes.io/part-of: results-may-vary
+
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - web.yaml
+  - cloudflared.yaml
+
+# Secrets are deliberately not here. Create them out of band, or point this at
+# whatever seals them (sealed-secrets, external-secrets, SOPS). See
+# secrets.example.yaml for the exact key names.

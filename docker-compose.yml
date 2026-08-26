@@ -1,4 +1,10 @@
-name: rmv
+# Local development only. Production runs on Kubernetes; see deploy/k8s.
+#
+#   docker compose up -d db          Postgres for `dotnet watch`
+#   docker compose up -d --build     the whole app in a container, on :5080
+#
+# Needs POSTGRES_PASSWORD=rmv in .env to match appsettings.Development.json.
+name: rmv-dev
 
 services:
   db:
@@ -7,15 +13,14 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-rmv}
       POSTGRES_USER: ${POSTGRES_USER:-rmv}
-      # Optional so the secrets overlay can drop it entirely. Supply it here or
-      # mount a postgres_password secret; with neither, Postgres exits at
-      # startup saying the superuser password is not specified.
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      # Loopback only, so Rider and dotnet watch can reach it.
+      - "127.0.0.1:5432:5432"
     volumes:
-      # Mounted at /var/lib/postgresql, NOT /var/lib/postgresql/data. Postgres 18
-      # images put the cluster in a major-version subdirectory so pg_upgrade
-      # --link can work across the mount; mounting the old path makes the
-      # container refuse to start.
+      # /var/lib/postgresql, NOT /var/lib/postgresql/data. Postgres 18 images put
+      # the cluster in a major-version subdirectory, and mounting the old path
+      # makes the container refuse to start.
       - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rmv} -d ${POSTGRES_DB:-rmv}"]
@@ -23,8 +28,6 @@ services:
       timeout: 5s
       retries: 6
       start_period: 20s
-    # No published port: only the app needs to reach it. Add
-    # "ports: [127.0.0.1:5432:5432]" temporarily if you want to attach a client.
 
   web:
     build:
@@ -37,31 +40,15 @@ services:
       db:
         condition: service_healthy
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ConnectionStrings__Postgres: >-
         Host=db;Port=5432;Database=${POSTGRES_DB:-rmv};Username=${POSTGRES_USER:-rmv};Password=${POSTGRES_PASSWORD}
       Discord__ClientId: ${DISCORD_CLIENT_ID:-}
       Discord__ClientSecret: ${DISCORD_CLIENT_SECRET:-}
+    ports:
+      - "127.0.0.1:5080:8080"
     volumes:
-      # Markdown content mounted read-only, so a new post is a file copy rather
-      # than a rebuild. Remove this to bake content into the image instead.
       - ./content:/app/content:ro
-    # Deliberately no published port. cloudflared reaches it over the compose
-    # network, so the site is never exposed on the LAN or the host.
-    # Uncomment for local browser testing without a tunnel:
-    # ports: ["127.0.0.1:5080:8080"]
-
-  tunnel:
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    depends_on:
-      web:
-        condition: service_healthy
-    command: tunnel --no-autoupdate run
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
-    # cloudflared makes only outbound connections, so it needs no ports and no
-    # inbound firewall holes. Point the tunnel's public hostname at http://web:8080.
 
 volumes:
   pgdata:
