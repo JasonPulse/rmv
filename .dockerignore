@@ -1,0 +1,15 @@
+**/.git
+**/.gitignore
+**/.github
+**/.vs
+**/.idea
+**/.vscode
+**/bin
+**/obj
+**/*.user
+**/.DS_Store
+docker-compose*.yml
+Dockerfile
+README.md
+docs/
+tools/

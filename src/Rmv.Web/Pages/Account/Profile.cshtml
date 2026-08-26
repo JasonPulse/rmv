@@ -1,0 +1,31 @@
+@page
+@model Rmv.Web.Pages.Account.ProfileModel
+@{ ViewData["Title"] = "Profile"; }
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>@Model.DisplayName</h1></div>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    <section class="section">
+        <div class="panel">
+            <p class="panel__title">Discord</p>
+            <dl class="facts">
+                <dt>Name</dt><dd>@Model.DisplayName</dd>
+                <dt>Id</dt><dd class="mono">@Model.DiscordId</dd>
+            </dl>
+            <hr class="rule rule--fine" />
+            <p class="dim">
+                Nothing on the site gates on membership yet. Signing in only proves
+                the wiring works.
+            </p>
+            <form method="post" action="/Account/Logout">
+                <button class="btn" type="submit">Sign out</button>
+            </form>
+        </div>
+    </section>
+</div>

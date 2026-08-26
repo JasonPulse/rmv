@@ -1,0 +1,50 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Hall";
+    ViewData["Description"] = "Results May Vary, a gaming guild that started in Dark Age of Camelot and never quite stopped.";
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__crest" aria-hidden="true"></div>
+        <div class="hero__plaque">
+            <h1>Results May Vary</h1>
+        </div>
+        <p>
+            A guild that started swinging in the frontiers of Dark Age of Camelot
+            and never got round to disbanding. We are still here, still arguing
+            about pull order.
+        </p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    <div class="bar"><h2>The Hall</h2></div>
+
+    <section class="section grid">
+        <article class="panel">
+            <p class="panel__title">Who we are</p>
+            <h3>Twenty-some years in</h3>
+            <p class="dim">
+                Albion, then everywhere else. The roster has turned over more than
+                once, the guild tag has not.
+            </p>
+        </article>
+
+        <article class="panel">
+            <p class="panel__title">Tools</p>
+            <h3>Utilities for players</h3>
+            <p class="dim">
+                A parser for combat logs, a screenshot reader, and daily stat
+                scrapes. Not built yet. This is the skeleton they will hang on.
+            </p>
+            <p><a class="btn" href="/tools">Look in</a></p>
+        </article>
+
+        @* The Postgres read. Also the htmx wiring, exercised end to end. *@
+        <partial name="_StatusPanel" model="Model.Status" />
+    </section>
+</div>

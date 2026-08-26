@@ -1,0 +1,76 @@
+@inject SiteOptions Site
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] &middot; Results May Vary</title>
+    <meta name="description" content="@(ViewData["Description"] ?? "Results May Vary, a gaming guild running since Dark Age of Camelot.")" />
+    <meta name="theme-color" content="#08080a" />
+    @* Preload the display face: it is used by the wordmark, so a swap is visible. *@
+    <link rel="preload" href="~/fonts/Vollkorn-SemiBold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="~/css/rmv.css" asp-append-version="true" />
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="masthead">
+    <div class="shell masthead__inner">
+        @* Placeholder sigil. Swap for the guild logo when it is finished. *@
+        <div class="sigil" aria-hidden="true"><span></span></div>
+
+        <a class="wordmark" href="/">
+            <strong>Results May Vary</strong>
+            <small>Since Dark Age of Camelot</small>
+        </a>
+
+        <nav aria-label="Main">
+            <ul class="nav">
+                <li><a href="/" aria-current="@Current("/Index")">Hall</a></li>
+                <li><a href="/tools" aria-current="@Current("/Tools/Index")">Tools</a></li>
+                @if (Site.DiscordEnabled)
+                {
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <li><a href="/Account/Profile">@User.Identity!.Name</a></li>
+                        <li>
+                            <form method="post" action="/Account/Logout">
+                                <button class="btn btn--ghost" type="submit">Leave</button>
+                            </form>
+                        </li>
+                    }
+                    else
+                    {
+                        <li><a class="btn" href="/Account/Login">Sign in</a></li>
+                    }
+                }
+            </ul>
+        </nav>
+    </div>
+</header>
+
+<main id="main">
+    @RenderBody()
+</main>
+
+<footer class="footer">
+    <div class="shell footer__inner">
+        <span>Results May Vary &middot; a guild, still going</span>
+        <span>
+            <a href="/healthz/ready">status</a>
+        </span>
+    </div>
+</footer>
+
+<script src="~/js/htmx.min.js" defer></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
+
+@functions {
+    // Renders aria-current="page" on the active nav item, and nothing elsewhere.
+    string? Current(string page) =>
+        string.Equals(ViewContext.RouteData.Values["page"] as string, page, StringComparison.OrdinalIgnoreCase)
+            ? "page"
+            : null;
+}

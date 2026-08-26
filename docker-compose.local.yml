@@ -1,0 +1,26 @@
+# Local development. Two uses:
+#
+#   Whole stack in Docker, no tunnel, site on http://localhost:5080
+#     docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+#
+#   Postgres only, app from Rider or dotnet watch
+#     docker compose -f docker-compose.yml -f docker-compose.local.yml up -d db
+#     dotnet watch --project src/Rmv.Web
+#
+# The second needs POSTGRES_PASSWORD=rmv in .env, to match the connection string
+# in appsettings.Development.json.
+services:
+  db:
+    # Bound to loopback so the database is reachable from Rider and dotnet
+    # watch, but not from the rest of the network.
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  web:
+    ports:
+      - "127.0.0.1:5080:8080"
+
+  tunnel:
+    # No tunnel locally. The profile keeps it out of `up` without needing
+    # a separate service list.
+    profiles: ["disabled"]

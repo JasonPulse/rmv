@@ -1,0 +1,21 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+
+# Rider / VS
+.idea/
+.vs/
+*.DotSettings.user
+
+# macOS
+.DS_Store
+
+# Local secrets. Real values live in dotnet user-secrets or the .env file,
+# never in the repo.
+.env
+appsettings.Local.json

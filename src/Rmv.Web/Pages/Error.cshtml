@@ -1,0 +1,20 @@
+@page
+@model ErrorModel
+@{ ViewData["Title"] = Model.Heading; }
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>@Model.Heading</h1></div>
+        <p>@Model.Detail</p>
+    </div>
+</section>
+
+<div class="shell">
+    @* Only useful for real failures: a 404 has nothing worth tracing. *@
+    @if (Model.Code is null or >= 500 && !string.IsNullOrEmpty(Model.RequestId))
+    {
+        <p class="center dim">Request <span class="mono">@Model.RequestId</span></p>
+    }
+
+    <p class="center"><a class="btn" href="/">Back to the hall</a></p>
+</div>

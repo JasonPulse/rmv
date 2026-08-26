@@ -1,0 +1,63 @@
+@model StatusView
+@*
+    Rendered both inside the page and on its own as an htmx fragment, so it must
+    not depend on anything outside its model. Renders in all four database
+    states, because "no database" has to be a legible state, not a stack trace.
+*@
+<div id="status-panel" class="panel panel--inset">
+    <p class="panel__title">Deployment</p>
+
+    <dl class="facts">
+        <dt>Postgres</dt>
+        <dd>
+            @switch (Model.Status)
+            {
+                case DatabaseStatus.Ready:
+                    <span class="pill pill--ok">connected</span>
+                    break;
+                case DatabaseStatus.Starting:
+                    <span class="pill pill--warn">connecting</span>
+                    break;
+                case DatabaseStatus.NotConfigured:
+                    <span class="pill">not configured</span>
+                    break;
+                default:
+                    <span class="pill pill--bad">unavailable</span>
+                    break;
+            }
+        </dd>
+
+        @if (Model.Current is not null)
+        {
+            <dt>Build</dt>
+            <dd class="mono">@Model.Current.Version</dd>
+
+            <dt>Host</dt>
+            <dd class="mono">@Model.Current.Host</dd>
+
+            <dt>Started</dt>
+            <dd>@Model.Current.StartedAt.ToString("yyyy-MM-dd HH:mm 'UTC'")</dd>
+
+            <dt>Boots</dt>
+            <dd>@Model.BootCount</dd>
+        }
+    </dl>
+
+    @if (!string.IsNullOrEmpty(Model.Detail))
+    {
+        <p class="dim" style="margin-top:1rem">@Model.Detail</p>
+    }
+
+    <hr class="rule rule--fine" />
+
+    <p class="dim" style="margin-bottom:.75rem">
+        Read at @Model.CheckedAt.ToString("HH:mm:ss 'UTC'").
+    </p>
+
+    <button class="btn btn--ghost"
+            hx-get="/?handler=Status"
+            hx-target="#status-panel"
+            hx-swap="outerHTML swap:120ms">
+        Re-read
+    </button>
+</div>

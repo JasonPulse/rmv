@@ -1,0 +1,64 @@
+name: rmv
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rmv}
+      POSTGRES_USER: ${POSTGRES_USER:-rmv}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      # Mounted at /var/lib/postgresql, NOT /var/lib/postgresql/data. Postgres 18
+      # images put the cluster in a major-version subdirectory so pg_upgrade
+      # --link can work across the mount; mounting the old path makes the
+      # container refuse to start.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rmv} -d ${POSTGRES_DB:-rmv}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    # No published port: only the app needs to reach it. Add
+    # "ports: [127.0.0.1:5432:5432]" temporarily if you want to attach a client.
+
+  web:
+    build:
+      context: .
+      args:
+        BUILD_VERSION: ${BUILD_VERSION:-local}
+    image: ${WEB_IMAGE:-rmv-web:local}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: >-
+        Host=db;Port=5432;Database=${POSTGRES_DB:-rmv};Username=${POSTGRES_USER:-rmv};Password=${POSTGRES_PASSWORD}
+      Discord__ClientId: ${DISCORD_CLIENT_ID:-}
+      Discord__ClientSecret: ${DISCORD_CLIENT_SECRET:-}
+    volumes:
+      # Markdown content mounted read-only, so a new post is a file copy rather
+      # than a rebuild. Remove this to bake content into the image instead.
+      - ./content:/app/content:ro
+    # Deliberately no published port. cloudflared reaches it over the compose
+    # network, so the site is never exposed on the LAN or the host.
+    # Uncomment for local browser testing without a tunnel:
+    # ports: ["127.0.0.1:5080:8080"]
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env}
+    # cloudflared makes only outbound connections, so it needs no ports and no
+    # inbound firewall holes. Point the tunnel's public hostname at http://web:8080.
+
+volumes:
+  pgdata:

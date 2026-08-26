@@ -1,0 +1,541 @@
+/* ==========================================================================
+   Results May Vary
+   Theme built on the Fantasy Nordic GUI kit. Assets are sliced out of the kit
+   PSD by tools/slice-nordic-ui.sh; border-image slice values are measured by
+   tools/measure-border-slices.sh into _slices.css.
+
+   The kit's structural art (frames, bars, plaques, dividers) is greyscale
+   stone and silver. Its colour lives in a handful of layers, and the accents
+   below are sampled from them, so the palette is the kit's own rather than
+   invented: amber from its active nav labels, teal from its glow layer, bronze
+   and parchment from the skull crest and paper texture.
+   ========================================================================== */
+
+@import url("_slices.css");
+
+/* --- Fonts ---------------------------------------------------------------- */
+
+@font-face {
+  font-family: "Vollkorn";
+  src: url("../fonts/Vollkorn-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vollkorn";
+  src: url("../fonts/Vollkorn-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vollkorn";
+  src: url("../fonts/Vollkorn-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vollkorn";
+  src: url("../fonts/Vollkorn-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* --- Tokens -------------------------------------------------------------- */
+
+:root {
+  /* Greys sampled from the kit art: stone reads 25-37% grey, trim near-white. */
+  --bg:            #08080a;
+  --bg-raised:     #0e0e12;
+  --panel:         #0b0b0f;
+  --panel-raised:  #14141a;
+  --stone:         #4c4c50;
+  --trim:          #a9a9b0;
+  --trim-bright:   #e4e4e9;
+
+  --ink:           #d7d4cc;
+  --ink-dim:       #8b887f;
+  --ink-faint:     #5f5d57;
+
+  /* Sampled from the kit. Repoint when the guild logo lands.
+     The kit's teal is #28706f, too dark to read as link text on near-black, so
+     --accent is that hue lifted in lightness. --accent-warm is the kit's amber
+     unmodified. */
+  --accent:        #4fa8a6;   /* teal, lifted from the kit's #28706f */
+  --accent-deep:   #28706f;   /* the kit's teal as-is, for fills */
+  --accent-warm:   #f18d3b;   /* amber, the kit's active-label colour */
+  --bronze:        #88684a;   /* skull crest */
+  --parchment:     #c4a177;   /* paper texture */
+
+  --font-display: "Vollkorn", "Iowan Old Style", Georgia, serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --measure: 68ch;
+  --gutter: clamp(1rem, 4vw, 2.5rem);
+
+  /* Rendered border widths. Independent of the slice values: border-image
+     scales the sliced ornament down to whatever width we ask for. */
+  --w-card: 34px;
+  --w-bar: 12px 35px;
+  --w-button: 5px 14px;
+  --w-input: 5px 15px;
+  --w-plaque: 13px 74px;
+}
+
+/* --- Reset --------------------------------------------------------------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 clamp(1rem, 0.4vw + 0.95rem, 1.075rem)/1.65 var(--font-body);
+  /* A cold vignette so the page is not a flat black field. */
+  background-image:
+    radial-gradient(1200px 700px at 50% -15%, #16161d 0%, transparent 70%),
+    radial-gradient(900px 500px at 50% 115%, #121218 0%, transparent 70%);
+  background-attachment: fixed;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+
+a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  text-underline-offset: 0.2em;
+}
+a:hover { color: var(--accent-warm); text-decoration-color: currentColor; }
+
+:focus-visible {
+  outline: 2px solid var(--accent-warm);
+  outline-offset: 3px;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--trim-bright);
+  margin: 0 0 0.6em;
+  text-wrap: balance;
+}
+
+h1 { font-size: clamp(2rem, 5vw, 3.25rem); letter-spacing: 0.01em; }
+h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); }
+h3 { font-size: 1.25rem; }
+
+p { margin: 0 0 1.1em; max-width: var(--measure); }
+
+/* --- Layout -------------------------------------------------------------- */
+
+.shell {
+  width: min(1180px, 100% - var(--gutter) * 2);
+  margin-inline: auto;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+}
+.skip-link:focus {
+  left: var(--gutter);
+  top: 0.5rem;
+  z-index: 10;
+  background: var(--panel-raised);
+  color: var(--trim-bright);
+  padding: 0.5rem 1rem;
+}
+
+/* --- Masthead ------------------------------------------------------------ */
+
+.masthead {
+  position: relative;
+  border-block: 1px solid color-mix(in srgb, var(--stone) 45%, transparent);
+  background:
+    linear-gradient(180deg, #14141a 0%, #0b0b0f 100%);
+}
+
+.masthead__inner {
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 4vw, 3rem);
+  padding-block: 0.85rem;
+  flex-wrap: wrap;
+}
+
+/* Placeholder until the real logo arrives: the kit's bronze skull crest set in
+   one of its diamond slots. Replace the background-image with the guild logo. */
+.sigil {
+  flex: none;
+  width: 66px;
+  aspect-ratio: 210 / 172;
+  display: grid;
+  place-items: center;
+  background: url("../img/ui/slot-bg.png") center / 100% 100% no-repeat;
+  position: relative;
+}
+.sigil::after {
+  content: "";
+  position: absolute;
+  inset: -9%;
+  background: url("../img/ui/slot-frame.png") center / 100% 100% no-repeat;
+}
+.sigil span {
+  width: 88%;
+  aspect-ratio: 239 / 198;
+  background: url("../img/ui/crest-skull.png") center / contain no-repeat;
+  /* The crest is a soft painted layer authored for a large game panel. At
+     masthead size it reads as a dark blob without a lift. */
+  filter: brightness(1.5) saturate(1.15);
+  position: relative;
+  z-index: 1;
+}
+
+.wordmark {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-decoration: none;
+  margin-right: auto;
+}
+.wordmark strong {
+  font: 600 clamp(1.15rem, 2.4vw, 1.6rem)/1 var(--font-display);
+  letter-spacing: 0.05em;
+  color: var(--trim-bright);
+  text-transform: uppercase;
+}
+.wordmark small {
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.wordmark:hover strong { color: var(--accent-warm); }
+
+/* --- Navigation ---------------------------------------------------------- */
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.75rem, 2vw, 1.75rem);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-display);
+}
+
+.nav a {
+  display: block;
+  padding: 0.35rem 0;
+  font-size: 0.98rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.nav a:hover { color: var(--trim-bright); border-bottom-color: var(--accent-warm); }
+.nav a[aria-current="page"] { color: var(--accent-warm); border-bottom-color: var(--accent-warm); }
+
+/* --- Hero ---------------------------------------------------------------- */
+
+.hero {
+  position: relative;
+  padding: clamp(2.5rem, 6vw, 4rem) 0 clamp(1.25rem, 2.5vw, 2rem);
+  text-align: center;
+  overflow: hidden;
+}
+
+/* The kit's lattice texture, sized rather than tiled: it is not seamless, so
+   repeating it would show a hard seam. */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* The art already fades from dense at the top to nothing at the bottom, so
+     sizing it to the hero's height shows that fade in full. It tiles cleanly
+     left to right but not top to bottom, hence repeat-x and no vertical repeat:
+     that leaves no visible edge anywhere and needs no mask. */
+  background: url("../img/ui/pattern-lattice.png") center top / auto 100% repeat-x;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.hero > * { position: relative; }
+
+.hero__crest {
+  width: clamp(74px, 9vw, 104px);
+  aspect-ratio: 239 / 198;
+  margin: 0 auto 0.5rem;
+  background: url("../img/ui/crest-skull.png") center / contain no-repeat;
+  filter: brightness(1.45) saturate(1.2);
+}
+
+/* A warm bloom behind the crest and plaque, so the top of the page is not an
+   unbroken field of grey stone. */
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 40% 46% at 50% 26%,
+    color-mix(in srgb, var(--accent-warm) 13%, transparent) 0%,
+    transparent 70%);
+  pointer-events: none;
+}
+
+.hero__plaque {
+  display: inline-grid;
+  place-items: center;
+  padding: 1.1rem clamp(2.5rem, 8vw, 5.5rem);
+  margin-bottom: 1.5rem;
+  /* border-box on both: border-image paints on the border box, so a background
+     clipped to the content box shows as a visible inset rectangle. */
+  background: url("../img/ui/title-plaque-bg.png") center / 100% 100% no-repeat border-box border-box;
+  border-style: solid;
+  border-color: transparent;
+  border-width: var(--w-plaque);
+  border-image: url("../img/ui/title-plaque-frame.png")
+    var(--slice-title-plaque-frame) / var(--w-plaque) / 0 stretch;
+}
+.hero__plaque h1 { margin: 0; }
+
+.hero p {
+  margin-inline: auto;
+  max-width: 56ch;
+  color: var(--ink-dim);
+  font-size: 1.075rem;
+}
+
+/* --- Dividers ------------------------------------------------------------ */
+
+.rule {
+  height: 30px;
+  border: 0;
+  margin-block: clamp(2rem, 5vw, 3.5rem);
+  background: url("../img/ui/divider-ornate.png") center / auto 100% no-repeat;
+}
+
+.rule--fine {
+  height: 12px;
+  background-image: url("../img/ui/divider-hairline.png");
+  opacity: 0.7;
+}
+
+/* --- Panels -------------------------------------------------------------- */
+
+/* Trinity-knot corners. The 82px slice scales down to --w-card, so the knot
+   stays intact rather than being clipped or smeared along the edge. */
+.panel {
+  position: relative;
+  background: var(--panel);
+  border: var(--w-card) solid transparent;
+  border-image: url("../img/ui/panel-frame-card.png")
+    var(--slice-panel-frame-card) / var(--w-card) / 0 stretch;
+}
+
+/* Plainer alternative for denser content, where the trinity knot is too busy.
+   Drawn in CSS rather than sliced from the kit: the kit's inset frame is nested
+   rules plus a stepped bracket that only exists on its top two corners, so no
+   border-image slice both preserves the bracket and avoids stretching its
+   remainder down the edges. Nested rules are geometry, and geometry scales
+   perfectly in CSS at any panel size. */
+.panel--inset {
+  border: 1px solid color-mix(in srgb, var(--trim) 30%, transparent);
+  border-image: none;
+  padding: 1.5rem;
+  overflow: hidden;
+}
+.panel--inset::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid color-mix(in srgb, var(--trim) 13%, transparent);
+  pointer-events: none;
+}
+
+.panel > :last-child { margin-bottom: 0; }
+
+.panel__title {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bronze);
+  margin: 0 0 0.9rem;
+}
+
+/* --- Section header bar -------------------------------------------------- */
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 74px;
+  padding: 0.6rem clamp(2rem, 6vw, 4rem);
+  text-align: center;
+  background: linear-gradient(180deg, #24242a 0%, #16161b 55%, #101014 100%) border-box;
+  border-style: solid;
+  border-color: transparent;
+  border-width: var(--w-bar);
+  border-image: url("../img/ui/header-bar-frame.png")
+    var(--slice-header-bar-frame) / var(--w-bar) / 0 stretch;
+}
+.bar h2 {
+  margin: 0;
+  font-size: clamp(1.1rem, 2.2vw, 1.45rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* --- Grid --------------------------------------------------------------- */
+
+.grid {
+  display: grid;
+  align-items: start;
+  gap: clamp(1.25rem, 3vw, 2rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(310px, 100%), 1fr));
+}
+
+/* --- Buttons ------------------------------------------------------------ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 46px;
+  padding: 0.5rem 1.6rem;
+  font: 600 0.92rem/1 var(--font-display);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--accent-warm);
+  text-decoration: none;
+  cursor: pointer;
+  background: linear-gradient(180deg, #26262c 0%, #191920 60%, #121217 100%) border-box;
+  border-style: solid;
+  border-color: transparent;
+  border-width: var(--w-button);
+  border-image: url("../img/ui/button-frame.png")
+    var(--slice-button-frame) / var(--w-button) / 0 stretch;
+  transition: color 120ms ease, filter 120ms ease;
+}
+.btn:hover { color: #ffb463; filter: brightness(1.35); }
+.btn:active { filter: brightness(0.9); }
+.btn[disabled] { opacity: 0.45; pointer-events: none; }
+
+.btn--ghost {
+  background: none;
+  color: var(--ink-dim);
+}
+.btn--ghost:hover { color: var(--trim-bright); }
+
+/* --- Definition rows (used by the status panel) -------------------------- */
+
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.45rem 1.25rem;
+  font-size: 0.95rem;
+}
+.facts dt {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--bronze) 80%, var(--ink-dim));
+  align-self: center;
+}
+.facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-family: var(--font-display);
+  color: var(--ink-dim);
+}
+.pill::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  rotate: 45deg;
+  background: var(--accent);
+}
+.pill--ok::before { background: var(--accent); }
+.pill--warn::before { background: var(--accent-warm); }
+.pill--bad::before { background: #a4463c; }
+
+/* --- Footer ------------------------------------------------------------- */
+
+.footer {
+  position: relative;
+  margin-top: clamp(3rem, 8vw, 6rem);
+  padding-block: clamp(2rem, 5vw, 3rem);
+  border-top: 1px solid color-mix(in srgb, var(--stone) 35%, transparent);
+  overflow: hidden;
+  font-size: 0.88rem;
+  color: var(--ink-faint);
+}
+.footer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Same reasoning as the hero lattice: tiles horizontally, not vertically. */
+  background: url("../img/ui/pattern-knotwork.png") center top / auto 100% repeat-x;
+  opacity: 0.3;
+  pointer-events: none;
+}
+.footer__inner {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.footer a { color: var(--ink-dim); }
+
+/* --- Utilities ---------------------------------------------------------- */
+
+.stack > * + * { margin-top: var(--stack-gap, 1.5rem); }
+.section { padding-block: clamp(1.5rem, 4vw, 2.5rem); }
+.center { text-align: center; margin-inline: auto; }
+.dim { color: var(--ink-dim); }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.9em; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* htmx swaps in a fragment; fade it so the change is legible. */
+.htmx-swapping { opacity: 0.4; transition: opacity 120ms ease; }
+
+/* On a phone a 34px knot border eats a fifth of the card's width. Shrink the
+   ornament rather than the content. */
+@media (max-width: 520px) {
+  :root {
+    --w-card: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; }
+}
