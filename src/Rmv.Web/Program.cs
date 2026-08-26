@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.DataProtection;
+using Rmv.Web.Configuration;
 using System.Security.Claims;
 using AspNet.Security.OAuth.Discord;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -22,11 +23,15 @@ var builder = WebApplication.CreateBuilder(args);
 // credential never appearing in `docker inspect`, in compose, or in the
 // environment of the process.
 //
-// Registered last, so a mounted secret wins over the same key set as an
-// environment variable. Optional, so nothing changes when the directory is
-// absent, which is the case in development.
+// Registered last, so a non-empty mounted secret wins over the same key set as
+// an environment variable. Does nothing when the directory is absent, which is
+// the case in development.
+//
+// Not AddKeyPerFile: that treats a 0-byte secret as an empty value, and since
+// this provider is last it wins, so an empty key in a Kubernetes Secret silently
+// masks a good environment variable. Empty files are skipped here instead.
 // ---------------------------------------------------------------------------
-builder.Configuration.AddKeyPerFile("/run/secrets", optional: true, reloadOnChange: false);
+builder.Configuration.AddSecretsDirectory("/run/secrets");
 
 builder.Services.AddRazorPages(o =>
 {

@@ -50,7 +50,14 @@ instead if that is unacceptable.
 
 ASP.NET Core, so `__` in a name is a `:` in configuration. Any value can be an
 environment variable **or** a file: the app reads `/run/secrets` through
-`AddKeyPerFile`, where each filename is the config key.
+`AddSecretsDirectory`, where each filename is the config key.
+
+**A non-empty secret file wins over the same key as an environment variable. An
+empty one is ignored.** That second half matters: the framework's own
+`AddKeyPerFile` treats a 0-byte secret as an empty value, and because the provider
+is registered last it wins, so an empty key in a Kubernetes Secret silently masks
+a perfectly good env var. It presented as "the Discord button never appeared"
+with nothing in the logs.
 
 Secret, supplied as mounted files:
 

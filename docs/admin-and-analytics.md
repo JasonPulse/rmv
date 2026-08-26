@@ -37,6 +37,11 @@ Admin pages are open in Development so they can be used before Discord exists.
 
 Until step 4, sign-in works but no admin page does.
 
+**If the button does not appear**, check for a 0-byte `Discord__ClientId` or
+`Discord__ClientSecret` in the mounted Secret. Non-empty secret files win over
+environment variables by design; empty ones are now ignored, but an old image
+would have let them mask a good env var.
+
 ## /admin/history
 
 Edits the "where we've been" list behind `/history`. Two things are managed here:
