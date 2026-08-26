@@ -6,6 +6,9 @@ namespace Rmv.Web.Data;
 
 public sealed class AdminRequirement : IAuthorizationRequirement;
 
+/// <summary>An approved member. Admins satisfy it too.</summary>
+public sealed class ApprovedMemberRequirement : IAuthorizationRequirement;
+
 /// <summary>
 /// Authorisation, as distinct from authentication.
 ///
@@ -36,6 +39,62 @@ public static class AdminPolicy
     public static bool IsRootAdmin(IConfiguration config, string? discordId) =>
         discordId is not null
         && Parse(config["Admin:DiscordIds"]).Contains(discordId, StringComparer.Ordinal);
+}
+
+public static class MemberPolicy
+{
+    /// <summary>Approved by an admin. Required to add or claim a character.</summary>
+    public const string Approved = "ApprovedMember";
+}
+
+/// <summary>
+/// Approved members, and admins. Scoped so it can resolve the DbContext.
+/// </summary>
+public sealed class ApprovedMemberAuthorizationHandler(
+    IServiceProvider services,
+    IConfiguration config,
+    ILogger<ApprovedMemberAuthorizationHandler> log)
+    : AuthorizationHandler<ApprovedMemberRequirement>
+{
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context, ApprovedMemberRequirement requirement)
+    {
+        var id = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(id))
+        {
+            return;
+        }
+
+        if (AdminPolicy.IsRootAdmin(config, id))
+        {
+            context.Succeed(requirement);
+            return;
+        }
+
+        var db = services.GetService<RmvDbContext>();
+        if (db is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var member = await db.Members
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.DiscordId == id);
+
+            // Blocked beats admin: a removed member does not keep write access
+            // because a flag was left set.
+            if (member is { Status: MemberStatus.Approved } || (member is { IsAdmin: true, Status: not MemberStatus.Blocked }))
+            {
+                context.Succeed(requirement);
+            }
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning(ex, "Could not check member status for {Id}.", id);
+        }
+    }
 }
 
 /// <summary>
@@ -72,7 +131,10 @@ public sealed class AdminAuthorizationHandler(
 
         try
         {
-            if (await db.Members.AnyAsync(m => m.DiscordId == id && m.IsAdmin))
+            // Blocked beats admin, deliberately: revoking someone should not
+            // depend on remembering to clear the admin flag too.
+            if (await db.Members.AnyAsync(m =>
+                    m.DiscordId == id && m.IsAdmin && m.Status != MemberStatus.Blocked))
             {
                 context.Succeed(requirement);
             }

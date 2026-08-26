@@ -11,6 +11,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Rmv.Web.Analytics;
+using Rmv.Web.Herald;
 using Rmv.Web.Tools;
 using Rmv.Web.Data;
 
@@ -160,11 +161,32 @@ if (discordEnabled)
 // AdminPolicy. Scoped, because the handler resolves the DbContext.
 var adminIds = AdminPolicy.Parse(builder.Configuration["Admin:DiscordIds"]);
 builder.Services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, ApprovedMemberAuthorizationHandler>();
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(AdminPolicy.Name, p => p
         .RequireAuthenticatedUser()
-        .AddRequirements(new AdminRequirement()));
+        .AddRequirements(new AdminRequirement()))
+    // Signing in with Discord gets a seat and nothing else. Contributing needs
+    // an admin to approve the account first.
+    .AddPolicy(MemberPolicy.Approved, p => p
+        .RequireAuthenticatedUser()
+        .AddRequirements(new ApprovedMemberRequirement()));
 
+// ---------------------------------------------------------------------------
+// Herald fetching
+//
+// The SSRF control lives in HeraldHttpHandler's connect callback, which is
+// extracted rather than inline so it can be tested.
+// ---------------------------------------------------------------------------
+builder.Services.AddHttpClient<HeraldFetcher>(http =>
+{
+    http.Timeout = TimeSpan.FromSeconds(15);
+    http.MaxResponseContentBufferSize = HeraldFetcher.MaxBytes;
+    http.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "RMV-herald/1.0 (+https://resultsmayvary.org)");
+    http.DefaultRequestHeaders.Accept.ParseAdd("text/html, application/xhtml+xml");
+})
+.ConfigurePrimaryHttpMessageHandler(HeraldHttpHandler.Create);
 // ---------------------------------------------------------------------------
 // Rate limiting
 //

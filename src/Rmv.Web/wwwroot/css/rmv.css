@@ -329,6 +329,16 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
   text-shadow: 0 1px 2px #000;
 }
 
+.portrait--lg { width: 84px; }
+.portrait--lg .portrait__initials { font-size: 1.3rem; }
+
+.profile__head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 /* --- Dropdown menu ------------------------------------------------------ */
 
 /* Framed with the kit's trinity-knot panel, not a plain box. The knot needs a
@@ -657,6 +667,7 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
 .pill--ok::before { background: var(--teal); }
 .pill--warn::before { background: var(--accent-warm); }
 .pill--bad::before { background: #a4463c; }
+.block-hint { display: block; margin-top: 0.2rem; font-size: 0.76rem; }
 
 /* --- Footer ------------------------------------------------------------- */
 

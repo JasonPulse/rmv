@@ -20,6 +20,28 @@ That is what stops you locking yourself out of your own site.
 `/admin/members`. A `Member` row is created the first time each person signs in,
 so the page lists real people rather than asking for snowflakes to be typed in.
 
+## Signing in is not membership
+
+A new sign-in lands on `Pending`. They get a seat and nothing else: they can look
+around, and they cannot add or claim anything. An admin approves them at
+`/admin/members`, which is what stops a stranger signing in with Discord and
+adding characters.
+
+| Status | Can look | Can contribute |
+|---|---|---|
+| `Pending` | yes | no |
+| `Approved` | yes | yes |
+| `Blocked` | yes | no |
+
+Two policies, so the distinction is enforced rather than remembered:
+`AdminPolicy.Name` for editing the site, `MemberPolicy.Approved` for
+contributing. Blocked beats admin in both, so revoking someone does not depend on
+remembering to clear the admin flag as well. Promoting someone to admin also
+approves them, since an admin who cannot add a character is nonsense.
+
+Blocked rows are kept rather than deleted, or the person could re-register simply
+by signing in again.
+
 Two guards:
 
 - You cannot remove your own admin access. It is the one mistake with no route

@@ -11,21 +11,108 @@
 <div class="shell">
     <hr class="rule" />
 
-    <section class="section">
-        <div class="panel">
-            <p class="panel__title">Discord</p>
-            <dl class="facts">
-                <dt>Name</dt><dd>@Model.DisplayName</dd>
-                <dt>Id</dt><dd class="mono">@Model.DiscordId</dd>
-            </dl>
+    <section class="section grid grid--wide">
+        <article class="panel">
+            <p class="panel__title">You</p>
+
+            <div class="profile__head">
+                <span class="portrait portrait--lg">
+                    @if (Model.AvatarUrl is not null)
+                    {
+                        <img class="portrait__img" src="@Model.AvatarUrl" alt="" width="128" height="128" />
+                    }
+                    else
+                    {
+                        <span class="portrait__initials">@DiscordUser.Initials(User)</span>
+                    }
+                </span>
+                <div>
+                    <h3 style="margin:0">@Model.DisplayName</h3>
+                    <p class="dim mono" style="margin:.25rem 0 0">@Model.DiscordId</p>
+                </div>
+            </div>
+
             <hr class="rule rule--fine" />
-            <p class="dim">
-                Nothing on the site gates on membership yet. Signing in only proves
-                the wiring works.
-            </p>
-            <form method="post" action="/Account/Logout">
-                <button class="btn" type="submit">Sign out</button>
-            </form>
-        </div>
+
+            <dl class="facts">
+                <dt>Status</dt>
+                <dd>
+                    @if (Model.IsRoot)
+                    {
+                        <span class="pill pill--warn">root admin</span>
+                    }
+                    else if (Model.Record is null)
+                    {
+                        <span class="pill">unknown</span>
+                    }
+                    else
+                    {
+                        @switch (Model.Record.Status)
+                        {
+                            case MemberStatus.Approved:
+                                <span class="pill pill--ok">approved</span>
+                                break;
+                            case MemberStatus.Blocked:
+                                <span class="pill pill--bad">blocked</span>
+                                break;
+                            default:
+                                <span class="pill pill--warn">awaiting approval</span>
+                                break;
+                        }
+                    }
+                </dd>
+
+                @if (Model.Record is { ApprovedAt: not null })
+                {
+                    <dt>Approved</dt>
+                    <dd>
+                        @Model.Record.ApprovedAt.Value.ToString("yyyy-MM-dd")
+                        @if (!string.IsNullOrWhiteSpace(Model.Record.ApprovedBy))
+                        {
+                            <span class="dim">by @Model.Record.ApprovedBy</span>
+                        }
+                    </dd>
+                }
+
+                @if (Model.Record is not null)
+                {
+                    <dt>First seen</dt>
+                    <dd>@Model.Record.FirstSeenAt.ToString("yyyy-MM-dd")</dd>
+                }
+            </dl>
+        </article>
+
+        <article class="panel panel--inset">
+            <p class="panel__title">Characters</p>
+
+            @if (Model.CanContribute)
+            {
+                <h3>Nothing yet</h3>
+                <p class="dim">
+                    Adding characters is not built yet. When it is, this is where
+                    yours will live.
+                </p>
+            }
+            else if (Model.Record is { Status: MemberStatus.Blocked })
+            {
+                <h3>No access</h3>
+                <p class="dim">Your account has been blocked. Speak to an officer.</p>
+            }
+            else
+            {
+                <h3>Waiting on approval</h3>
+                <p class="dim">
+                    An admin has to approve your account before you can add
+                    characters. Signing in is enough to get on the list; nudge an
+                    officer if it takes a while.
+                </p>
+            }
+        </article>
     </section>
+
+    <p class="center">
+        <form method="post" action="/Account/Logout">
+            <button class="btn" type="submit">Sign out</button>
+        </form>
+    </p>
 </div>

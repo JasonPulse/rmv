@@ -84,6 +84,10 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             e.Property(m => m.DiscordId).HasMaxLength(32).IsRequired();
             e.Property(m => m.DisplayName).HasMaxLength(80).IsRequired();
             e.Property(m => m.AvatarHash).HasMaxLength(64);
+            e.Property(m => m.ApprovedBy).HasMaxLength(80);
+            // Stored as text so the table reads without a lookup.
+            e.Property(m => m.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
+            e.HasIndex(m => m.Status);
             // The identity Discord guarantees is stable, so it is the natural key.
             e.HasIndex(m => m.DiscordId).IsUnique();
             e.HasIndex(m => m.IsAdmin);

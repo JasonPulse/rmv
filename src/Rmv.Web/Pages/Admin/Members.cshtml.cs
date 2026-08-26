@@ -16,15 +16,60 @@ public class MembersModel(RmvDbContext db, IConfiguration config) : PageModel
 
     public record Row(Member Member, bool IsRoot, bool IsSelf);
 
+    public int PendingCount { get; private set; }
+
     private string? MyId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
     public async Task OnGetAsync(CancellationToken ct) => await LoadAsync(ct);
+
+    public async Task<IActionResult> OnPostApproveAsync(int id, CancellationToken ct)
+        => await SetStatusAsync(id, MemberStatus.Approved, ct);
+
+    public async Task<IActionResult> OnPostBlockAsync(int id, CancellationToken ct)
+        => await SetStatusAsync(id, MemberStatus.Blocked, ct);
 
     public async Task<IActionResult> OnPostGrantAsync(int id, CancellationToken ct)
         => await SetAdminAsync(id, true, ct);
 
     public async Task<IActionResult> OnPostRevokeAsync(int id, CancellationToken ct)
         => await SetAdminAsync(id, false, ct);
+
+    private async Task<IActionResult> SetStatusAsync(int id, MemberStatus status, CancellationToken ct)
+    {
+        var member = await db.Members.FindAsync([id], ct);
+        if (member is null)
+        {
+            return NotFound();
+        }
+
+        // Blocking yourself is the same trap as revoking your own admin.
+        if (status == MemberStatus.Blocked && member.DiscordId == MyId)
+        {
+            return RedirectToPage(new { error = "self" });
+        }
+
+        member.Status = status;
+
+        if (status == MemberStatus.Approved)
+        {
+            member.ApprovedAt = DateTimeOffset.UtcNow;
+            member.ApprovedBy = User.Identity?.Name;
+        }
+        else
+        {
+            // A blocked member loses admin too, so re-approving does not silently
+            // hand back rights they had before.
+            member.IsAdmin = false;
+            member.ApprovedAt = null;
+            member.ApprovedBy = null;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        return RedirectToPage(status == MemberStatus.Approved
+            ? new { approved = member.DisplayName }
+            : new { blocked = member.DisplayName });
+    }
 
     private async Task<IActionResult> SetAdminAsync(int id, bool grant, CancellationToken ct)
     {
@@ -42,6 +87,16 @@ public class MembersModel(RmvDbContext db, IConfiguration config) : PageModel
         }
 
         member.IsAdmin = grant;
+
+        // Admin implies contributing, so promoting also approves. Otherwise an
+        // admin could edit the site but not add a character, which is nonsense.
+        if (grant && member.Status == MemberStatus.Pending)
+        {
+            member.Status = MemberStatus.Approved;
+            member.ApprovedAt = DateTimeOffset.UtcNow;
+            member.ApprovedBy = User.Identity?.Name;
+        }
+
         await db.SaveChangesAsync(ct);
 
         return RedirectToPage(new { granted = grant ? member.DisplayName : null,
@@ -50,10 +105,15 @@ public class MembersModel(RmvDbContext db, IConfiguration config) : PageModel
 
     private async Task LoadAsync(CancellationToken ct)
     {
+        // Pending first: the whole point of the page is that they are waiting.
         var members = await db.Members
-            .OrderByDescending(m => m.IsAdmin).ThenByDescending(m => m.LastSeenAt)
+            .OrderBy(m => m.Status == MemberStatus.Pending ? 0 : m.Status == MemberStatus.Approved ? 1 : 2)
+            .ThenByDescending(m => m.IsAdmin)
+            .ThenByDescending(m => m.LastSeenAt)
             .AsNoTracking()
             .ToListAsync(ct);
+
+        PendingCount = members.Count(m => m.Status == MemberStatus.Pending);
 
         var me = MyId;
         Rows = members
@@ -62,7 +122,17 @@ public class MembersModel(RmvDbContext db, IConfiguration config) : PageModel
 
         if (Request.Query["error"] == "self")
         {
-            Error = "You cannot remove your own admin access. Ask another admin.";
+            Error = "You cannot remove your own access. Ask another admin.";
+        }
+
+        if (Request.Query["approved"] is { Count: > 0 } ap)
+        {
+            Notice = $"{ap} is approved and can add characters.";
+        }
+
+        if (Request.Query["blocked"] is { Count: > 0 } bl)
+        {
+            Notice = $"{bl} is blocked.";
         }
 
         if (Request.Query["granted"] is { Count: > 0 } g)

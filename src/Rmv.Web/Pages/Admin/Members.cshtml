@@ -5,7 +5,10 @@
 <section class="hero">
     <div class="shell">
         <div class="hero__plaque"><h1>Members</h1></div>
-        <p>Everyone who has signed in. Promote whoever should be able to edit.</p>
+        <p>
+            Signing in gets a seat and nothing else. Approve someone before they
+            can add characters.
+        </p>
     </div>
 </section>
 
@@ -23,7 +26,13 @@
 
     <section class="section">
         <div class="panel">
-            <p class="panel__title">Signed in at least once</p>
+            <p class="panel__title">
+                Signed in at least once
+                @if (Model.PendingCount > 0)
+                {
+                    <span class="pill pill--warn">@Model.PendingCount waiting</span>
+                }
+            </p>
 
             @if (Model.Rows.Count == 0)
             {
@@ -38,7 +47,7 @@
                     <thead>
                         <tr>
                             <th scope="col">Member</th>
-                            <th scope="col">Last seen</th>
+                            <th scope="col">Status</th>
                             <th scope="col">Admin</th>
                             <th scope="col"></th>
                         </tr>
@@ -54,7 +63,21 @@
                                     <span class="pill">you</span>
                                 }
                             </td>
-                            <td class="dim">@row.Member.LastSeenAt.ToString("yyyy-MM-dd")</td>
+                            <td>
+                                @switch (row.Member.Status)
+                                {
+                                    case MemberStatus.Approved:
+                                        <span class="pill pill--ok">approved</span>
+                                        break;
+                                    case MemberStatus.Blocked:
+                                        <span class="pill pill--bad">blocked</span>
+                                        break;
+                                    default:
+                                        <span class="pill pill--warn">pending</span>
+                                        break;
+                                }
+                                <span class="dim block-hint">seen @row.Member.LastSeenAt.ToString("yyyy-MM-dd")</span>
+                            </td>
                             <td>
                                 @if (row.IsRoot)
                                 {
@@ -74,18 +97,34 @@
                                 {
                                     <span class="dim">set in config</span>
                                 }
-                                else if (row.Member.IsAdmin)
-                                {
-                                    <form method="post" asp-page-handler="Revoke" asp-route-id="@row.Member.Id"
-                                          onsubmit="return confirm('Remove admin from @row.Member.DisplayName?')">
-                                        <button class="linkish linkish--danger" type="submit">revoke</button>
-                                    </form>
-                                }
                                 else
                                 {
-                                    <form method="post" asp-page-handler="Grant" asp-route-id="@row.Member.Id">
-                                        <button class="linkish" type="submit">make admin</button>
-                                    </form>
+                                    @if (row.Member.Status != MemberStatus.Approved)
+                                    {
+                                        <form method="post" asp-page-handler="Approve" asp-route-id="@row.Member.Id">
+                                            <button class="linkish" type="submit">approve</button>
+                                        </form>
+                                    }
+                                    @if (row.Member.IsAdmin)
+                                    {
+                                        <form method="post" asp-page-handler="Revoke" asp-route-id="@row.Member.Id"
+                                              onsubmit="return confirm('Remove admin from @row.Member.DisplayName?')">
+                                            <button class="linkish linkish--danger" type="submit">revoke admin</button>
+                                        </form>
+                                    }
+                                    else if (row.Member.Status == MemberStatus.Approved)
+                                    {
+                                        <form method="post" asp-page-handler="Grant" asp-route-id="@row.Member.Id">
+                                            <button class="linkish" type="submit">make admin</button>
+                                        </form>
+                                    }
+                                    @if (row.Member.Status != MemberStatus.Blocked && !row.IsSelf)
+                                    {
+                                        <form method="post" asp-page-handler="Block" asp-route-id="@row.Member.Id"
+                                              onsubmit="return confirm('Block @row.Member.DisplayName?')">
+                                            <button class="linkish linkish--danger" type="submit">block</button>
+                                        </form>
+                                    }
                                 }
                             </td>
                         </tr>
@@ -96,6 +135,11 @@
 
             <hr class="rule rule--fine" />
 
+            <p class="dim">
+                New sign-ins are <strong>pending</strong>: they can look around and
+                nothing else. Approving lets them add characters. Blocking clears
+                any admin flag too, so re-approving never silently restores it.
+            </p>
             <p class="dim">
                 <strong>root</strong> means the id is in <span class="mono">Admin__DiscordIds</span>.
                 Those cannot be changed here on purpose: they are the way back in if
