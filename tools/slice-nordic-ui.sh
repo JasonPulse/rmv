@@ -60,11 +60,6 @@ MANIFEST=(
   952:slot-frame:214
   904:slot-frame-notched:218
 
-  # The kit's one piece of full-colour art: a bronze horned skull with white
-  # horn highlights. Layers 419 and 421-425 are its underpainting and line art;
-  # 420 is the finished emblem.
-  420:crest-skull:260
-
   # Tiling background textures
   491:pattern-lattice:400
   397:pattern-knotwork:700

@@ -8,7 +8,16 @@ using Rmv.Web.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddRazorPages();
+builder.Services.AddRazorPages(o =>
+{
+    // /status shows build sha, hostname and boot count. Fine for an operator,
+    // not for visitors. Open in Development so it is usable before Discord is
+    // wired up; sign-in required everywhere else.
+    if (!builder.Environment.IsDevelopment())
+    {
+        o.Conventions.AuthorizePage("/Status");
+    }
+});
 
 // ---------------------------------------------------------------------------
 // Postgres

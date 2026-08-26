@@ -84,12 +84,20 @@ src/Rmv.Web/
   Data/                   DbContext, entities, migrations
   Pages/                  Razor Pages
   wwwroot/img/ui/         assets sliced from the GUI kit
+  wwwroot/img/logo/       logo, crest and icons
   wwwroot/css/rmv.css     the theme
   wwwroot/css/_slices.css generated, do not hand-edit
 content/                  markdown, mounted read-only in the container
 tools/                    asset slicing and measurement scripts
 docs/ui-kit.md            how the theme was built and how to extend it
+docs/logo.md              how the logo and icons are generated
 ```
+
+## /status
+
+Build sha, hostname, boot count and database state. Not for members, so it
+requires sign-in in Production and is open in Development. Nothing on the public
+pages reads the database, so the home page cannot fail because Postgres is down.
 
 ## Health
 
@@ -103,11 +111,11 @@ The `deployments` table is the site's proof-of-life: one row per boot, written a
 startup and read by the home page. A wrong connection string or an unapplied
 migration fails loudly at startup rather than silently on a member's first page.
 
-The kit's frames and bars are greyscale stone, but its colour layers give the
-palette: amber `#f18d3b`, teal `#28706f`, parchment `#c4a177`, bronze `#88684a`.
-Repointing `--accent` and `--accent-warm` in `rmv.css` reskins the site. The
-bronze skull crest stands in as the emblem until the guild logo is done. See
-`docs/ui-kit.md`.
+Two asset pipelines, both rerunnable scripts. `tools/slice-nordic-ui.sh` pulls
+frames and textures out of the GUI kit PSD; `tools/build-logo-assets.sh` turns
+the guild logo into the hero lockup, the masthead crest and every icon. The
+palette is sampled from the logo so the two cannot drift. See `docs/ui-kit.md`
+and `docs/logo.md`.
 
 Postgres is optional. With no connection string the site still runs and says so;
 with one pointing at a database that is down, the site serves pages, reports the

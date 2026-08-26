@@ -26,10 +26,14 @@ percent, topping out at 61 percent. What is in there:
 | Paper texture | `#c4a177` parchment |
 | Skull crest | `#88684a` bronze |
 
-Those four are the palette in `rmv.css`, so the accents are the kit's own rather
-than invented. `--accent` is the teal lifted in lightness, because `#28706f`
-does not read as link text on near-black. Repoint `--accent` and `--accent-warm`
-and the whole site reskins; that is the hook for the guild logo.
+There is one more finding worth recording: every full-canvas backdrop layer in
+the kit measures hue 231, just desaturated to near-grey (`#131315`, `#212225`).
+So blue is the kit's own cool bias, which is why the logo's blues sit on this
+art without a fight.
+
+The palette in `rmv.css` now comes from the guild logo rather than from the kit,
+since the logo is the brand. See `docs/logo.md`. The kit values above are what
+to fall back to if the logo ever changes hue.
 
 To find the coloured layers yourself:
 
@@ -114,19 +118,11 @@ deleted and re-sliced. `header-bar-bg`, `navbar-bg`, `button-bg` and
 `panel-frame-inset` are the two frames no slice can place; see the note in
 `tools/measure-border-slices.sh`.
 
-## The crest
+## The kit's own crest
 
-Layer 420 is the kit's one piece of full-colour art: a bronze horned skull with
-white horn highlights. Layers 419 and 421 to 425 are its underpainting, texture
-and line art, so 420 is the only one worth slicing.
-
-It stands in as the guild emblem until the real logo is done, in the masthead
-diamond and above the hero plaque. It is a soft painted layer authored for a
-large game panel, so at masthead size it needs
-`filter: brightness(1.5) saturate(1.15)` or it reads as a dark blob.
-
-To swap in the real logo, replace the `background-image` on `.sigil span` in
-`rmv.css`.
+Layer 420 is the kit's one piece of full-colour art, a bronze horned skull. It
+stood in as the emblem before the guild logo existed and is no longer sliced.
+The layer index is recorded here in case it is ever wanted again.
 
 ## Fonts
 

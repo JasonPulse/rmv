@@ -1,0 +1,17 @@
+@page "/status"
+@model StatusModel
+@{ ViewData["Title"] = "Status"; }
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>Status</h1></div>
+        <p>Operator view. Nothing here is meant for members.</p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+    <section class="section">
+        <partial name="_StatusPanel" model="Model.Status" />
+    </section>
+</div>

@@ -43,11 +43,13 @@
 /* --- Tokens -------------------------------------------------------------- */
 
 :root {
-  /* Greys sampled from the kit art: stone reads 25-37% grey, trim near-white. */
-  --bg:            #08080a;
-  --bg-raised:     #0e0e12;
-  --panel:         #0b0b0f;
-  --panel-raised:  #14141a;
+  /* Greys sampled from the kit art: stone reads 25-37% grey, trim near-white.
+     The kit's own backdrop layers all sit at hue 231, heavily desaturated, so
+     these carry the same cool bias rather than being neutral black. */
+  --bg:            #07080c;
+  --bg-raised:     #0d0f15;
+  --panel:         #0a0c11;
+  --panel-raised:  #13161d;
   --stone:         #4c4c50;
   --trim:          #a9a9b0;
   --trim-bright:   #e4e4e9;
@@ -56,15 +58,18 @@
   --ink-dim:       #8b887f;
   --ink-faint:     #5f5d57;
 
-  /* Sampled from the kit. Repoint when the guild logo lands.
-     The kit's teal is #28706f, too dark to read as link text on near-black, so
-     --accent is that hue lifted in lightness. --accent-warm is the kit's amber
-     unmodified. */
-  --accent:        #4fa8a6;   /* teal, lifted from the kit's #28706f */
-  --accent-deep:   #28706f;   /* the kit's teal as-is, for fills */
-  --accent-warm:   #f18d3b;   /* amber, the kit's active-label colour */
-  --bronze:        #88684a;   /* skull crest */
-  --parchment:     #c4a177;   /* paper texture */
+  /* Sampled from the guild logo, which is now the brand. The kit's structural
+     art is greyscale stone and its backdrop is desaturated blue at hue 231, so
+     the logo's blues sit on it without a fight.
+     Taken from the logo: rune glow, mid shield, deep navy, and its antique
+     gold. Blue and gold are the logo's own pairing. */
+  --accent:        #5aa5cc;   /* logo rune glow */
+  --accent-mid:    #2d6294;   /* logo shield blue */
+  --accent-deep:   #132b51;   /* logo deep navy, for fills and glows */
+  --accent-warm:   #c6a97a;   /* logo gold */
+  --gold-bright:   #f0edd9;   /* logo highlight, for hover */
+  --bronze:        #9b8c73;   /* logo shadowed gold */
+  --teal:          #4fa8a6;   /* kit glow layer, lifted. Status pills only. */
 
   --font-display: "Vollkorn", "Iowan Old Style", Georgia, serif;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -95,8 +100,9 @@ body {
   font: 400 clamp(1rem, 0.4vw + 0.95rem, 1.075rem)/1.65 var(--font-body);
   /* A cold vignette so the page is not a flat black field. */
   background-image:
-    radial-gradient(1200px 700px at 50% -15%, #16161d 0%, transparent 70%),
-    radial-gradient(900px 500px at 50% 115%, #121218 0%, transparent 70%);
+    radial-gradient(1200px 700px at 50% -15%, #171a24 0%, transparent 70%),
+    radial-gradient(1000px 620px at 50% 108%,
+      color-mix(in srgb, var(--accent-deep) 34%, transparent) 0%, transparent 72%);
   background-attachment: fixed;
 }
 
@@ -166,32 +172,14 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
   flex-wrap: wrap;
 }
 
-/* Placeholder until the real logo arrives: the kit's bronze skull crest set in
-   one of its diamond slots. Replace the background-image with the guild logo. */
+/* The guild crest, banner cropped off because its text is illegible at this
+   size. No kit diamond behind it: the logo carries its own frame and the two
+   competed. */
 .sigil {
   flex: none;
-  width: 66px;
-  aspect-ratio: 210 / 172;
-  display: grid;
-  place-items: center;
-  background: url("../img/ui/slot-bg.png") center / 100% 100% no-repeat;
-  position: relative;
-}
-.sigil::after {
-  content: "";
-  position: absolute;
-  inset: -9%;
-  background: url("../img/ui/slot-frame.png") center / 100% 100% no-repeat;
-}
-.sigil span {
-  width: 88%;
-  aspect-ratio: 239 / 198;
-  background: url("../img/ui/crest-skull.png") center / contain no-repeat;
-  /* The crest is a soft painted layer authored for a large game panel. At
-     masthead size it reads as a dark blob without a lift. */
-  filter: brightness(1.5) saturate(1.15);
-  position: relative;
-  z-index: 1;
+  width: clamp(58px, 6vw, 78px);
+  aspect-ratio: 320 / 204;
+  background: url("../img/logo/rmv-crest.webp") center / contain no-repeat;
 }
 
 .wordmark {
@@ -237,14 +225,14 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
   text-decoration: none;
   border-bottom: 1px solid transparent;
 }
-.nav a:hover { color: var(--trim-bright); border-bottom-color: var(--accent-warm); }
+.nav a:hover { color: var(--trim-bright); border-bottom-color: var(--accent); }
 .nav a[aria-current="page"] { color: var(--accent-warm); border-bottom-color: var(--accent-warm); }
 
 /* --- Hero ---------------------------------------------------------------- */
 
 .hero {
   position: relative;
-  padding: clamp(2.5rem, 6vw, 4rem) 0 clamp(1.25rem, 2.5vw, 2rem);
+  padding: clamp(2rem, 5vw, 3.25rem) 0 clamp(1rem, 2vw, 1.5rem);
   text-align: center;
   overflow: hidden;
 }
@@ -266,12 +254,15 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
 
 .hero > * { position: relative; }
 
-.hero__crest {
-  width: clamp(74px, 9vw, 104px);
-  aspect-ratio: 239 / 198;
-  margin: 0 auto 0.5rem;
-  background: url("../img/ui/crest-skull.png") center / contain no-repeat;
-  filter: brightness(1.45) saturate(1.2);
+/* The logo lockup already contains the guild name as artwork, so on the home
+   page it is the h1 rather than sitting above one. */
+.hero__logo {
+  margin: 0 0 1.25rem;
+}
+.hero__logo img {
+  width: min(460px, 78vw);
+  height: auto;
+  margin-inline: auto;
 }
 
 /* A warm bloom behind the crest and plaque, so the top of the page is not an
@@ -281,9 +272,9 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
   position: absolute;
   inset: 0;
   background: radial-gradient(
-    ellipse 40% 46% at 50% 26%,
-    color-mix(in srgb, var(--accent-warm) 13%, transparent) 0%,
-    transparent 70%);
+    ellipse 44% 50% at 50% 30%,
+    color-mix(in srgb, var(--accent-mid) 22%, transparent) 0%,
+    transparent 72%);
   pointer-events: none;
 }
 
@@ -377,7 +368,9 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
   min-height: 74px;
   padding: 0.6rem clamp(2rem, 6vw, 4rem);
   text-align: center;
-  background: linear-gradient(180deg, #24242a 0%, #16161b 55%, #101014 100%) border-box;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent-deep) 26%, #22242b) 0%,
+    #161920 58%, #101218 100%) border-box;
   border-style: solid;
   border-color: transparent;
   border-width: var(--w-bar);
@@ -423,7 +416,7 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
     var(--slice-button-frame) / var(--w-button) / 0 stretch;
   transition: color 120ms ease, filter 120ms ease;
 }
-.btn:hover { color: #ffb463; filter: brightness(1.35); }
+.btn:hover { color: var(--gold-bright); filter: brightness(1.35); }
 .btn:active { filter: brightness(0.9); }
 .btn[disabled] { opacity: 0.45; pointer-events: none; }
 
@@ -474,7 +467,7 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
   rotate: 45deg;
   background: var(--accent);
 }
-.pill--ok::before { background: var(--accent); }
+.pill--ok::before { background: var(--teal); }
 .pill--warn::before { background: var(--accent-warm); }
 .pill--bad::before { background: #a4463c; }
 

@@ -1,0 +1,12 @@
+{
+  "name": "Results May Vary",
+  "short_name": "RMV",
+  "icons": [
+    { "src": "/img/logo/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/img/logo/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "theme_color": "#07080c",
+  "background_color": "#07080c",
+  "display": "standalone",
+  "start_url": "/"
+}

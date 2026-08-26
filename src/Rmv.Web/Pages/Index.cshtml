@@ -1,5 +1,6 @@
 @page
 @model IndexModel
+@inject SiteOptions Site
 @{
     ViewData["Title"] = "Hall";
     ViewData["Description"] = "Results May Vary, a gaming guild that started in Dark Age of Camelot and never quite stopped.";
@@ -7,10 +8,13 @@
 
 <section class="hero">
     <div class="shell">
-        <div class="hero__crest" aria-hidden="true"></div>
-        <div class="hero__plaque">
-            <h1>Results May Vary</h1>
-        </div>
+        @* The lockup carries the guild name as artwork, so it is the h1. The
+           alt text is what a screen reader and a search engine read. *@
+        <h1 class="hero__logo">
+            <img src="~/img/logo/rmv-lockup.webp"
+                 alt="Results May Vary, a guild since 2001, established in Dark Age of Camelot"
+                 width="720" height="742" />
+        </h1>
         <p>
             A guild that started swinging in the frontiers of Dark Age of Camelot
             and never got round to disbanding. We are still here, still arguing
@@ -44,7 +48,24 @@
             <p><a class="btn" href="/tools">Look in</a></p>
         </article>
 
-        @* The Postgres read. Also the htmx wiring, exercised end to end. *@
-        <partial name="_StatusPanel" model="Model.Status" />
+        <article class="panel">
+            <p class="panel__title">Join</p>
+            <h3>Still taking people on</h3>
+            @if (Site.DiscordEnabled)
+            {
+                <p class="dim">
+                    Sign in with Discord and say hello. We are not fussy about
+                    hours, only about being pleasant to raid with.
+                </p>
+                <p><a class="btn" href="/Account/Login">Sign in</a></p>
+            }
+            else
+            {
+                <p class="dim">
+                    We are not fussy about hours, only about being pleasant to
+                    raid with. Discord sign-in is not wired up yet.
+                </p>
+            }
+        </article>
     </section>
 </div>

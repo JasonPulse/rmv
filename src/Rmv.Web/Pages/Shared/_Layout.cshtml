@@ -6,7 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>@ViewData["Title"] &middot; Results May Vary</title>
     <meta name="description" content="@(ViewData["Description"] ?? "Results May Vary, a gaming guild running since Dark Age of Camelot.")" />
-    <meta name="theme-color" content="#08080a" />
+    <meta name="theme-color" content="#07080c" />
+
+    @* Icons all derive from the logo's horned helm: the full crest is unreadable
+       at 32px. See tools/build-logo-assets.sh. *@
+    <link rel="icon" href="~/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="~/img/logo/icon-192.png" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="~/img/logo/apple-touch-icon.png" />
+    <link rel="manifest" href="~/site.webmanifest" />
     @* Preload the display face: it is used by the wordmark, so a swap is visible. *@
     <link rel="preload" href="~/fonts/Vollkorn-SemiBold.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="~/css/rmv.css" asp-append-version="true" />
@@ -17,7 +24,7 @@
 <header class="masthead">
     <div class="shell masthead__inner">
         @* Placeholder sigil. Swap for the guild logo when it is finished. *@
-        <div class="sigil" aria-hidden="true"><span></span></div>
+        <div class="sigil" aria-hidden="true"></div>
 
         <a class="wordmark" href="/">
             <strong>Results May Vary</strong>
@@ -56,9 +63,7 @@
 <footer class="footer">
     <div class="shell footer__inner">
         <span>Results May Vary &middot; a guild, still going</span>
-        <span>
-            <a href="/healthz/ready">status</a>
-        </span>
+        <span class="dim">Albion, then everywhere else</span>
     </div>
 </footer>
 
