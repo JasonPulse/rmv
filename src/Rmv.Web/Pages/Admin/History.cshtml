@@ -59,6 +59,53 @@
         </article>
 
         <article class="panel">
+            <p class="panel__title">Links</p>
+
+            <form method="post" asp-page-handler="SaveLink" class="stack" style="--stack-gap:1rem">
+                <input type="hidden" asp-for="LinkInput.Id" />
+
+                <div class="field">
+                    <label asp-for="LinkInput.GamePresenceId">Game</label>
+                    <select class="input" asp-for="LinkInput.GamePresenceId">
+                        <option value="">Pick a game</option>
+                        @foreach (var g in Model.Rows)
+                        {
+                            <option value="@g.Id">@g.Game</option>
+                        }
+                    </select>
+                    <span class="hint" asp-validation-for="LinkInput.GamePresenceId"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="LinkInput.Kind">Kind</label>
+                    <select class="input" asp-for="LinkInput.Kind"
+                            asp-items="Html.GetEnumSelectList<Rmv.Web.Data.GameLinkKind>()"></select>
+                    <p class="hint">Picks the little mark shown before the label.</p>
+                </div>
+
+                <div class="field">
+                    <label asp-for="LinkInput.Label">Label</label>
+                    <input class="input" asp-for="LinkInput.Label" placeholder="Uthgard Herald" />
+                    <span class="hint" asp-validation-for="LinkInput.Label"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="LinkInput.Url">URL</label>
+                    <input class="input" asp-for="LinkInput.Url" placeholder="https://herald.uthgard.net/..." />
+                    <p class="hint">Absolute http or https only.</p>
+                    <span class="hint" asp-validation-for="LinkInput.Url"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="LinkInput.SortOrder">Sort order</label>
+                    <input class="input" asp-for="LinkInput.SortOrder" type="number" min="0" max="999" />
+                </div>
+
+                <p style="margin:0"><button class="btn" type="submit">Save link</button></p>
+            </form>
+        </article>
+
+        <article class="panel">
             <p class="panel__title">Current list</p>
             <table class="table">
                 <thead>
@@ -75,7 +122,25 @@
                                 <span class="pill pill--ok">active</span>
                             }
                         </td>
-                        <td class="dim">@row.Guilds</td>
+                        <td class="dim">
+                            @row.Guilds
+                            @if (row.Links.Count > 0)
+                            {
+                                <ul class="linklist">
+                                    @foreach (var l in row.Links)
+                                    {
+                                        <li>
+                                            <span class="mono">@l.DisplayLabel</span>
+                                            <span class="dim">@l.Host</span>
+                                            <form method="post" asp-page-handler="DeleteLink" asp-route-id="@l.Id"
+                                                  onsubmit="return confirm('Remove @l.DisplayLabel?')">
+                                                <button class="linkish linkish--danger" type="submit">remove</button>
+                                            </form>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </td>
                         <td class="row-actions">
                             <a href="#"
                                class="linkish"

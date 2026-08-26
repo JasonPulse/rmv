@@ -39,13 +39,41 @@ Until step 4, sign-in works but no admin page does.
 
 ## /admin/history
 
-Edits the "where we've been" list behind `/history`. Add, edit, delete, with a
-sort order and an optional period. Guild tags are one comma-separated field,
-because that is how the list reads and how it is edited; each tag renders as its
-own chip.
+Edits the "where we've been" list behind `/history`. Two things are managed here:
 
-Seeded with the four entries the guild started from, so the page has content the
-moment it deploys.
+**Games.** Name, guild tags, optional period, active flag, sort order. Guild tags
+are one comma-separated field, because that is how the list reads and how it is
+edited; each tag renders as its own chip.
+
+**Links.** Several per game, each with a kind (herald, guild, character, stats,
+official, other), a label and a URL. The kind picks the small glyph shown before
+the label. This is where the character lookup will hang when that lands.
+
+Seeded with the four games the guild started from plus the Uthgard herald, so the
+page has content the moment it deploys.
+
+### Game names are type, not logos
+
+Deliberate. The logos are trademarks, and setting each name as a wordmark on the
+kit's stone plaque keeps the page visually consistent with everything else.
+
+### URLs are validated by scheme, not sanitised
+
+This is the only place the site puts operator-supplied text into an attribute the
+browser acts on. Razor escapes the value, which stops it breaking out of the
+attribute, but escaping does nothing about the scheme:
+
+```html
+href="javascript:alert(1)"
+```
+
+is well-formed HTML and still executes. So `ExternalUrl.TryParse` checks the
+scheme against an allowlist of `http` and `https`, requires an absolute URI with
+a host, caps the length, and stores the normalised form. `javascript:`, `data:`,
+`vbscript:` and `file:` are all rejected at save time and never reach the
+database. Covered by tests.
+
+Links render with `target="_blank"` and `rel="noopener noreferrer external"`.
 
 ## /admin/analytics
 

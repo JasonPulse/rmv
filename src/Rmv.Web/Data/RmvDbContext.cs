@@ -16,6 +16,8 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
 
     public DbSet<GamePresence> GamePresences => Set<GamePresence>();
 
+    public DbSet<GameLink> GameLinks => Set<GameLink>();
+
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
 
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -46,6 +48,32 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
                 new GamePresence { Id = 2, Game = "Uthgard DAoC", Guilds = "RMV, Legends, Dark Auspices", IsActive = false, SortOrder = 0 },
                 new GamePresence { Id = 3, Game = "World of Warcraft", Guilds = "RMV, Omen, Etc.", IsActive = false, SortOrder = 1 },
                 new GamePresence { Id = 4, Game = "Final Fantasy XI", Guilds = "RMV", IsActive = false, SortOrder = 2 });
+        });
+
+        b.Entity<GameLink>(e =>
+        {
+            e.ToTable("game_links");
+            e.Property(l => l.Label).HasMaxLength(60).IsRequired();
+            e.Property(l => l.Url).HasMaxLength(ExternalUrl.MaxLength).IsRequired();
+            // Stored as text rather than an int, so the table reads on its own.
+            e.Property(l => l.Kind).HasConversion<string>().HasMaxLength(20).IsRequired();
+            e.HasOne(l => l.Game)
+                .WithMany(g => g.Links)
+                .HasForeignKey(l => l.GamePresenceId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(l => new { l.GamePresenceId, l.SortOrder });
+
+            // One seeded link, the herald Jason supplied, so the feature is
+            // visible on deploy. The rest are his to add.
+            e.HasData(new GameLink
+            {
+                Id = 1,
+                GamePresenceId = 2,
+                Kind = GameLinkKind.Herald,
+                Label = "Uthgard Herald",
+                Url = "https://herald.uthgard.net/herald.php?view=overview",
+                SortOrder = 0,
+            });
         });
 
         b.Entity<RequestLog>(e =>

@@ -26,6 +26,8 @@ public class GamePresence
     /// <summary>Ascending within each of the active and inactive lists.</summary>
     public int SortOrder { get; set; }
 
+    public List<GameLink> Links { get; set; } = [];
+
     public IEnumerable<string> GuildList() => Guilds
         .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 }

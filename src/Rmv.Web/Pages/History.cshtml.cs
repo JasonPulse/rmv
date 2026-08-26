@@ -26,6 +26,7 @@ public class HistoryModel(IServiceProvider services) : PageModel
         try
         {
             var all = await db.GamePresences
+                .Include(g => g.Links.OrderBy(l => l.SortOrder).ThenBy(l => l.Label))
                 .OrderBy(g => g.SortOrder).ThenBy(g => g.Game)
                 .AsNoTracking()
                 .ToListAsync(ct);

@@ -1,0 +1,37 @@
+@model Rmv.Web.Data.GamePresence
+@*
+    One game. Name as a wordmark on the kit's stone plaque, guild tags, then the
+    external links as labelled buttons.
+*@
+<article class="gamecard @(Model.IsActive ? "gamecard--active" : "")">
+    <header class="gamecard__head">
+        <h3 class="gamecard__name">@Model.Game</h3>
+        @if (!string.IsNullOrWhiteSpace(Model.Period))
+        {
+            <p class="gamecard__period">@Model.Period</p>
+        }
+    </header>
+
+    <div class="gamecard__tags">
+        @foreach (var tag in Model.GuildList())
+        {
+            <span class="tag">@tag</span>
+        }
+    </div>
+
+    @if (Model.Links.Count > 0)
+    {
+        <nav class="gamecard__links" aria-label="@(Model.Game) links">
+            @foreach (var link in Model.Links)
+            {
+                <a class="glink glink--@link.Kind.ToString().ToLowerInvariant()"
+                   href="@link.Url"
+                   target="_blank"
+                   rel="noopener noreferrer external"
+                   title="@link.Host">
+                    @link.DisplayLabel
+                </a>
+            }
+        </nav>
+    }
+</article>

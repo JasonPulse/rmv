@@ -2,7 +2,18 @@
 @model HistoryModel
 @{
     ViewData["Title"] = "Where we've been";
-    ViewData["Description"] = "The games Results May Vary has played, and the tags we played them under.";
+    ViewData["Description"] = "The games Results May Vary has played, the tags we played them under, and where to look us up.";
+}
+
+@*
+    Game names are set as wordmarks in the display face rather than as logos.
+    Deliberate: the logos are trademarks, and typography keeps the page visually
+    consistent with the rest of the kit.
+*@
+@functions {
+    // External links only, and the URL is validated before it is stored, so this
+    // renders what the admin saved. rel is set because these all open off-site.
+    string Rel() => "noopener noreferrer external";
 }
 
 <section class="hero">
@@ -17,65 +28,28 @@
 
     @if (Model.DatabaseUnavailable)
     {
-        <p class="notice">The roll of honour is briefly unavailable. Try again shortly.</p>
+        <p class="notice">This page is briefly unavailable. Try again shortly.</p>
     }
     else
     {
-        <div class="bar"><h2>Still going</h2></div>
-        <section class="section">
-            @if (Model.Active.Count == 0)
-            {
-                <p class="dim center">Nothing listed as active.</p>
-            }
-            else
-            {
-                <dl class="roll">
-                    @foreach (var g in Model.Active)
-                    {
-                        <div class="roll__row">
-                            <dt>
-                                @g.Game
-                                @if (!string.IsNullOrWhiteSpace(g.Period))
-                                {
-                                    <span class="roll__period">@g.Period</span>
-                                }
-                            </dt>
-                            <dd>
-                                @foreach (var tag in g.GuildList())
-                                {
-                                    <span class="tag">@tag</span>
-                                }
-                            </dd>
-                        </div>
-                    }
-                </dl>
-            }
-        </section>
-
-        <hr class="rule" />
+        @if (Model.Active.Count > 0)
+        {
+            <div class="bar"><h2>Still going</h2></div>
+            <section class="section gamegrid">
+                @foreach (var g in Model.Active)
+                {
+                    <partial name="_GameCard" model="g" />
+                }
+            </section>
+            <hr class="rule" />
+        }
 
         <div class="bar"><h2>No longer active</h2></div>
-        <section class="section">
-            <dl class="roll roll--past">
-                @foreach (var g in Model.Past)
-                {
-                    <div class="roll__row">
-                        <dt>
-                            @g.Game
-                            @if (!string.IsNullOrWhiteSpace(g.Period))
-                            {
-                                <span class="roll__period">@g.Period</span>
-                            }
-                        </dt>
-                        <dd>
-                            @foreach (var tag in g.GuildList())
-                            {
-                                <span class="tag">@tag</span>
-                            }
-                        </dd>
-                    </div>
-                }
-            </dl>
+        <section class="section gamegrid gamegrid--past">
+            @foreach (var g in Model.Past)
+            {
+                <partial name="_GameCard" model="g" />
+            }
         </section>
     }
 </div>

@@ -20,6 +20,9 @@ public class HistoryModel(RmvDbContext db) : PageModel
     [BindProperty]
     public InputModel Input { get; set; } = new();
 
+    [BindProperty]
+    public LinkInputModel LinkInput { get; set; } = new();
+
     public string? Notice { get; private set; }
 
     public class InputModel
@@ -43,7 +46,87 @@ public class HistoryModel(RmvDbContext db) : PageModel
         public int SortOrder { get; set; }
     }
 
+    public class LinkInputModel
+    {
+        public int? Id { get; set; }
+
+        [Required, Display(Name = "Game")]
+        public int GamePresenceId { get; set; }
+
+        public GameLinkKind Kind { get; set; } = GameLinkKind.Herald;
+
+        [Required, StringLength(60)]
+        public string Label { get; set; } = "";
+
+        [Required, StringLength(ExternalUrl.MaxLength)]
+        public string Url { get; set; } = "";
+
+        [Range(0, 999)]
+        public int SortOrder { get; set; }
+    }
+
     public async Task OnGetAsync(CancellationToken ct) => await LoadAsync(ct);
+
+    public async Task<IActionResult> OnPostSaveLinkAsync(CancellationToken ct)
+    {
+        // The scheme allowlist, not just a length check. See ExternalUrl.
+        if (!ExternalUrl.TryParse(LinkInput.Url, out var url))
+        {
+            ModelState.AddModelError("LinkInput.Url", "Must be an absolute http or https URL.");
+        }
+
+        if (!await db.GamePresences.AnyAsync(g => g.Id == LinkInput.GamePresenceId, ct))
+        {
+            ModelState.AddModelError("LinkInput.GamePresenceId", "Pick a game.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            await LoadAsync(ct);
+            return Page();
+        }
+
+        if (LinkInput.Id is { } id)
+        {
+            var row = await db.GameLinks.FindAsync([id], ct);
+            if (row is null)
+            {
+                return NotFound();
+            }
+
+            row.GamePresenceId = LinkInput.GamePresenceId;
+            row.Kind = LinkInput.Kind;
+            row.Label = LinkInput.Label.Trim();
+            row.Url = url!;
+            row.SortOrder = LinkInput.SortOrder;
+        }
+        else
+        {
+            db.GameLinks.Add(new GameLink
+            {
+                GamePresenceId = LinkInput.GamePresenceId,
+                Kind = LinkInput.Kind,
+                Label = LinkInput.Label.Trim(),
+                Url = url!,
+                SortOrder = LinkInput.SortOrder,
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+        return RedirectToPage(new { saved = true });
+    }
+
+    public async Task<IActionResult> OnPostDeleteLinkAsync(int id, CancellationToken ct)
+    {
+        var row = await db.GameLinks.FindAsync([id], ct);
+        if (row is not null)
+        {
+            db.GameLinks.Remove(row);
+            await db.SaveChangesAsync(ct);
+        }
+
+        return RedirectToPage(new { deleted = true });
+    }
 
     public async Task<IActionResult> OnPostSaveAsync(CancellationToken ct)
     {
@@ -100,6 +183,7 @@ public class HistoryModel(RmvDbContext db) : PageModel
     private async Task LoadAsync(CancellationToken ct)
     {
         Rows = await db.GamePresences
+            .Include(g => g.Links.OrderBy(l => l.SortOrder).ThenBy(l => l.Label))
             .OrderByDescending(g => g.IsActive).ThenBy(g => g.SortOrder).ThenBy(g => g.Game)
             .AsNoTracking()
             .ToListAsync(ct);
