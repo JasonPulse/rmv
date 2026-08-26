@@ -31,13 +31,15 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 64198        # APP_UID in the aspnet base image
-        runAsGroup: 64198
+        # 1654 is APP_UID in the aspnet base image, where the user is
+        # app:app 1654:1654. Verified against the image, not assumed.
+        runAsUser: 1654
+        runAsGroup: 1654
         # Required, not cosmetic. Secret volume files are owned by root, so
         # without fsGroup the container cannot read them and the app dies at
         # startup with UnauthorizedAccessException on /run/secrets. fsGroup makes
         # kubelet set the volume's group ownership to this gid.
-        fsGroup: 64198
+        fsGroup: 1654
         seccompProfile:
           type: RuntimeDefault
       containers:

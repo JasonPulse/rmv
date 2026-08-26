@@ -2,8 +2,13 @@
 
 # ---------------------------------------------------------------------------
 # Build
+#
+# Pinned to BUILDPLATFORM, so the SDK always runs natively on the builder and
+# cross-publishes for the target via `-a $TARGETARCH`. Without the pin, buildx
+# would run the whole SDK under QEMU for the non-native architecture, which for
+# .NET is many times slower.
 # ---------------------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG TARGETARCH
 WORKDIR /src
 
@@ -21,17 +26,12 @@ RUN dotnet publish src/Rmv.Web/Rmv.Web.csproj \
 # ---------------------------------------------------------------------------
 # Runtime
 #
-# Debian-based rather than chiseled on purpose: chiseled has no shell, and being
-# able to exec into a misbehaving container on the homelab is worth the extra
-# ~20MB. Swap to aspnet:10.0-noble-chiseled if you would rather have the smaller
-# attack surface, and drop the curl healthcheck with it.
+# No RUN steps here on purpose. Anything executed in this stage would need QEMU
+# emulation for the non-native architecture, which is what made the multi-arch
+# build slow; the only RUN was installing curl for a Docker HEALTHCHECK, and
+# Kubernetes uses httpGet probes against /healthz/live instead.
 # ---------------------------------------------------------------------------
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
-
-RUN apt-get update \
- && apt-get install -y --no-install-recommends curl \
- && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 COPY --from=build /app .
 
@@ -45,10 +45,5 @@ EXPOSE 8080
 
 # APP_UID is defined by the base image (non-root, uid 64198).
 USER $APP_UID
-
-# Ready, not live: the container should not report healthy while Postgres is
-# still coming up, or the tunnel will route traffic to a site that cannot query.
-HEALTHCHECK --interval=20s --timeout=3s --start-period=25s --retries=3 \
-  CMD curl -fsS http://localhost:8080/healthz/ready || exit 1
 
 ENTRYPOINT ["dotnet", "Rmv.Web.dll"]

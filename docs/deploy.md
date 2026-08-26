@@ -1,12 +1,23 @@
-# Deploying to the homelab
+# Deployment requirements
 
-Three containers behind a Cloudflare tunnel. Only the tunnel talks to the
-internet, and it does so with outbound connections only, so there are no
-published ports and no inbound firewall holes.
+Production runs on Kubernetes. `deploy/k8s` holds a kustomize base; this file is
+the requirements behind it.
 
 ```
-internet -> Cloudflare edge -> [tunnel] --network--> [web] --network--> [db]
+internet -> Cloudflare edge -> [cloudflared] -> Service/web -> [web] -> Service/db -> [db-0]
 ```
+
+## Image
+
+`ghcr.io/jasonpulse/rmv` — multi-arch manifest list, **linux/amd64 and
+linux/arm64**.
+
+The build stage is pinned to `BUILDPLATFORM` and cross-publishes via
+`dotnet publish -a $TARGETARCH`, and the runtime stage has no `RUN` steps, so
+neither architecture needs QEMU. Both arches build in one pass.
+
+Runs as **uid/gid 1654** (`app`, the base image's `APP_UID`). Listens on
+**8080/tcp**, HTTP only.
 
 ## Every environment variable
 

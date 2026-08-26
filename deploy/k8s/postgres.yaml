@@ -28,7 +28,10 @@ spec:
     spec:
       automountServiceAccountToken: false
       securityContext:
-        fsGroup: 999          # the postgres user in the official image
+        # 70 is postgres:postgres in the alpine image. The Debian variant uses
+        # 999; getting this from the wrong variant is an easy mistake. Verified
+        # against the image.
+        fsGroup: 70
       containers:
         - name: postgres
           image: postgres:18-alpine
@@ -75,8 +78,10 @@ spec:
         - name: secret
           secret:
             secretName: rmv-postgres
-            # Group-readable, matching fsGroup above. 0400 would leave the file
-            # root-only and unreadable by the postgres user.
+            # 0440 rather than 0400 only so this still works if anyone later
+            # sets runAsUser on this pod. As it stands the entrypoint reads the
+            # file while still root and then drops to uid 70, so the mode does
+            # not currently matter here. It very much does for the web pod.
             defaultMode: 0440
   volumeClaimTemplates:
     - metadata:
