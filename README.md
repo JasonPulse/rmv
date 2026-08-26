@@ -43,60 +43,15 @@ dotnet watch --project src/Rmv.Web
 The local overlay binds Postgres to `127.0.0.1:5432` so the host can reach it.
 `dotnet watch` reloads on save.
 
-## Deploying to the homelab
+## Deploying
 
-Full runbook with every environment variable in `docs/deploy.md`. The short
-version, credentials in `.env`:
+Production is Kubernetes. `deploy/k8s` is a kustomize base with the web
+deployment and cloudflared; Postgres is an existing instance reached by
+connection string. Requirements, including every configuration value, are in
+`docs/deploy.md`.
 
-```bash
-cp .env.example .env          # fill in all of it
-docker compose up -d
-```
-
-Or with credentials as mounted files rather than environment variables:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.secrets.yml up -d
-```
-
-Three containers: `web`, `db`, and `tunnel`. Only `tunnel` talks to the outside
-world, and only outbound, so there are no published ports and no inbound
-firewall holes. Point the tunnel's public hostname at `http://web:8080`.
-
-## Discord sign-in
-
-Sign-in is off until credentials exist, and the site runs fine without it. To
-switch it on:
-
-1. https://discord.com/developers/applications, create an application.
-2. OAuth2, add the redirect URI `https://YOUR-DOMAIN/signin-discord` exactly.
-3. Put the client id and secret in `.env`.
-
-Nothing on the site gates on membership yet. Signing in only proves the wiring.
-
-The app runs `UseForwardedHeaders` because requests arrive from cloudflared over
-plain HTTP. Without it, ASP.NET Core sees `scheme=http` and the container
-hostname, and builds a `redirect_uri` Discord rejects. `KnownProxies` is
-deliberately cleared, which is safe only because the app port is not published.
-If you ever expose it directly, pin the proxy address in `Program.cs`.
-
-## Layout
-
-```
-src/Rmv.Web/
-  Program.cs              startup, auth, proxy headers, health, migrations
-  Data/                   DbContext, entities, migrations
-  Pages/                  Razor Pages
-  wwwroot/img/ui/         assets sliced from the GUI kit
-  wwwroot/img/logo/       logo, crest and icons
-  wwwroot/css/rmv.css     the theme
-  wwwroot/css/_slices.css generated, do not hand-edit
-content/                  markdown, mounted read-only in the container
-tools/                    asset slicing and measurement scripts
-docs/deploy.md            homelab runbook, every environment variable
-docs/ui-kit.md            how the theme was built and how to extend it
-docs/logo.md              how the logo and icons are generated
-```
+`docker-compose.yml` is local development only: Postgres for `dotnet watch`, plus
+the app in a container on :5080 for a quick smoke test.
 
 ## /status
 

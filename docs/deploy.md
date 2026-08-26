@@ -3,8 +3,11 @@
 Production runs on Kubernetes. `deploy/k8s` holds a kustomize base; this file is
 the requirements behind it.
 
+Two workloads are deployed. Postgres already exists and is reached over the
+network by connection string.
+
 ```
-internet -> Cloudflare edge -> [cloudflared] -> Service/web -> [web] -> Service/db -> [db-0]
+internet -> Cloudflare edge -> [cloudflared] -> Service/web -> [web] -> existing Postgres
 ```
 
 ## Image
@@ -14,214 +17,160 @@ linux/arm64**.
 
 The build stage is pinned to `BUILDPLATFORM` and cross-publishes via
 `dotnet publish -a $TARGETARCH`, and the runtime stage has no `RUN` steps, so
-neither architecture needs QEMU. Both arches build in one pass.
+neither architecture needs QEMU emulation. Both build in one pass.
 
-Runs as **uid/gid 1654** (`app`, the base image's `APP_UID`). Listens on
-**8080/tcp**, HTTP only.
+Runs as **uid/gid 1654** (`app`, the base image's `APP_UID`, verified against the
+image). Listens on **8080/tcp**, HTTP only, no TLS in the container.
 
-## Every environment variable
+Not published yet: CI triggers on `main` and the repo branch is `master`.
 
-The web container is ASP.NET Core, so `__` in a variable name is a `:` in its
-configuration. `Discord__ClientId` sets `Discord:ClientId`.
+## Ingress
 
-### web
+Cloudflare tunnel. No Ingress resource, no LoadBalancer, no inbound ports.
 
-| Variable | Required | Secret |
+- Tunnel public hostname to `http://<web-service>:80`
+- Service type HTTP, TLS verification off; that hop is inside the cluster and
+  the public side is still HTTPS at the edge
+- The tunnel token is a credential
+
+Two cloudflared replicas, so a rollout or node drain does not drop the tunnel.
+Cloudflare load-balances across connectors registered to the same tunnel.
+
+The app runs `UseForwardedHeaders` with `KnownProxies` and `KnownIPNetworks`
+cleared, because cloudflared's pod address is not stable. It therefore trusts
+`X-Forwarded-*` from anything that can reach it. **The web port must not be
+reachable from outside the cluster.** If it ever is, pin the proxy address in
+`Program.cs` first.
+
+cloudflared has no file-based option for its token, so that one credential does
+reach the pod environment via `secretKeyRef`. Use a credentials-file tunnel
+instead if that is unacceptable.
+
+## Configuration
+
+ASP.NET Core, so `__` in a name is a `:` in configuration. Any value can be an
+environment variable **or** a file: the app reads `/run/secrets` through
+`AddKeyPerFile`, where each filename is the config key.
+
+Secret, supplied as mounted files:
+
+| Key | Required | Notes |
 |---|---|---|
-| `ConnectionStrings__Postgres` | no | yes |
-| `Discord__ClientId` | no | no |
-| `Discord__ClientSecret` | no | yes |
+| `ConnectionStrings__Postgres` | no | Npgsql connection string. Absent, the site runs and reports the database as not configured |
+| `Discord__ClientId` | no | both must be non-empty or sign-in stays hidden |
+| `Discord__ClientSecret` | no | as above |
 
-- `ConnectionStrings__Postgres` is a full Npgsql connection string. Unset, the
-  site still runs and reports the database as not configured.
-- Both Discord values must be non-empty for sign-in to appear. Either blank
-  leaves it switched off, which is a supported state.
+Non-secret environment:
 
-Set by the image, override only with reason:
-
-| Variable | Value | Why |
+| Variable | Value | Notes |
 |---|---|---|
-| `ASPNETCORE_ENVIRONMENT` | `Production` | `Development` opens `/status` with no sign-in |
-| `ASPNETCORE_HTTP_PORTS` | `8080` | the port the tunnel targets |
-| `DOTNET_gcServer` | `0` | workstation GC, lower idle memory |
+| `ASPNETCORE_ENVIRONMENT` | `Production` | `Development` exposes `/status` with no sign-in |
+| `ASPNETCORE_HTTP_PORTS` | `8080` | set in the image |
+| `DOTNET_gcServer` | `0` | set in the image |
 | `Build__Version` | git sha | from the `BUILD_VERSION` build arg, shown on `/status` |
 
-### db (`postgres:18-alpine`)
+**Mount requirement.** Secret files must be readable by gid 1654. Kubernetes owns
+them as root, so this needs `fsGroup: 1654` and mode `0440`. With `0400` the app
+dies at startup with `UnauthorizedAccessException` on `/run/secrets/...` and
+crash-loops. This was found by applying the manifests, not by reading them.
 
-| Variable | Required | Secret |
-|---|---|---|
-| `POSTGRES_DB` | no, defaults to `rmv` | no |
-| `POSTGRES_USER` | no, defaults to `rmv` | no |
-| `POSTGRES_PASSWORD` | one of these two | yes |
-| `POSTGRES_PASSWORD_FILE` | one of these two | path only |
+## Postgres (existing instance)
 
-Setting both makes the image refuse to start. Setting neither makes it exit
-saying the superuser password is not specified.
+Nothing deploys a database. The app connects out to the instance already running.
 
-### tunnel (`cloudflare/cloudflared`)
+**Version.** Any currently supported release. The floor is PostgreSQL 10, because
+the schema uses identity columns. No extensions needed.
 
-| Variable | Required | Secret |
-|---|---|---|
-| `TUNNEL_TOKEN` | yes | yes |
+**What it needs.**
 
-### Compose interpolation, read from `.env`
+- A database, or an existing one it can share. The app does not qualify a schema,
+  so it uses whatever the role's `search_path` resolves to, normally `public`.
+- A role with `CONNECT` on the database and `CREATE` on the schema, plus the usual
+  DML. Not superuser.
+- `CREATE` is required because the app applies its own migrations at startup.
+  There is no init job and no migration hook.
 
-These are consumed by `docker-compose.yml` itself, not by any container:
+**What it creates.** Three tables and one index, nothing else:
 
-| Variable | Purpose |
+| Object | Purpose |
 |---|---|
-| `POSTGRES_DB` `POSTGRES_USER` `POSTGRES_PASSWORD` | passed to db, and built into the app's connection string |
-| `DISCORD_CLIENT_ID` `DISCORD_CLIENT_SECRET` | passed to web |
-| `CLOUDFLARE_TUNNEL_TOKEN` | passed to tunnel |
-| `BUILD_VERSION` | build arg, stamped into the image |
-| `WEB_IMAGE` | run a prebuilt image instead of building locally |
+| `__EFMigrationsHistory` | EF Core migration bookkeeping |
+| `deployments` | one row per pod start; history, safe to truncate |
+| `data_protection_keys` | shared key ring; **never truncate**, it invalidates every session |
+| `IX_deployments_StartedAt` | index on `deployments` |
 
-## Credentials: two modes
+`deploy/schema.sql` is the idempotent DDL the app will run, generated from the
+migrations. Give it to whoever owns the instance if they would rather pre-create
+the schema and then withhold `CREATE` from the role. Run that script rather than
+hand-writing equivalent DDL, or the migration history will not match and the app
+will try again.
 
-### Mode A, `.env` file
+**Connection string.** Standard Npgsql, in the `ConnectionStrings__Postgres`
+secret key:
 
-Simplest. Copy `.env.example` to `.env`, fill it in, `chmod 600 .env`.
-
-```bash
-docker compose up -d
+```
+Host=HOST;Port=5432;Database=DB;Username=USER;Password=PW;Maximum Pool Size=10
 ```
 
-Credentials end up in the container environment, so they are visible to anything
-that can run `docker inspect`.
+- Add `SSL Mode=Require` if the instance demands TLS, and
+  `Trust Server Certificate=true` only if it presents a self-signed certificate.
+- **Set `Maximum Pool Size` explicitly.** Npgsql defaults to 100 connections per
+  process, so two replicas can open 200 against a shared instance. This site is
+  low traffic and 10 per pod is generous.
+- `EnableRetryOnFailure` is already on in the app, so transient drops are retried
+  without configuration.
 
-### Mode B, file-based secrets (preferred)
+**Failure behaviour.** If the instance is unreachable the pods do not crash-loop.
+They serve pages, surface the error on `/status`, hold `/healthz/ready` at 503,
+and retry with backoff. They recover with no restart when it returns. Nothing on
+a public page reads the database.
 
-`docker-compose.secrets.yml` mounts each credential as a file under
-`/run/secrets`. The app reads that directory through `AddKeyPerFile` in
-`Program.cs`, so nothing sensitive appears in compose, in `docker inspect`, or in
-the process environment.
+## Pod requirements
 
-Each secret's *filename* is the config key, with `__` for the `:`.
+- Non-root, uid/gid 1654
+- `readOnlyRootFilesystem` is fine, but **/tmp must be writable** (emptyDir).
+  Without it .NET fails to start
+- No service account token needed
+- All capabilities droppable
+- ~50m CPU and 128Mi memory request, 512Mi limit, is comfortable
 
-```bash
-mkdir -p secrets && chmod 700 secrets
-printf '%s' 'Host=db;Port=5432;Database=rmv;Username=rmv;Password=REAL' \
-  > secrets/ConnectionStrings__Postgres
-printf '%s' 'REAL'   > secrets/postgres_password
-printf '%s' 'ID'     > secrets/Discord__ClientId
-printf '%s' 'SECRET' > secrets/Discord__ClientSecret
-chmod 600 secrets/*
+## Health endpoints
 
-docker compose -f docker-compose.yml -f docker-compose.secrets.yml up -d
-```
+| Path | Checks | Use for |
+|---|---|---|
+| `/healthz/live` | the process is serving | liveness, readiness, startup |
+| `/healthz/ready` | also Postgres | alerting only |
 
-The overlay removes the matching environment variables with `!reset null`. A
-bare `KEY:` would not do it: Compose reads that as "inherit from the host
-environment", which is how the Postgres both-are-set error first appeared.
+**Do not gate traffic on `/healthz/ready`.** No public page reads the database, so
+a Postgres outage must not remove pods from the Service or restart them.
 
-`secrets/` is gitignored. `.env` still needs `POSTGRES_DB` and `POSTGRES_USER`
-in this mode; neither is sensitive. Compose warns that `POSTGRES_PASSWORD` is
-unset, which is expected here and harmless.
+Expect `/healthz/ready` to return 503 for a few seconds on first start while
+migrations apply.
 
-Swarm or an external secrets manager: change each `file:` to `external: true`
-and create the secrets out of band. Nothing else changes.
+## Replicas
 
-A trailing newline in a secret file is harmless. Both .NET's KeyPerFile provider
-and the Postgres entrypoint strip trailing whitespace; tested both ways.
+The web deployment scales horizontally. The ASP.NET Data Protection key ring is
+persisted to Postgres, so sign-in cookies validate across pods and survive
+redeploys.
 
-## Cloudflare tunnel
-
-In the Zero Trust dashboard, Networks then Tunnels:
-
-1. Create a tunnel, choose Docker, copy the token into `CLOUDFLARE_TUNNEL_TOKEN`.
-2. Add a public hostname on that tunnel:
-   - Service type `HTTP`
-   - URL `web:8080` (the compose service name, not localhost or an IP)
-3. Leave TLS verification off. The hop from the edge to `web` is inside the
-   compose network; the public side is still HTTPS at the edge.
-
-The token is the tunnel's full credential. Rotate it by deleting the tunnel and
-creating a new one.
-
-`cloudflared` waits on the web container's healthcheck, which is
-`/healthz/ready`, so it will not route traffic to a site that cannot reach
-Postgres yet.
+- Multi-replica sign-in **requires** the database. Without it, keys are
+  per-process and cookies break on every restart and across pods.
+- Never truncate `data_protection_keys`.
 
 ## Discord sign-in
 
-Optional. The site runs without it.
+Optional; the site runs without it. Redirect URI must be exactly
+`https://YOUR-DOMAIN/signin-discord`. Both the client id and secret must be
+non-empty or sign-in stays hidden.
 
-1. https://discord.com/developers/applications, create an application.
-2. OAuth2, add the redirect URI exactly: `https://YOUR-DOMAIN/signin-discord`
-3. Put the client id and secret in `.env` or in secret files.
+## /status
 
-The app runs `UseForwardedHeaders`, because requests arrive from `cloudflared`
-over plain HTTP. Without it ASP.NET Core sees `scheme=http` and the container
-hostname and builds a `redirect_uri` Discord rejects.
-
-`KnownProxies` and `KnownIPNetworks` are deliberately cleared, since
-cloudflared's address inside the Docker network is not stable. That trusts
-`X-Forwarded-*` from anything that can reach the app, which is safe only because
-**the web port is not published**. If you ever publish it, pin the proxy address
-in `Program.cs`.
-
-## Running a prebuilt image
-
-CI publishes to `ghcr.io/<owner>/<repo>` on every push to the default branch.
-
-```bash
-echo 'WEB_IMAGE=ghcr.io/jasonpulse/rmv:latest' >> .env
-docker compose pull web && docker compose up -d web
-```
-
-Without `WEB_IMAGE`, compose builds from source on the box.
-
-## Verifying a deployment
-
-From the host:
-
-```bash
-docker compose ps                      # all three up, db and web healthy
-docker compose logs -f web
-```
-
-`web` publishes no port, so check it from inside the network:
-
-```bash
-docker compose exec web curl -fsS localhost:8080/healthz/ready   # Healthy
-docker compose exec web curl -fsS -o /dev/null -w '%{http_code}\n' localhost:8080/
-```
-
-Then from outside, against the real hostname: `/` returns 200, `/healthz/live`
-returns 200, `/healthz/ready` returns 200 once migrations have applied.
-
-`/status` has the build sha, hostname, boot count and database state, but it
-requires sign-in in Production. Until Discord is wired, use `/healthz/ready` and
-the container logs.
-
-## What to expect on first start
-
-Migrations run in a background service, not during startup, so the site comes up
-immediately and `/healthz/ready` returns 503 until the schema is applied. That is
-normal for the first few seconds.
-
-If Postgres is unreachable, the web container does **not** crash-loop. It serves
-pages, reports the error on `/status`, keeps `/healthz/ready` at 503, and retries
-with backoff. It recovers without a restart when the database returns.
-
-One row is written to `deployments` per boot. That table is the deployment
-history and is safe to truncate.
-
-## Backups
-
-Everything stateful is the `pgdata` volume, which holds `/var/lib/postgresql`.
-
-```bash
-docker compose exec -T db pg_dump -U rmv rmv | gzip > rmv-$(date +%F).sql.gz
-```
-
-Note the volume mounts at `/var/lib/postgresql`, not `/var/lib/postgresql/data`.
-Postgres 18 images place the cluster in a major-version subdirectory so
-`pg_upgrade --link` works across the mount, and mounting the old path makes the
-container refuse to start.
+Build sha, hostname, boot count and database state. Requires sign-in in
+Production and is open in Development, so until Discord is wired use
+`/healthz/ready` and the pod logs.
 
 ## Content
 
-`./content` is mounted read-only into the web container, so a markdown post is a
-file copy on the host rather than a rebuild. Nothing renders it yet; that lands
-with the news section.
+`./content` (markdown) can be mounted read-only at `/app/content`, so a post is a
+file copy rather than a rebuild. Nothing reads it yet; that lands with the news
+section.

@@ -8,9 +8,12 @@ commonLabels:
 
 resources:
   - namespace.yaml
-  - postgres.yaml
   - web.yaml
   - cloudflared.yaml
+
+# No Postgres here: the cluster already has an instance. The app reaches it
+# through the connection string in the rmv-app secret. See docs/deploy.md for
+# what it needs from that instance.
 
 # Secrets are deliberately not here. Create them out of band, or point this at
 # whatever seals them (sealed-secrets, external-secrets, SOPS). See
