@@ -15,7 +15,8 @@ artifacts/
 # macOS
 .DS_Store
 
-# Local secrets. Real values live in dotnet user-secrets or the .env file,
-# never in the repo.
+# Local secrets. Real values live in dotnet user-secrets, the .env file, or
+# ./secrets, never in the repo.
 .env
 appsettings.Local.json
+secrets/

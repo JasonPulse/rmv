@@ -45,19 +45,23 @@ The local overlay binds Postgres to `127.0.0.1:5432` so the host can reach it.
 
 ## Deploying to the homelab
 
+Full runbook with every environment variable in `docs/deploy.md`. The short
+version, credentials in `.env`:
+
 ```bash
 cp .env.example .env          # fill in all of it
 docker compose up -d
 ```
 
-Three containers: `web`, `db`, and `tunnel`. Only `tunnel` talks to the outside
-world, and it does so with outbound connections only, so no inbound firewall
-holes and no published ports. Point the tunnel's public hostname at
-`http://web:8080` in the Cloudflare Zero Trust dashboard.
+Or with credentials as mounted files rather than environment variables:
 
-CI publishes an image to `ghcr.io/<owner>/<repo>` on every push to `main`. To
-run that instead of building on the box, set `WEB_IMAGE` in `.env` and
-`docker compose pull web && docker compose up -d web`.
+```bash
+docker compose -f docker-compose.yml -f docker-compose.secrets.yml up -d
+```
+
+Three containers: `web`, `db`, and `tunnel`. Only `tunnel` talks to the outside
+world, and only outbound, so there are no published ports and no inbound
+firewall holes. Point the tunnel's public hostname at `http://web:8080`.
 
 ## Discord sign-in
 
@@ -89,6 +93,7 @@ src/Rmv.Web/
   wwwroot/css/_slices.css generated, do not hand-edit
 content/                  markdown, mounted read-only in the container
 tools/                    asset slicing and measurement scripts
+docs/deploy.md            homelab runbook, every environment variable
 docs/ui-kit.md            how the theme was built and how to extend it
 docs/logo.md              how the logo and icons are generated
 ```

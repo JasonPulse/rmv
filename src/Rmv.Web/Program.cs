@@ -8,6 +8,21 @@ using Rmv.Web.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ---------------------------------------------------------------------------
+// Secrets mounted as files
+//
+// Docker and Swarm deliver secrets as files under /run/secrets, one per secret,
+// named after the config key with "__" for the separator. So a secret called
+// ConnectionStrings__Postgres becomes ConnectionStrings:Postgres here, with the
+// credential never appearing in `docker inspect`, in compose, or in the
+// environment of the process.
+//
+// Registered last, so a mounted secret wins over the same key set as an
+// environment variable. Optional, so nothing changes when the directory is
+// absent, which is the case in development.
+// ---------------------------------------------------------------------------
+builder.Configuration.AddKeyPerFile("/run/secrets", optional: true, reloadOnChange: false);
+
 builder.Services.AddRazorPages(o =>
 {
     // /status shows build sha, hostname and boot count. Fine for an operator,
