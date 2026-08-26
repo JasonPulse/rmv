@@ -118,6 +118,35 @@ The nav sign-in link was the case that forced it. `.nav a` is more specific than
 off-centre inside the frame. Nav actions are now `.nav__action`, shaped like the
 other nav items.
 
+## Which kit pieces do what
+
+Assets earn their place by being used in the shape they were drawn in. Three do
+real work in the account cluster:
+
+| Asset | Job | Why it fits |
+|---|---|---|
+| `slot-bg` + `slot-frame` | avatar portrait | the kit's own portrait idiom, a stone diamond with a knotted silver frame |
+| `panel-frame-card` | dropdown chrome | corners hold at a 26px border, which is why the menu is chunky rather than compact |
+| `divider-hairline` | rules between rows | drawn as a thin rule, used as a thin rule |
+
+Two notes from getting this wrong first:
+
+`slot-bg` is 210x172 and `slot-frame` is 214x195. **They are different shapes.**
+Overlaying both on the same box skews the frame up and to the left; the element
+has to be sized to the frame with the fill inset separately.
+
+`title-plaque-bg` was tried behind each menu row and abandoned. It is a wide
+tapered bar, and squashed into a 200x33 row it reads as a grey smear behind the
+label. Same failure as the buttons: an asset stretched far from its drawn aspect
+stops looking like the thing it is.
+
+## Nothing in the kit is a UI icon
+
+Its icon set (layers 40 to 61) is abstract Norse glyphs: skulls, targets, radial
+runes, nested triangles. There is no person, gear, or exit icon, so functional
+affordances are text plus the kit's rotated-diamond marker rather than borrowed
+pictograms.
+
 ## Asset inventory
 
 Eight assets ship, 372KB, and every one is referenced by `rmv.css`. Unreferenced

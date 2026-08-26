@@ -1,5 +1,6 @@
 @inject SiteOptions Site
 @inject IConfiguration Config
+@using Rmv.Web.Data
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,29 +33,58 @@
             <small>Since Dark Age of Camelot</small>
         </a>
 
-        <nav aria-label="Main">
-            <ul class="nav">
-                <li><a href="/" aria-current="@Current("/Index")">Hall</a></li>
-                <li><a href="/history" aria-current="@Current("/History")">History</a></li>
-                <li><a href="/tools" aria-current="@Section("/Tools")">Tools</a></li>
-                @if (Site.DiscordEnabled)
-                {
-                    @if (User.Identity?.IsAuthenticated == true)
-                    {
-                        <li><a href="/Account/Profile">@User.Identity!.Name</a></li>
-                        <li>
-                            <form method="post" action="/Account/Logout">
-                                <button class="nav__action" type="submit">Leave</button>
-                            </form>
-                        </li>
-                    }
-                    else
-                    {
-                        <li><a class="nav__action" href="/Account/Login">Sign in</a></li>
-                    }
-                }
-            </ul>
+        @* Page navigation only. Account controls are their own cluster below, so
+           the bar stops being a catch-all. *@
+        <nav class="nav" aria-label="Main">
+            <a href="/" aria-current="@Current("/Index")">Hall</a>
+            <a href="/history" aria-current="@Current("/History")">History</a>
+            <a href="/tools" aria-current="@Section("/Tools")">Tools</a>
         </nav>
+
+        @if (Site.DiscordEnabled)
+        {
+            <div class="account">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    var avatar = DiscordUser.AvatarUrl(User);
+                    <button class="account__toggle" type="button"
+                            aria-haspopup="true" aria-expanded="false"
+                            aria-controls="account-menu" data-account-toggle>
+                        @* The kit's portrait idiom: a stone diamond with a knotted
+                           silver frame, which is what it was drawn for. *@
+                        <span class="portrait">
+                            @if (avatar is not null)
+                            {
+                                <img class="portrait__img" src="@avatar" alt="" width="64" height="64" />
+                            }
+                            else
+                            {
+                                <span class="portrait__initials">@DiscordUser.Initials(User)</span>
+                            }
+                        </span>
+                        <span class="account__name">@DiscordUser.Name(User)</span>
+                        <span class="account__caret" aria-hidden="true"></span>
+                    </button>
+
+                    <div class="menu" id="account-menu" role="menu" hidden data-account-menu>
+                        <a class="menu__item" role="menuitem" href="/Account/Profile">Profile</a>
+                        @if (Site.AdminsConfigured)
+                        {
+                            <a class="menu__item" role="menuitem" href="/admin/history">Edit history</a>
+                            <a class="menu__item" role="menuitem" href="/admin/analytics">Analytics</a>
+                            <a class="menu__item" role="menuitem" href="/status">Status</a>
+                        }
+                        <form method="post" action="/Account/Logout">
+                            <button class="menu__item menu__item--danger" role="menuitem" type="submit">Sign out</button>
+                        </form>
+                    </div>
+                }
+                else
+                {
+                    <a class="account__signin" href="/Account/Login">Sign in</a>
+                }
+            </div>
+        }
     </div>
 </header>
 
@@ -70,6 +100,10 @@
 </footer>
 
 <script src="~/js/htmx.min.js" defer></script>
+@if (Site.DiscordEnabled && User.Identity?.IsAuthenticated == true)
+{
+    <script src="~/js/account-menu.js" asp-append-version="true" defer></script>
+}
 @{
     // Umami, the client-side half of analytics. Renders nothing until both
     // values are configured, so the site loads no third-party script by default.

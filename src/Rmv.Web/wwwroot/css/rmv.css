@@ -209,13 +209,13 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
 
 /* --- Navigation ---------------------------------------------------------- */
 
+/* Page links only. Account controls live in .account, so this bar is navigation
+   rather than a catch-all row of everything clickable. */
 .nav {
   display: flex;
   align-items: center;
   gap: clamp(0.75rem, 2vw, 1.75rem);
-  list-style: none;
-  margin: 0;
-  padding: 0;
+  margin-left: auto;
   font-family: var(--font-display);
 }
 
@@ -232,26 +232,179 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
 .nav a:hover { color: var(--trim-bright); border-bottom-color: var(--accent); }
 .nav a[aria-current="page"] { color: var(--accent-warm); border-bottom-color: var(--accent-warm); }
 
-/* Sign in and Leave. Same shape as the other nav items so the bar reads as one
-   row, distinguished by colour rather than by a box. Not .btn: .nav a is more
-   specific, so .btn's padding lost and the label sat cramped and off-centre. */
-.nav__action {
+/* --- Account cluster ---------------------------------------------------- */
+
+.account { position: relative; flex: none; }
+
+.account__signin {
   display: block;
   padding: 0.35rem 0;
   font: 600 0.98rem/1 var(--font-display);
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--accent-warm);
-  background: none;
-  border: 0;
+  text-decoration: none;
   border-bottom: 1px solid transparent;
+}
+.account__signin:hover { color: var(--gold-bright); border-bottom-color: var(--accent-warm); }
+
+.account__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.5rem 0.3rem 0.3rem;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--ink);
+  font: inherit;
   cursor: pointer;
 }
-.nav__action:hover {
-  color: var(--gold-bright);
-  border-bottom-color: var(--accent-warm);
+.account__toggle:hover,
+.account__toggle[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--stone) 55%, transparent);
+  background: color-mix(in srgb, var(--accent-deep) 22%, transparent);
 }
-.nav form { display: flex; }
+
+.account__name {
+  font: 600 0.9rem/1 var(--font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--trim-bright);
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A kit diamond rather than a chevron, rotated 45deg like the .pill marker. */
+.account__caret {
+  width: 6px;
+  height: 6px;
+  rotate: 45deg;
+  background: var(--accent-warm);
+  transition: rotate 140ms ease;
+}
+.account__toggle[aria-expanded="true"] .account__caret { rotate: 225deg; }
+
+/* --- Portrait ----------------------------------------------------------- */
+
+/* The kit's stone diamond slot with its knotted silver frame.
+   The two assets are different shapes: the fill is 210x172 and the frame is
+   214x195. Sizing the element to the frame and insetting the fill separately is
+   what keeps them concentric; overlaying both at the same box skewed the frame
+   up and to the left. */
+.portrait {
+  position: relative;
+  flex: none;
+  width: 42px;
+  aspect-ratio: 214 / 195;
+  display: grid;
+  place-items: center;
+  background: url("../img/ui/slot-frame.png") center / contain no-repeat;
+}
+.portrait::before {
+  content: "";
+  position: absolute;
+  width: 84%;
+  aspect-ratio: 210 / 172;
+  background: url("../img/ui/slot-bg.png") center / 100% 100% no-repeat;
+}
+/* Both need to sit above the ::before fill: an absolutely positioned
+   pseudo-element paints over in-flow content, which hid the initials entirely. */
+.portrait__img,
+.portrait__initials {
+  position: relative;
+  z-index: 1;
+}
+.portrait__img {
+  width: 74%;
+  height: 74%;
+  object-fit: cover;
+  clip-path: polygon(50% 4%, 96% 50%, 50% 96%, 4% 50%);
+}
+.portrait__initials {
+  font: 700 0.68rem/1 var(--font-display);
+  letter-spacing: 0.04em;
+  color: var(--trim-bright);
+  text-shadow: 0 1px 2px #000;
+}
+
+/* --- Dropdown menu ------------------------------------------------------ */
+
+/* Framed with the kit's trinity-knot panel, not a plain box. The knot needs a
+   real border width to read, which is why the menu is chunky: at 16px the 82px
+   slice compresses past legibility. */
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 20;
+  min-width: 230px;
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  background: var(--panel);
+  border: 26px solid transparent;
+  border-image: url("../img/ui/panel-frame-card.png")
+    var(--slice-panel-frame-card) / 26px / 0 stretch;
+}
+.menu[hidden] { display: none; }
+
+/* Rows are plain, with the kit's hairline rule between them and a diamond
+   marker on hover. The plaque art was tried here and abandoned: it is a wide
+   tapered bar, and squashed into a 200x33 row it reads as a grey smear behind
+   the label rather than as a plaque. Same lesson as the buttons. */
+.menu__item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.52rem 0.7rem;
+  font: 600 0.82rem/1.4 var(--font-display);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+.menu__item::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  rotate: 45deg;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--stone) 60%, transparent);
+  transition: background 120ms ease;
+}
+.menu__item + .menu__item,
+.menu form { border-top: 1px solid color-mix(in srgb, var(--stone) 22%, transparent); }
+.menu__item:hover,
+.menu__item:focus-visible {
+  color: var(--accent-warm);
+  background: color-mix(in srgb, var(--accent-deep) 30%, transparent);
+  outline: none;
+}
+.menu__item:hover::before,
+.menu__item:focus-visible::before {
+  background: var(--accent-warm);
+  border-color: var(--accent-warm);
+}
+.menu__item--danger:hover,
+.menu__item--danger:focus-visible { color: #d4736a; }
+.menu__item--danger:hover::before,
+.menu__item--danger:focus-visible::before { background: #d4736a; border-color: #d4736a; }
+.menu form { display: block; }
+
+@media (max-width: 720px) {
+  .nav { margin-left: 0; order: 3; width: 100%; }
+  .account { order: 2; margin-left: auto; }
+  .account__name { display: none; }
+  .menu { min-width: 200px; }
+}
 
 /* --- Hero ---------------------------------------------------------------- */
 

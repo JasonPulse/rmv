@@ -37,6 +37,11 @@ MANIFEST=(
   337:divider-ornate:1200        # rule between sections
   491:pattern-lattice:400        # hero backdrop, fades downward, repeat-x only
   397:pattern-knotwork:700       # footer band, same
+
+  # The kit's portrait idiom: a stone diamond with a knotted silver frame. Used
+  # for the signed-in avatar, which is the thing it was drawn for.
+  903:slot-bg:210
+  952:slot-frame:214
 )
 
 # --- Sliced previously, not currently referenced -----------------------------
@@ -62,9 +67,8 @@ MANIFEST=(
 #                                both keeps it and avoids stretching the leftover
 #                                down the edges. Drawn in CSS: see .panel--inset.
 #   381:divider-wide:1400        redundant next to divider-ornate.
-#   903:slot-bg:210              } the diamond slot motif; the masthead uses the
-#   952:slot-frame:214          } guild logo mark instead.
-#   904:slot-frame-notched:218   }
+#   904:slot-frame-notched:218   an alternative diamond frame, notched at the
+#                                bottom rather than knotted at the corner.
 #   420:crest-skull:260          the kit's own emblem, replaced by the real logo.
 
 log() { printf '\033[36m==>\033[0m %s\n' "$*"; }

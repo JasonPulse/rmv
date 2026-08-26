@@ -133,6 +133,21 @@ if (discordEnabled)
         o.Scope.Clear();
         o.Scope.Add("identify");
         o.SaveTokens = false; // Nothing calls the Discord API on the member's behalf yet.
+
+        // The avatar hash, taken straight off the OAuth payload. Doing it here
+        // rather than through a claim-mapping helper keeps the null handling
+        // explicit and avoids depending on which namespace that helper lives in.
+        o.Events.OnCreatingTicket = context =>
+        {
+            if (context.User.TryGetProperty("avatar", out var avatar)
+                && avatar.ValueKind == System.Text.Json.JsonValueKind.String
+                && avatar.GetString() is { Length: > 0 } hash)
+            {
+                context.Identity?.AddClaim(new Claim(DiscordUser.AvatarClaim, hash));
+            }
+
+            return Task.CompletedTask;
+        };
     });
 }
 
