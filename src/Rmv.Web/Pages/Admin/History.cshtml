@@ -22,6 +22,9 @@
             <p class="panel__title">Add or edit</p>
 
             <form method="post" asp-page-handler="Save" class="stack" style="--stack-gap:1rem">
+                @* Without this a failed save is silent: the per-field messages sit
+                   beside fields the operator is not looking at. *@
+                <div asp-validation-summary="All" class="notice validation-summary"></div>
                 <input type="hidden" asp-for="Input.Id" />
 
                 <div class="field">
@@ -62,6 +65,7 @@
             <p class="panel__title">Links</p>
 
             <form method="post" asp-page-handler="SaveLink" class="stack" style="--stack-gap:1rem">
+                <div asp-validation-summary="All" class="notice validation-summary"></div>
                 <input type="hidden" asp-for="LinkInput.Id" />
 
                 <div class="field">

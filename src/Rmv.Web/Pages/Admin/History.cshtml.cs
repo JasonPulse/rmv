@@ -67,8 +67,30 @@ public class HistoryModel(RmvDbContext db) : PageModel
 
     public async Task OnGetAsync(CancellationToken ct) => await LoadAsync(ct);
 
+    /// <summary>
+    /// Discards validation state for every bound model except the one whose form
+    /// was actually posted.
+    ///
+    /// Two forms post to this page and each binds its own model. A post from the
+    /// games form carries no LinkInput fields, so LinkInput's [Required]
+    /// properties fail and ModelState.IsValid is false for a handler that has no
+    /// interest in them. The save then bailed to Page() and looked like nothing
+    /// had happened, because the messages rendered beside the link fields.
+    /// </summary>
+    private void ValidateOnly(string prefix)
+    {
+        foreach (var key in ModelState.Keys
+                     .Where(k => !k.StartsWith(prefix + ".", StringComparison.Ordinal))
+                     .ToList())
+        {
+            ModelState.Remove(key);
+        }
+    }
+
     public async Task<IActionResult> OnPostSaveLinkAsync(CancellationToken ct)
     {
+        ValidateOnly(nameof(LinkInput));
+
         // The scheme allowlist, not just a length check. See ExternalUrl.
         if (!ExternalUrl.TryParse(LinkInput.Url, out var url))
         {
@@ -130,6 +152,8 @@ public class HistoryModel(RmvDbContext db) : PageModel
 
     public async Task<IActionResult> OnPostSaveAsync(CancellationToken ct)
     {
+        ValidateOnly(nameof(Input));
+
         if (!ModelState.IsValid)
         {
             await LoadAsync(ct);

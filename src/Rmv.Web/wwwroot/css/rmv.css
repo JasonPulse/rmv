@@ -919,6 +919,11 @@ textarea.input {
 
 /* --- Admin -------------------------------------------------------------- */
 
+/* Rendered by asp-validation-summary, which always emits the element. Only show
+   it when it actually has messages. */
+.validation-summary:not(.validation-summary-errors) { display: none; }
+.validation-summary ul { margin: 0; padding-left: 1.1rem; }
+
 .notice--ok {
   background: color-mix(in srgb, var(--teal) 14%, transparent);
   border-left-color: var(--teal);
