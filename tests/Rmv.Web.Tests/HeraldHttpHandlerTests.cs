@@ -11,10 +11,11 @@ namespace Rmv.Web.Tests;
 /// </summary>
 public class HeraldHttpHandlerTests
 {
-    private static HttpClient Client() => new(HeraldHttpHandler.Create())
-    {
-        Timeout = TimeSpan.FromSeconds(10),
-    };
+    private static HttpClient Client(params string[] allowedPrivateHosts) =>
+        new(HeraldHttpHandler.Create(allowedPrivateHosts))
+        {
+            Timeout = TimeSpan.FromSeconds(10),
+        };
 
     [Theory]
     [InlineData("http://127.0.0.1/")]
@@ -63,6 +64,64 @@ public class HeraldHttpHandlerTests
             () => client.GetAsync("http://localhost:1/"));
 
         Assert.Contains("Refusing to connect", Flatten(ex));
+    }
+
+    // --- the operator allowlist, which exists because a real herald is internal --
+
+    [Fact]
+    public async Task An_allowlisted_host_may_resolve_to_a_private_address()
+    {
+        // The FFXI herald resolves to 172.25.75.70, an RFC1918 address, so
+        // without this it would be refused. Proven against a real listener so
+        // the test distinguishes "connected" from "failed differently".
+        using var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+        listener.Listen(1);
+        var port = ((IPEndPoint)listener.LocalEndPoint!).Port;
+
+        using var client = Client("localhost");
+
+        // Nothing speaks HTTP on the other end, so the request fails, but it must
+        // not fail with our refusal: the connection has to have been attempted.
+        var ex = await Record.ExceptionAsync(() => client.GetAsync($"http://localhost:{port}/"));
+
+        Assert.NotNull(ex);
+        Assert.DoesNotContain("Refusing to connect", Flatten(ex!));
+    }
+
+    [Fact]
+    public async Task The_allowlist_is_matched_by_host_not_by_substring()
+    {
+        // "localhost" being allowed must not also allow "notlocalhost" or a
+        // hostname that merely contains it.
+        using var client = Client("localhost");
+
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(
+            () => client.GetAsync("http://127.0.0.1/"));
+
+        Assert.Contains("Refusing to connect", Flatten(ex));
+    }
+
+    [Fact]
+    public async Task An_empty_allowlist_refuses_everything_private()
+    {
+        using var client = Client();
+
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(
+            () => client.GetAsync("http://localhost:1/"));
+
+        Assert.Contains("Refusing to connect", Flatten(ex));
+    }
+
+    [Theory]
+    [InlineData("a.example, b.example", new[] { "a.example", "b.example" })]
+    [InlineData("A.EXAMPLE", new[] { "a.example" })]
+    [InlineData("a.example a.example", new[] { "a.example" })]
+    [InlineData(null, new string[0])]
+    [InlineData("", new string[0])]
+    public void Parses_the_configured_allowlist(string? configured, string[] expected)
+    {
+        Assert.Equal(expected, HeraldHttpHandler.ParseAllowedPrivateHosts(configured));
     }
 
     private static string Flatten(Exception ex)

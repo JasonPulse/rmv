@@ -2,10 +2,17 @@ using System.Text;
 
 namespace Rmv.Web.Herald;
 
-public sealed record FetchResult(bool Ok, string? Body, string? Error)
+public sealed record FetchResult(bool Ok, string? Body, string? Error, int? StatusCode = null)
 {
-    public static FetchResult Fail(string error) => new(false, null, error);
-    public static FetchResult Success(string body) => new(true, body, null);
+    public static FetchResult Fail(string error, int? status = null) => new(false, null, error, status);
+    public static FetchResult Success(string body) => new(true, body, null, 200);
+
+    /// <summary>
+    /// Both heralds answer 404 for a name they do not know, so an adapter can turn
+    /// this into "no such character" instead of leaking a status code at someone
+    /// who simply mistyped.
+    /// </summary>
+    public bool NotFound => StatusCode == 404;
 }
 
 /// <summary>
@@ -31,7 +38,8 @@ public sealed class HeraldFetcher(HttpClient client, ILogger<HeraldFetcher> log)
 
             if (!response.IsSuccessStatusCode)
             {
-                return FetchResult.Fail($"Herald returned {(int)response.StatusCode}.");
+                return FetchResult.Fail(
+                    $"Herald returned {(int)response.StatusCode}.", (int)response.StatusCode);
             }
 
             // Declared length is a hint, not a promise, so the read below is

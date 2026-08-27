@@ -35,8 +35,11 @@ jobs:
       - name: Build
         run: dotnet build --no-restore -c Release
 
+      # Network tests hit the real heralds, one of which is internal to the
+      # homelab and unreachable from a runner. Run them locally with
+      # --filter Category=Network.
       - name: Test
-        run: dotnet test --no-build -c Release --verbosity normal
+        run: dotnet test --no-build -c Release --verbosity normal --filter "Category!=Network"
 
   image:
     name: publish image

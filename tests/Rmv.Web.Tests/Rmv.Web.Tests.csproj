@@ -22,4 +22,10 @@
     <ProjectReference Include="..\..\src\Rmv.Web\Rmv.Web.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Real pages saved from the live heralds. The parser is verified against
+         actual markup rather than something I hand-wrote to match the code. -->
+    <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

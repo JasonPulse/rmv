@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width  initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="/assets/favicon.ico">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/style.css?v=1787736852" as="style">
+  <link rel="stylesheet" href="/assets/style.css?v=1787736852">
+    <title>Enchantress - Player Overview</title>
+</head>
+<body>
+  
+    <div class="headerContentWrapper">
+    <div id="header" class="headerBg w-full flex justify-center items-center">
+        <a class="bannert" href="https://blackthorn-daoc.com">
+          <img src="/assets/images/bannert.png" alt="Blackthorn" class="h-9 w-auto">
+        </a>
+        <div class="menuDivider"></div>
+        <input type="checkbox" id="menu-toggle" class="menu-toggle" />
+        <label for="menu-toggle" class="hamburger">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line class="line top" x1="4" x2="20" y1="6" y2="6"></line>
+            <line class="line middle" x1="4" x2="20" y1="12" y2="12"></line>
+            <line class="line bottom" x1="4" x2="20" y1="18" y2="18"></line>
+          </svg>
+        </label>
+          <nav class="menu flex items-center">
+                        <a class="menuLink" href="https://blackthorn-daoc.com/overview">Server Overview</a>
+            <a class="menuLink" href="https://blackthorn-daoc.com/wiki">Wiki</a>
+            <a class="menuLink" href="https://blackthorn-daoc.com/class">Classes</a>
+            <a class="menuLink" href="https://blackthorn-daoc.com/guilds">Guilds</a>
+            <a class="menuLink" href="https://blackthorn-daoc.com/community">Community</a>
+            <a class="menuLink" href="https://herald.blackthorn-daoc.com/">Herald</a>
+            <a class="menuLink" href="https://blackthorn-daoc.com/rules">Rules</a>
+            <a class="menuLink" href="https://blackthorn-daoc.com/account">Account</a>
+            <a target="_blank" rel="noreferrer" class="discord" aria-label="Discord" href="https://discord.gg/sFmA5zqHZ4">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.043.033.056a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"></path>
+              </svg>
+              <p>Discord</p>
+            </a>
+            <a class="titleButton" href="https://blackthorn-daoc.com/download">Play Free</a>
+          </nav>
+    </div>
+  </div>  <div id="main">
+    <div id="content" class="contentWrapper flex w-full flex-row ">
+      <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle" />
+<label for="sidebar-toggle" class="sidebar-hamburger" aria-label="Toggle sidebar">|||</label>
+<div id="options" class="sidebarWarpper flex flex-col justify-start sidebar" >
+  <div class="pageTitle"><a href="/">Blackthorn Herald</a></div>
+
+          
+    <form method="get" action="/stats/search" class="subMenuItem hover-yellow">
+    <input type="text" class="subMenuHeader" name="q" placeholder="Search" required>
+  </form>
+
+      <details class="subMenuItem" open="">
+    <summary class="subMenuHeader selection hover-yellow">
+      <div>RvR</div>
+          </summary>
+    <div class="accordion-content">
+      <div class="accordion-link ">
+        <a class="hover-yellow" href="/keeps">Keeps</a>
+      </div>
+          </div>
+  </details>
+  
+    <details class="subMenuItem" open="">
+    <summary class="subMenuHeader selection hover-yellow">
+      <div>Realms</div>
+          </summary>
+    <div class="accordion-content">
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/realms/population">Population</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/realms/level50">Level 50s</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/realms/classrepartition">Class Repartition</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/realms/kills">Kills</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/realms/captures">Captures</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/realms/hardcore">Hardcore</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/realms/realmpoints">Realm Points</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/realms/loyalty">Realm Loyalty</a>
+        </div>
+            <div class="accordion-link ">
+        <a class="hover-yellow" href="/racer">Race to 50</a>
+    </div>
+    </div>
+  </details>
+
+    <details class="subMenuItem" open="">
+    <summary class="subMenuHeader selection hover-yellow">
+      <div>Guilds</div>
+          </summary>
+    <div class="accordion-content">
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/guilds/bountypoints/all">Bounty Points</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/guilds/capturedkeeps/all">Captured Keeps</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/guilds/capturedrelics/all">Captured Relics</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/guilds/characters/all">Characters</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/guilds/deaths/all">Deaths</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/guilds/meritpoints/all">Merit Points</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/guilds/realmpoints/all">Realm Points</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/guilds/totaldeathblows/all">Total Death Blows</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/guilds/totalkills/all">Total Kills</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/guilds/totalkillsdragon/all">Total Kills Dragon</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/guilds/totalsolokills/all">Total Solo Kills</a>
+        </div>
+          </div>
+  </details>
+
+    <details class="subMenuItem" open="">
+    <summary class="subMenuHeader selection hover-yellow">
+      <div>Players</div>
+              <div class="yellow"></div>
+          </summary>
+    <div class="accordion-content">
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/albiondeathblows/all/all">Albion Death Blows</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/albionkills/all/all">Albion Kills</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/albionsolokills/all/all">Albion Solo Kills</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/capturedkeeps/all/all">Captured Keeps</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/capturedrelics/all/all">Captured Relics</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/deaths/all/all">Deaths</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/hardcore/all/all">Hardcore</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/hiberniadeathblows/all/all">Hibernia Death Blows</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/hiberniakills/all/all">Hibernia Kills</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/hiberniasolokills/all/all">Hibernia Solo Kills</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/killdeathratio/all/all">K/D Ratio</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/midgarddeathblows/all/all">Midgard Death Blows</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/midgardkills/all/all">Midgard Kills</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/midgardsolokills/all/all">Midgard Solo Kills</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/realmpoints/all/all">Realm Points</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/totaldeathblows/all/all">Total Death Blows</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/totalkills/all/all">Total Kills</a>
+        </div>
+              <div class="accordion-link ">
+          <a class="hover-yellow" href="/stats/players/totalsolokills/all/all">Total Solo Kills</a>
+        </div>
+          </div>
+  </details>
+
+</div>
+      <div id="mainWrap" class="flex flex-col w-full">
+        
+          <div class="pageTitle">Player</div>
+  <div id="heraldTable" class="player text-accent flex justify-center">
+  <div class="w-side">
+    <table id="playerTable" class="w-full marginLB">
+      <tr><th class="Name centerT">Name</th></tr>
+      <tr class="large Hibernia">
+        <td class="Name Lcell player">Enchantress AutoHotKey</td>
+      </tr>
+    </table>
+
+    <table id="playerTable2" class="w-full marginLB">
+      <tr>
+        <th class="PlayedTime centerT">Last Online</th>
+      </tr>
+      <tr class="row-background Hibernia">
+        <td class="PlayedTime centerT">Recently</td>
+      </tr>
+    </table>
+                    <table id="playerTable3" class="w-full marginLB">
+      <tr><th class="guildName centerT">Guild</th></tr>
+      <tr class="large Hibernia">
+        <td class="Name centerT Lcell">
+          <a class="hover-yellow" href="/stats/guild/MSF">MSF</a>
+        </td>
+      </tr>
+    </table>
+    
+      <div id="emblemTable" class="w-full flex justify-center marginLB">
+    <svg class="emblemSvg w-50" style="" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 150 225">
+            
+            <polygon points="75,0 0,0 0,81.4 0,166.6 75,225 150,166.6 150,81.4 150,0" fill="#9a9a9a"/>
+        <polygon points="75 171 0 81.4 0 109.7 75 199.3 150 109.7 150 81.4 75 171" fill="#8f7200"/>
+                <image style="mix-blend-mode: multiply;" x="50%" y="35%" height="100" width="100" transform="translate(-50,-50)" href="/assets/emblems/h_emblem_025.png"></image>
+    </svg>
+  </div>
+          
+    <table id="playerGroupFightsTable" class="w-full marginLB">
+      <tr><th colspan="2" class="centerT">Fair Group Fights</th></tr>
+      <tr class="row-background Hibernia">
+        <td class="Lcell">Total Fights</td>
+        <td class="centerT w-25">68</td>
+      </tr>
+      <tr class="row-background Hibernia">
+        <td class="Lcell">Wins</td>
+        <td class="centerT w-25 green">47</td>
+      </tr>
+      <tr class="row-background Hibernia">
+        <td class="Lcell">Losses</td>
+        <td class="centerT w-25 red">20</td>
+      </tr>
+      <tr class="row-background Hibernia">
+        <td class="Lcell">Draws / Wipes</td>
+        <td class="centerT w-25">1</td>
+      </tr>
+      <tr class="row-background Hibernia">
+        <td class="Lcell">Win Rate</td>
+        <td class="centerT w-25">
+                            69.1%
+                    </td>
+      </tr>
+    </table>
+    
+    <div class="w-full marginLB centerT" style="margin-top: 10px;">
+      <a href="/stats/player/Enchantress/xphistory" class="titleButton" style="display: block; text-align: center;">View XP History</a>
+    </div>
+  </div>
+
+  <div class="w-main">
+    <div class="flex playerLvlContainer">
+
+    
+    <table class="w-25 marginLB playerLvl">
+      <tr>
+        <th class="Level centerT">LVL</th>
+        <th class="RR centerT">RR</th>
+      </tr>
+      <tr class="large Hibernia">
+        <td class="Level Lcell level centerT">50</td>
+        <td class="RR Lcell level centerT">8L0</td>
+      </tr>
+    </table>
+
+    <table class="w-75 marginLB">
+      <tr>
+        <th class="className"></th>
+        <th class="className centerT">Realm</th>
+        <th class="realmName"></th>
+        <th class="realmName centerT">Class</th>
+        <th class="Race"></th>
+        <th class="Race centerT">Race</th>
+      </tr>
+      <tr class="large row-background Hibernia">
+        <td class="realmName Lcell centerT realm">
+          <img src="/assets/realm/Hibernia.png">
+        </td>
+        <td class="realmName centerT hover-yellow">
+          <a href="/stats/players/realmpoints/Hibernia/all">Hibernia</a>
+        </td>
+        <td class="className Lcell icon">
+          <img src="/assets/class/Champion_class_icon.webp">  
+        </td>
+        <td class="className centerT hover-yellow">
+                    <a href="/stats/players/realmpoints/all/Champion">Champion</a>
+                  </td>
+        <td class="icon Lcell race"><img src="/assets/race/Elf_race_icon.webp"></td>
+        <td class="Race centerT">Elf</td>
+      </tr>
+    </table>
+    </div>
+
+    <table id="playerStatsTable" class="w-full marginLB">
+      <tr>
+        <th class="tableStat Lcell">Rank</th>
+                <th>This Week</th>
+                <th>Last Week</th>
+                <th>This Month</th>
+                <th>Last Month</th>
+                <th>All Time</th>
+      </tr>
+                  <tr class="row-background Hibernia">
+        <td>Server (RPs)</td>
+                              <td>-</td>
+                                                    <td>9815</td>
+                                                    <td>-</td>
+                                                    <td>536</td>
+                                      <td >1</td>
+      </tr>
+            <tr class="row-background Hibernia">
+        <td>Realm (RPs)</td>
+                              <td>-</td>
+                                                    <td>2931</td>
+                                                    <td>-</td>
+                                                    <td>166</td>
+                                      <td >1</td>
+      </tr>
+            <tr class="row-background Hibernia">
+        <td>Class (RPs)</td>
+                              <td>-</td>
+                                                    <td>160</td>
+                                                    <td>-</td>
+                                                    <td>7</td>
+                                      <td >1</td>
+      </tr>
+            <tr class="row-background Hibernia">
+        <td>Server (Deaths)</td>
+                              <td>-</td>
+                                        <td>13408</td>
+                                        <td>-</td>
+                                        <td>2325</td>
+                          <td>2</td>
+      </tr>
+            <tr class="row-background Hibernia">
+        <td>Guild</td>
+        <td colspan="4" class="centerT">-</td>
+        <td>1</td>
+      </tr>
+                </table>
+
+    <table id="playerKillsTable" class="w-full marginLB">
+      <tr>
+        <th class="tableStat Lcell">Stat</th>
+                <th>This Week</th>
+                <th>Last Week</th>
+                <th>This Month</th>
+                <th>Last Month</th>
+                <th>All Time</th>
+      </tr>
+      
+                                      
+                  <tr class="row-background Hibernia">
+            <td>RealmPoints</td>
+                                                            
+                                                                    
+                                  <td>1,230</td>
+                                                                            
+                                                                    
+                                  <td>11,792</td>
+                                                                            
+                                                                    
+                                  <td>15,529</td>
+                                                                            
+                                                                    
+                                  <td>96,555</td>
+                                                      <td>2,823,660</td>
+                      </tr>
+                                              
+                  <tr class="row-background Hibernia">
+            <td>Kills</td>
+                                                            
+                                                                    
+                                  <td>1</td>
+                                                                            
+                                                                    
+                                  <td>21</td>
+                                                                            
+                                                                    
+                                  <td>26</td>
+                                                                            
+                                                                    
+                                  <td>285</td>
+                                                      <td>6698</td>
+                      </tr>
+                                              
+                  <tr class="row-background Hibernia">
+            <td>Deaths</td>
+                                                            
+                                                                    
+                                  <td>2</td>
+                                                                            
+                                                                    
+                                  <td>1</td>
+                                                                            
+                                                                    
+                                  <td>9</td>
+                                                                            
+                                                                    
+                                  <td>74</td>
+                                                      <td>2,295</td>
+                      </tr>
+                                              
+                  <tr class="row-background Hibernia">
+            <td>K/D Ratio</td>
+                                                            
+                                                                    
+                                  <td>0.50</td>
+                                                                            
+                                                                    
+                                  <td>21.00</td>
+                                                                            
+                                                                    
+                                  <td>2.89</td>
+                                                                            
+                                                                    
+                                  <td>3.85</td>
+                                                      <td>2.92</td>
+                      </tr>
+                                              
+                  <tr class="row-background Hibernia">
+            <td>Albion Kills</td>
+                                                            
+                                                                    
+                                  <td>1</td>
+                                                                            
+                                                                    
+                                  <td>15</td>
+                                                                            
+                                                                    
+                                  <td>20</td>
+                                                                            
+                                                                    
+                                  <td>108</td>
+                                                      <td>2761</td>
+                      </tr>
+                                              
+                  <tr class="row-background Hibernia">
+            <td>Midgard Kills</td>
+                                                            
+                                                                    
+                                  <td>0</td>
+                                                                            
+                                                                    
+                                  <td>6</td>
+                                                                            
+                                                                    
+                                  <td>6</td>
+                                                                            
+                                                                    
+                                  <td>177</td>
+                                                      <td>3937</td>
+                      </tr>
+                                                                  
+                                              
+                  <tr class="row-background Hibernia">
+            <td>Solo</td>
+                                                            
+                                                                    
+                                  <td>1</td>
+                                                                            
+                                                                    
+                                  <td>2</td>
+                                                                            
+                                                                    
+                                  <td>7</td>
+                                                                            
+                                                                    
+                                  <td>17</td>
+                                                      <td>1217</td>
+                      </tr>
+                                              
+                  <tr class="row-background Hibernia">
+            <td>Albion Solo Kills</td>
+                                                            
+                                                                    
+                                  <td>1</td>
+                                                                            
+                                                                    
+                                  <td>1</td>
+                                                                            
+                                                                    
+                                  <td>6</td>
+                                                                            
+                                                                    
+                                  <td>7</td>
+                                                      <td>663</td>
+                      </tr>
+                                              
+                  <tr class="row-background Hibernia">
+            <td>Midgard Solo Kills</td>
+                                                            
+                                                                    
+                                  <td>0</td>
+                                                                            
+                                                                    
+                                  <td>1</td>
+                                                                            
+                                                                    
+                                  <td>1</td>
+                                                                            
+                                                                    
+                                  <td>10</td>
+                                                      <td>554</td>
+                      </tr>
+                                                                  
+                                              
+                  <tr class="row-background Hibernia">
+            <td>DB</td>
+                                                            
+                                                                    
+                                  <td>1</td>
+                                                                            
+                                                                    
+                                  <td>14</td>
+                                                                            
+                                                                    
+                                  <td>19</td>
+                                                                            
+                                                                    
+                                  <td>102</td>
+                                                      <td>2599</td>
+                      </tr>
+                                              
+                  <tr class="row-background Hibernia">
+            <td>Albion Death Blows</td>
+                                                            
+                                                                    
+                                  <td>1</td>
+                                                                            
+                                                                    
+                                  <td>9</td>
+                                                                            
+                                                                    
+                                  <td>14</td>
+                                                                            
+                                                                    
+                                  <td>48</td>
+                                                      <td>1263</td>
+                      </tr>
+                                              
+                  <tr class="row-background Hibernia">
+            <td>Midgard Death Blows</td>
+                                                            
+                                                                    
+                                  <td>0</td>
+                                                                            
+                                                                    
+                                  <td>5</td>
+                                                                            
+                                                                    
+                                  <td>5</td>
+                                                                            
+                                                                    
+                                  <td>54</td>
+                                                      <td>1336</td>
+                      </tr>
+                                                                  
+                                              
+                  <tr class="row-background Hibernia">
+            <td>Keeps</td>
+                                                            
+                                                                    
+                                  <td>0</td>
+                                                                            
+                                                                    
+                                  <td>0</td>
+                                                                            
+                                                                    
+                                  <td>0</td>
+                                                                            
+                                                                    
+                                  <td>1</td>
+                                                      <td>62</td>
+                      </tr>
+                                              
+                  <tr class="row-background Hibernia">
+            <td>Relics</td>
+                                                            
+                                                                    
+                                  <td>0</td>
+                                                                            
+                                                                    
+                                  <td>0</td>
+                                                                            
+                                                                    
+                                  <td>0</td>
+                                                                            
+                                                                    
+                                  <td>0</td>
+                                                      <td>7</td>
+                      </tr>
+                  </table>
+
+    <div class="marginLB">
+      <div class="chartWrapper history">
+        <canvas id="rpHistoryChart"></canvas>
+        <div id="rpHistoryPlaceholder"></div>
+      </div>
+    </div>
+
+    <script src="/assets/js/chart.js?v=1787736852"></script>
+    <script src="/assets/js/rp-history.js?v=1787736852"></script>
+    <script id="playerHistoryData" type="application/json">
+      {"RealmPoints":{"labels":["2026-07-28","2026-07-29","2026-07-30","2026-08-12","2026-08-18","2026-08-19","2026-08-24","2026-08-27"],"data":[2807465,2807465,2808131,2810638,2819709,2822430,2823660,2823660]},"Kills":{"labels":["2026-07-28","2026-07-29","2026-07-30","2026-08-12","2026-08-18","2026-08-19","2026-08-24","2026-08-27"],"data":[6671,6671,6672,6676,6689,6697,6698,6698]},"Deaths":{"labels":["2026-07-28","2026-07-29","2026-07-30","2026-08-12","2026-08-18","2026-08-24","2026-08-27"],"data":[2285,2285,2286,2292,2293,2295,2295]},"Albion Kills":{"labels":["2026-07-28","2026-07-29","2026-07-30","2026-08-12","2026-08-18","2026-08-19","2026-08-24","2026-08-27"],"data":[2740,2740,2741,2745,2752,2760,2761,2761]},"Midgard Kills":{"labels":["2026-07-28","2026-07-29","2026-08-18","2026-08-27"],"data":[3931,3931,3937,3937]},"Solo":{"labels":["2026-07-28","2026-07-29","2026-08-12","2026-08-18","2026-08-24","2026-08-27"],"data":[1210,1210,1214,1216,1217,1217]},"Albion Solo Kills":{"labels":["2026-07-28","2026-07-29","2026-08-12","2026-08-18","2026-08-24","2026-08-27"],"data":[657,657,661,662,663,663]},"Midgard Solo Kills":{"labels":["2026-07-28","2026-08-18","2026-08-27"],"data":[554,554,554]},"DB":{"labels":["2026-07-28","2026-07-29","2026-07-30","2026-08-12","2026-08-18","2026-08-19","2026-08-24","2026-08-27"],"data":[2579,2579,2580,2584,2596,2598,2599,2599]},"Albion Death Blows":{"labels":["2026-07-28","2026-07-29","2026-07-30","2026-08-12","2026-08-18","2026-08-19","2026-08-24","2026-08-27"],"data":[1248,1248,1249,1253,1260,1262,1263,1263]},"Midgard Death Blows":{"labels":["2026-07-28","2026-07-29","2026-08-18","2026-08-27"],"data":[1331,1331,1336,1336]},"Keeps":{"labels":["2026-07-28","2026-08-27"],"data":[62,62]},"Relics":{"labels":["2026-07-28","2026-08-27"],"data":[7,7]}}
+    </script>
+
+  </div>
+</div>
+      </div>
+    </div>
+  </div>
+    <div id="footer">
+	  <p class="text-accent">Blackthorn beta 2026</p>
+  </div>    <script src="/assets/js/websocket.js?v=1787736852"></script>
+  <script src="/assets/js/websocket-client.js?v=1787736852"></script>
+</body>
+</html>

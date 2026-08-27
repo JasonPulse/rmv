@@ -186,7 +186,12 @@ builder.Services.AddHttpClient<HeraldFetcher>(http =>
         "RMV-herald/1.0 (+https://resultsmayvary.org)");
     http.DefaultRequestHeaders.Accept.ParseAdd("text/html, application/xhtml+xml");
 })
-.ConfigurePrimaryHttpMessageHandler(HeraldHttpHandler.Create);
+.ConfigurePrimaryHttpMessageHandler(() => HeraldHttpHandler.Create(
+    // Operator-level, not admin-level: a web admin can point a game at any
+    // public herald, but only whoever controls the deployment can permit an
+    // internal address. The FFXI herald is internal, so it needs listing here.
+    HeraldHttpHandler.ParseAllowedPrivateHosts(
+        builder.Configuration["Herald:AllowedPrivateHosts"])));
 // ---------------------------------------------------------------------------
 // Rate limiting
 //
