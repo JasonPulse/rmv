@@ -18,7 +18,7 @@ public sealed class BlackthornHeraldAdapter(HeraldFetcher fetcher) : IHeraldAdap
 
     public string DisplayName => "Blackthorn DAoC";
 
-    public string BaseUrlHint => "https://herald.blackthorn-daoc.com";
+    public string DefaultBaseUrl => "https://herald.blackthorn-daoc.com";
 
     public async Task<HeraldResult> FetchCharacterAsync(
         string baseUrl, string characterName, CancellationToken ct)

@@ -31,7 +31,7 @@ public sealed class CharacterService(
         }
 
         var adapter = registry.Find(game.HeraldAdapterKey);
-        if (adapter is null || string.IsNullOrWhiteSpace(game.HeraldBaseUrl))
+        if (adapter is null)
         {
             return AddOutcome.Fail($"{game.Game} has no herald configured yet. An admin has to set one.");
         }
@@ -59,7 +59,7 @@ public sealed class CharacterService(
                     + "If that is wrong, ask an admin.");
         }
 
-        var result = await adapter.FetchCharacterAsync(game.HeraldBaseUrl!, name, ct);
+        var result = await adapter.FetchCharacterAsync(BaseUrlFor(game, adapter), name, ct);
         if (!result.Ok || result.Character is null)
         {
             return AddOutcome.Fail(result.Error ?? "The herald did not recognise that name.");
@@ -99,13 +99,13 @@ public sealed class CharacterService(
                    ?? await db.GamePresences.FirstOrDefaultAsync(g => g.Id == character.GamePresenceId, ct);
 
         var adapter = registry.Find(game?.HeraldAdapterKey);
-        if (adapter is null || game is null || string.IsNullOrWhiteSpace(game.HeraldBaseUrl))
+        if (adapter is null || game is null)
         {
             character.LastError = "No herald configured for this game.";
             return false;
         }
 
-        var result = await adapter.FetchCharacterAsync(game.HeraldBaseUrl!, character.Name, ct);
+        var result = await adapter.FetchCharacterAsync(BaseUrlFor(game, adapter), character.Name, ct);
         character.LastFetchedAt = DateTimeOffset.UtcNow;
 
         if (!result.Ok || result.Character is null)
@@ -119,6 +119,13 @@ public sealed class CharacterService(
         Apply(character, result.Character);
         return true;
     }
+
+    /// <summary>
+    /// The adapter's own address unless a game overrides it. The override exists
+    /// for a server moving domain, not as a thing to fill in.
+    /// </summary>
+    private static string BaseUrlFor(GamePresence game, IHeraldAdapter adapter) =>
+        string.IsNullOrWhiteSpace(game.HeraldBaseUrl) ? adapter.DefaultBaseUrl : game.HeraldBaseUrl!;
 
     private static void Apply(Character target, HeraldCharacter source)
     {

@@ -19,7 +19,7 @@ namespace Rmv.Web.Pages.Characters;
 /// </summary>
 [Authorize(Policy = MemberPolicy.Approved)]
 [EnableRateLimiting(RateLimitPolicies.Herald)]
-public class IndexModel(RmvDbContext db, CharacterService characters) : PageModel
+public class IndexModel(RmvDbContext db, CharacterService characters, HeraldRegistry heralds) : PageModel
 {
     public IReadOnlyList<Character> Mine { get; private set; } = [];
 
@@ -148,14 +148,15 @@ public class IndexModel(RmvDbContext db, CharacterService characters) : PageMode
                 .AsNoTracking()
                 .ToListAsync(ct);
 
-        // Only games that can actually look a character up. Offering the rest
-        // would just produce a failure after the fact.
+        // Only games that can actually look a character up: an adapter chosen, and
+        // that adapter still registered. Offering the rest would just produce a
+        // failure after the fact.
         var all = await db.GamePresences
             .OrderByDescending(g => g.IsActive).ThenBy(g => g.Game)
             .AsNoTracking()
             .ToListAsync(ct);
 
-        Games = all.Where(g => g.SupportsCharacters).ToList();
+        Games = all.Where(g => heralds.Find(g.HeraldAdapterKey) is not null).ToList();
 
         if (Request.Query["added"] is { Count: > 0 } a) Notice = $"Added {a}.";
         if (Request.Query["removed"] is { Count: > 0 } r) Notice = $"Removed {r}.";

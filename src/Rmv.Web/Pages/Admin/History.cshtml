@@ -58,28 +58,32 @@
                 </label>
 
                 <div class="field">
-                    <label asp-for="Input.HeraldAdapterKey">Herald adapter</label>
+                    <label asp-for="Input.HeraldAdapterKey">Herald</label>
                     <select class="input" asp-for="Input.HeraldAdapterKey">
                         <option value="">None, no character lookup</option>
                         @foreach (var a in Model.Adapters)
                         {
-                            <option value="@a.Key">@a.DisplayName</option>
+                            <option value="@a.Key">@a.DisplayName &mdash; @a.DefaultBaseUrl</option>
                         }
                     </select>
-                    <p class="hint">Set this before members can add characters for the game.</p>
+                    <p class="hint">
+                        That is all it needs. Each adapter is written for one
+                        server and already knows its address.
+                    </p>
                     <span class="hint" asp-validation-for="Input.HeraldAdapterKey"></span>
                 </div>
 
-                <div class="field">
-                    <label asp-for="Input.HeraldBaseUrl">Herald base URL</label>
-                    <input class="input" asp-for="Input.HeraldBaseUrl" placeholder="https://herald.example.com" />
+                <details class="field">
+                    <summary class="hint">Override the herald address</summary>
+                    <input class="input" asp-for="Input.HeraldBaseUrl"
+                           placeholder="Leave blank unless the server has moved" />
                     <p class="hint">
-                        Root only; the adapter appends its own paths. An internal
-                        host also needs listing in
+                        Only needed if a server changes domain. An internal host
+                        also needs listing in
                         <span class="mono">Herald__AllowedPrivateHosts</span>.
                     </p>
                     <span class="hint" asp-validation-for="Input.HeraldBaseUrl"></span>
-                </div>
+                </details>
 
                 <p style="margin:0"><button class="btn" type="submit">Save</button></p>
             </form>
@@ -149,15 +153,9 @@
                             {
                                 <span class="pill pill--ok">active</span>
                             }
-                            @if (row.SupportsCharacters)
+                            @if (row.HasHerald)
                             {
                                 <span class="pill pill--ok">herald: @row.HeraldAdapterKey</span>
-                            }
-                            else if (!string.IsNullOrWhiteSpace(row.HeraldAdapterKey)
-                                     || !string.IsNullOrWhiteSpace(row.HeraldBaseUrl))
-                            {
-                                @* Half-configured, so characters still cannot be added. *@
-                                <span class="pill pill--bad">herald incomplete</span>
                             }
                             else
                             {

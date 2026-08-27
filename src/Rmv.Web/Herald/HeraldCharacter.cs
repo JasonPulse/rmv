@@ -52,8 +52,15 @@ public interface IHeraldAdapter
 
     string DisplayName { get; }
 
-    /// <summary>What an admin should paste in, shown next to the field.</summary>
-    string BaseUrlHint { get; }
+    /// <summary>
+    /// The server this adapter was written for.
+    ///
+    /// Authoritative, not a hint. An adapter is code targeting one specific
+    /// herald's markup or API, so it cannot work against a different address.
+    /// Asking an admin to retype it added a way to get it wrong and nothing else.
+    /// A game may still override it, for the day a server changes domain.
+    /// </summary>
+    string DefaultBaseUrl { get; }
 
     /// <summary>
     /// Fetches one character. Returns a failure rather than throwing for anything

@@ -37,12 +37,16 @@ public class GamePresence
     public string? HeraldAdapterKey { get; set; }
 
     /// <summary>
-    /// Root of the herald, set by an admin. Adapters append their own paths.
+    /// Optional override for the adapter's own address, for the day a server
+    /// changes domain. Normally null: the adapter knows where its herald lives.
     /// </summary>
     public string? HeraldBaseUrl { get; set; }
 
-    public bool SupportsCharacters =>
-        !string.IsNullOrWhiteSpace(HeraldAdapterKey) && !string.IsNullOrWhiteSpace(HeraldBaseUrl);
+    /// <summary>
+    /// Whether an adapter has been chosen. Whether that adapter actually exists
+    /// is a question for the registry, not for the row.
+    /// </summary>
+    public bool HasHerald => !string.IsNullOrWhiteSpace(HeraldAdapterKey);
 
     public IEnumerable<string> GuildList() => Guilds
         .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);

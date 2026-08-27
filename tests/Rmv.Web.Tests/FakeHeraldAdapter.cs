@@ -18,7 +18,7 @@ public sealed class FakeHeraldAdapter : IHeraldAdapter
 
     public string DisplayName => "Fake herald";
 
-    public string BaseUrlHint => "https://fake.test";
+    public string DefaultBaseUrl => "https://fake.test";
 
     /// <summary>Names this herald knows, case-insensitively.</summary>
     public Dictionary<string, HeraldCharacter> Known { get; } = new(StringComparer.OrdinalIgnoreCase);

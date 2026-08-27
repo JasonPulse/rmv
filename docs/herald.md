@@ -40,6 +40,20 @@ Every redirect hop goes through it too, because each hop opens a connection.
 Extracted from `Program.cs` specifically so it can be tested: a correct policy
 behind a handler nobody wired protects nothing.
 
+## The adapter owns its address
+
+An admin picks a herald from a dropdown and that is the whole configuration. The
+address comes from the adapter's `DefaultBaseUrl`.
+
+This was originally a field an admin filled in, which was wrong on its face: an
+adapter is code written against one server's markup or API, so it cannot work
+against a different address. Making it typeable added a way to get it wrong and
+nothing else, and it duly went wrong: a URL entered without also choosing an
+adapter was silently discarded, so a game looked configured and was not.
+
+Each game keeps an optional override, tucked behind a disclosure, for the day a
+server changes domain. Blank is the normal state.
+
 ## The allowlist, and why it lives in configuration
 
 The FFXI herald is internal. `heraldxi.network-gnomes.com` resolves publicly to

@@ -18,7 +18,7 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
 
     public string DisplayName => "HeraldXI (FFXI)";
 
-    public string BaseUrlHint => "https://heraldxi.network-gnomes.com";
+    public string DefaultBaseUrl => "https://heraldxi.network-gnomes.com";
 
     private static readonly JsonSerializerOptions Json = new()
     {

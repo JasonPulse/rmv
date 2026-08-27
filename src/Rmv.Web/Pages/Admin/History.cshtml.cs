@@ -169,30 +169,18 @@ public class HistoryModel(RmvDbContext db, HeraldRegistry heralds) : PageModel
         var adapterKey = string.IsNullOrWhiteSpace(Input.HeraldAdapterKey) ? null : Input.HeraldAdapterKey.Trim();
         string? heraldUrl = null;
 
-        var urlGiven = !string.IsNullOrWhiteSpace(Input.HeraldBaseUrl);
-
-        if (adapterKey is not null)
+        if (adapterKey is not null && heralds.Find(adapterKey) is null)
         {
-            if (heralds.Find(adapterKey) is null)
-            {
-                ModelState.AddModelError("Input.HeraldAdapterKey", "Unknown herald adapter.");
-            }
-
-            // Same scheme allowlist as the link URLs. The fetcher will also refuse
-            // a private address at connect time unless it is allowlisted.
-            if (!ExternalUrl.TryParse(Input.HeraldBaseUrl, out heraldUrl))
-            {
-                ModelState.AddModelError("Input.HeraldBaseUrl",
-                    "Give an absolute http or https URL, e.g. https://herald.example.com");
-            }
+            ModelState.AddModelError("Input.HeraldAdapterKey", "Unknown herald adapter.");
         }
-        else if (urlGiven)
+
+        // Only validated when given. Choosing an adapter is enough: it knows its
+        // own server's address. The override is for a server changing domain.
+        if (!string.IsNullOrWhiteSpace(Input.HeraldBaseUrl)
+            && !ExternalUrl.TryParse(Input.HeraldBaseUrl, out heraldUrl))
         {
-            // Half-configured is the trap. Silently discarding the URL because no
-            // adapter was chosen looks exactly like a save that worked, and then
-            // the game never appears on /characters.
-            ModelState.AddModelError("Input.HeraldAdapterKey",
-                "Choose a herald adapter as well, or clear the URL. A URL on its own does nothing.");
+            ModelState.AddModelError("Input.HeraldBaseUrl",
+                "Leave blank to use the adapter's own address, or give an absolute http or https URL.");
         }
 
         if (!ModelState.IsValid)
@@ -215,6 +203,7 @@ public class HistoryModel(RmvDbContext db, HeraldRegistry heralds) : PageModel
             row.IsActive = Input.IsActive;
             row.SortOrder = Input.SortOrder;
             row.HeraldAdapterKey = adapterKey;
+            // An override without an adapter is meaningless, so it goes with it.
             row.HeraldBaseUrl = adapterKey is null ? null : heraldUrl;
         }
         else
