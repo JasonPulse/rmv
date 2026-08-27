@@ -6,7 +6,7 @@ using Rmv.Web.Data;
 
 namespace Rmv.Web.Pages.Admin;
 
-public class MembersModel(RmvDbContext db, IConfiguration config) : PageModel
+public class MembersModel(RmvDbContext db, IConfiguration config, CurrentMember me) : PageModel
 {
     public IReadOnlyList<Row> Rows { get; private set; } = [];
 
@@ -53,7 +53,7 @@ public class MembersModel(RmvDbContext db, IConfiguration config) : PageModel
         if (status == MemberStatus.Approved)
         {
             member.ApprovedAt = DateTimeOffset.UtcNow;
-            member.ApprovedBy = User.Identity?.Name;
+            member.ApprovedBy = await me.HandleAsync(User, ct);
         }
         else
         {
@@ -67,8 +67,8 @@ public class MembersModel(RmvDbContext db, IConfiguration config) : PageModel
         await db.SaveChangesAsync(ct);
 
         return RedirectToPage(status == MemberStatus.Approved
-            ? new { approved = member.DisplayName }
-            : new { blocked = member.DisplayName });
+            ? new { approved = member.Handle }
+            : new { blocked = member.Handle });
     }
 
     private async Task<IActionResult> SetAdminAsync(int id, bool grant, CancellationToken ct)
@@ -94,13 +94,13 @@ public class MembersModel(RmvDbContext db, IConfiguration config) : PageModel
         {
             member.Status = MemberStatus.Approved;
             member.ApprovedAt = DateTimeOffset.UtcNow;
-            member.ApprovedBy = User.Identity?.Name;
+            member.ApprovedBy = await me.HandleAsync(User, ct);
         }
 
         await db.SaveChangesAsync(ct);
 
-        return RedirectToPage(new { granted = grant ? member.DisplayName : null,
-                                    revoked = grant ? null : member.DisplayName });
+        return RedirectToPage(new { granted = grant ? member.Handle : null,
+                                    revoked = grant ? null : member.Handle });
     }
 
     private async Task LoadAsync(CancellationToken ct)

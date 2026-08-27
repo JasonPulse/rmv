@@ -63,7 +63,7 @@
                         <option value="">None, no character lookup</option>
                         @foreach (var a in Model.Adapters)
                         {
-                            <option value="@a.Key">@a.DisplayName &mdash; @a.DefaultBaseUrl</option>
+                            <option value="@a.Key">@a.DisplayName (@a.DefaultBaseUrl)</option>
                         }
                     </select>
                     <p class="hint">

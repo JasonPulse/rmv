@@ -69,6 +69,7 @@ if (databaseConfigured)
 
     builder.Services.AddScoped<IDeploymentStore, PostgresDeploymentStore>();
     builder.Services.AddScoped<MemberDirectory>();
+    builder.Services.AddScoped<CurrentMember>();
 
     // Keep the Data Protection key ring in Postgres. Without it every process
     // mints its own keys, so a sign-in cookie stops validating on redeploy and

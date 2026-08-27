@@ -1066,6 +1066,35 @@ textarea.input {
   background: color-mix(in srgb, var(--accent-warm) 9%, transparent);
 }
 
+/* One line per character: name, then the game it belongs to. */
+.charlines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+.charlines li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  padding: 0.42rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--stone) 18%, transparent);
+}
+.charlines li:last-child { border-bottom: 0; }
+.charlines a {
+  font: 600 1rem/1.3 var(--font-display);
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+.charlines a:hover { text-decoration: underline; }
+.charlines__game {
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+}
+.charlines__game::before { content: "- "; }
+
 /* --- Characters --------------------------------------------------------- */
 
 .charlist { display: grid; gap: 1rem; }

@@ -106,14 +106,34 @@
         <article class="panel panel--inset">
             <p class="panel__title">Characters</p>
 
-            @if (Model.CanContribute)
+            @if (Model.Characters.Count > 0)
             {
-                <h3>Add yours</h3>
+                <ul class="charlines">
+                    @foreach (var c in Model.Characters)
+                    {
+                        <li>
+                            <a href="/roster/@c.MemberId?c=@c.Id">@c.Name</a>
+                            <span class="charlines__game">@c.Game?.Game</span>
+                            @if (!string.IsNullOrWhiteSpace(c.LastError))
+                            {
+                                <span class="pill pill--bad">stale</span>
+                            }
+                        </li>
+                    }
+                </ul>
+
+                <hr class="rule rule--fine" />
+
+                <p style="margin:0"><a class="btn" href="/characters">Add or edit</a></p>
+            }
+            else if (Model.CanContribute)
+            {
+                <h3>None yet</h3>
                 <p class="dim">
                     Tell us a character name and we look it up on that server's
                     herald.
                 </p>
-                <p><a class="btn" href="/characters">My characters</a></p>
+                <p><a class="btn" href="/characters">Add a character</a></p>
             }
             else if (Model.Record is { Status: MemberStatus.Blocked })
             {

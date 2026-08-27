@@ -112,7 +112,7 @@
                                     @if (row.Member.IsAdmin)
                                     {
                                         <form method="post" asp-page-handler="Revoke" asp-route-id="@row.Member.Id"
-                                              onsubmit="return confirm('Remove admin from @row.Member.DisplayName?')">
+                                              onsubmit="return confirm('Remove admin from @row.Member.Handle?')">
                                             <button class="linkish linkish--danger" type="submit">revoke admin</button>
                                         </form>
                                     }
@@ -125,7 +125,7 @@
                                     @if (row.Member.Status != MemberStatus.Blocked && !row.IsSelf)
                                     {
                                         <form method="post" asp-page-handler="Block" asp-route-id="@row.Member.Id"
-                                              onsubmit="return confirm('Block @row.Member.DisplayName?')">
+                                              onsubmit="return confirm('Block @row.Member.Handle?')">
                                             <button class="linkish linkish--danger" type="submit">block</button>
                                         </form>
                                     }

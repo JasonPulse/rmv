@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using Rmv.Web.Data;
 
 namespace Rmv.Web.Pages.Account;
@@ -16,6 +17,13 @@ public class ProfileModel(IServiceProvider services, IConfiguration config) : Pa
     public string? AvatarUrl => DiscordUser.AvatarUrl(User, 128);
 
     public Member? Record { get; private set; }
+
+    /// <summary>
+    /// The member's own characters, so the panel shows what they have rather than
+    /// only offering to add more. A panel that says "add yours" to someone who
+    /// already added one reads as broken.
+    /// </summary>
+    public IReadOnlyList<Character> Characters { get; private set; } = [];
 
     public bool IsRoot { get; private set; }
 
@@ -82,10 +90,22 @@ public class ProfileModel(IServiceProvider services, IConfiguration config) : Pa
             // tells you your account does not exist while you are signed in.
             var directory = services.GetRequiredService<MemberDirectory>();
             Record = await directory.EnsureAsync(User, ct);
+
+            if (Record is not null)
+            {
+                Characters = await db.Characters
+                    .Include(c => c.Game)
+                    .Where(c => c.MemberId == Record.Id)
+                    .OrderByDescending(c => c.Game!.IsActive)
+                    .ThenBy(c => c.Game!.Game)
+                    .ThenBy(c => c.Name)
+                    .AsNoTracking()
+                    .ToListAsync(ct);
+            }
         }
         catch
         {
-            // The page still renders from claims alone; status just shows unknown.
+            // The page still renders from claims alone; status shows unknown.
         }
     }
 }

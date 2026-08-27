@@ -95,6 +95,46 @@ public class MemberDirectoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task An_alias_takes_over_from_the_discord_name()
+    {
+        // The site names people by Handle, never by whatever Discord returned.
+        var id = $"t{Guid.NewGuid():N}"[..20];
+        var principal = SignedIn(id, "networkgnome_x9");
+        var me = new CurrentMember(_directory);
+
+        Assert.Equal("networkgnome_x9", await me.HandleAsync(principal));
+
+        var member = await _directory.EnsureAsync(principal, default);
+        member!.Alias = "NetworkGnome";
+        await _db.SaveChangesAsync();
+
+        // A fresh CurrentMember, because it caches for the life of one request.
+        Assert.Equal("NetworkGnome", await new CurrentMember(_directory).HandleAsync(principal));
+    }
+
+    [Fact]
+    public async Task A_blank_alias_falls_back_to_the_discord_name()
+    {
+        var id = $"t{Guid.NewGuid():N}"[..20];
+        var principal = SignedIn(id, "someone_1234");
+
+        var member = await _directory.EnsureAsync(principal, default);
+        member!.Alias = "   ";   // The alias form posts whitespace if you clear it.
+        await _db.SaveChangesAsync();
+
+        Assert.Equal("someone_1234", await new CurrentMember(_directory).HandleAsync(principal));
+    }
+
+    [Fact]
+    public async Task An_anonymous_caller_gets_no_member_and_no_lookup()
+    {
+        var me = new CurrentMember(_directory);
+        var anonymous = new ClaimsPrincipal(new ClaimsIdentity());
+
+        Assert.Null(await me.GetAsync(anonymous));
+    }
+
+    [Fact]
     public async Task A_principal_with_no_discord_id_resolves_to_nothing()
     {
         var anonymousish = new ClaimsPrincipal(
