@@ -30,7 +30,10 @@ public class ProfileModel(IServiceProvider services, IConfiguration config) : Pa
     public string? Notice { get; private set; }
 
     /// <summary>Root admins are not marked approved in the table, but they are.</summary>
-    public bool CanContribute => IsRoot || Record is { Status: MemberStatus.Approved };
+    // IsRoot is the config-only admin, who has no member row to ask. Everything
+    // else defers to Member, so this page cannot disagree with the policy that
+    // actually gates the action.
+    public bool CanContribute => IsRoot || Record is { CanContribute: true };
 
     /// <summary>What the site calls them: the alias if set, otherwise Discord.</summary>
     public string Handle => Record?.Handle ?? DiscordName;
@@ -45,7 +48,7 @@ public class ProfileModel(IServiceProvider services, IConfiguration config) : Pa
         await LoadAsync(ct);
         Alias = Record?.Alias;
 
-        if (Request.Query.ContainsKey("saved"))
+        if (this.Flash("saved") is not null)
         {
             Notice = "Saved.";
         }
@@ -86,10 +89,11 @@ public class ProfileModel(IServiceProvider services, IConfiguration config) : Pa
 
         try
         {
-            // Ensure rather than look up, so the profile is never the page that
-            // tells you your account does not exist while you are signed in.
-            var directory = services.GetRequiredService<MemberDirectory>();
-            Record = await directory.EnsureAsync(User, ct);
+            // Through CurrentMember, the one place the signed-in member is
+            // resolved. It ensures rather than looks up, so the profile is never
+            // the page that tells you your account does not exist while you are
+            // signed in.
+            Record = await services.GetRequiredService<CurrentMember>().GetAsync(User, ct);
 
             if (Record is not null)
             {

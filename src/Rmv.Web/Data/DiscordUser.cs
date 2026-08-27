@@ -20,14 +20,6 @@ public static class DiscordUser
     public static string Name(ClaimsPrincipal user) =>
         user.Identity?.Name is { Length: > 0 } n ? n : "Member";
 
-    /// <summary>Two letters for the fallback, so the frame is never empty.</summary>
-    public static string Initials(ClaimsPrincipal user)
-    {
-        var name = Name(user);
-        var letters = name.Where(char.IsLetterOrDigit).Take(2).ToArray();
-        return letters.Length > 0 ? new string(letters).ToUpperInvariant() : "?";
-    }
-
     /// <summary>
     /// The CDN URL for this user's avatar, or null when they have none set.
     ///

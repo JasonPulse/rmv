@@ -28,18 +28,14 @@ public sealed class BlackthornHeraldAdapter(HeraldFetcher fetcher) : IHeraldAdap
             return HeraldResult.Fail("That herald address does not look right.");
         }
 
-        var fetched = await fetcher.GetAsync(url, ct);
-        if (!fetched.Ok)
+        var (body, failure) = await fetcher.GetForCharacterAsync(url, characterName, ct);
+        if (body is null)
         {
-            // A 404 means the name is wrong, which is the common case and worth
-            // saying plainly rather than reporting a status code.
-            return fetched.NotFound
-                ? HeraldResult.Fail($"The herald has no character called \"{characterName}\".")
-                : HeraldResult.Fail(fetched.Error ?? "Could not reach the herald.");
+            return failure!;
         }
 
         var context = BrowsingContext.New(AngleSharp.Configuration.Default);
-        var doc = await context.OpenAsync(req => req.Content(fetched.Body!), ct);
+        var doc = await context.OpenAsync(req => req.Content(body), ct);
 
         // The herald answers 200 with a shell for a name it does not know, so the
         // title is what actually confirms the character exists.

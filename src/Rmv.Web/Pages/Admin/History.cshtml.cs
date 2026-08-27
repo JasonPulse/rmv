@@ -226,7 +226,7 @@ public class HistoryModel(RmvDbContext db, HeraldRegistry heralds) : PageModel
             .AsNoTracking()
             .ToListAsync(ct);
 
-        if (Request.Query.ContainsKey("saved")) Notice = "Saved.";
-        if (Request.Query.ContainsKey("deleted")) Notice = "Deleted.";
+        if (this.Flash("saved") is not null) Notice = "Saved.";
+        if (this.Flash("deleted") is not null) Notice = "Deleted.";
     }
 }

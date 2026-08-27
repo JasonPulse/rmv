@@ -35,6 +35,34 @@ public static class BlackthornParser
     }
 
     /// <summary>
+    /// Every table worth reading, as its header cells and its rows.
+    ///
+    /// Both readers below walked the tables themselves and dropped anything with
+    /// fewer than two rows, in the same five lines. The page has eight tables and
+    /// the interesting values sit in different ones, so the walk is the part they
+    /// genuinely share.
+    /// </summary>
+    private static IEnumerable<(string[] Headers, IElement[] Rows)> Tables(IDocument doc)
+    {
+        foreach (var table in doc.QuerySelectorAll("table"))
+        {
+            var rows = table.QuerySelectorAll("tr").ToArray();
+
+            // A heading row and nothing under it says nothing.
+            if (rows.Length < 2)
+            {
+                continue;
+            }
+
+            yield return (Cells(rows[0]), rows);
+        }
+    }
+
+    /// <summary>th and td alike: the page uses both for headings.</summary>
+    private static string[] Cells(IElement row) =>
+        row.QuerySelectorAll("th, td").Select(Text).ToArray();
+
+    /// <summary>
     /// Walks every table and pairs each heading cell with the cell beneath it.
     /// Handles both shapes the page uses: a one-column table with the label in
     /// the header row, and a multi-column table like "LVL | RR" over "50 | 8L0".
@@ -43,16 +71,9 @@ public static class BlackthornParser
     {
         var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var table in doc.QuerySelectorAll("table"))
+        foreach (var (headers, rows) in Tables(doc))
         {
-            var rows = table.QuerySelectorAll("tr").ToArray();
-            if (rows.Length < 2)
-            {
-                continue;
-            }
-
-            var headers = rows[0].QuerySelectorAll("th, td").Select(Text).ToArray();
-            var values = rows[1].QuerySelectorAll("th, td").Select(Text).ToArray();
+            var values = Cells(rows[1]);
 
             for (var i = 0; i < headers.Length && i < values.Length; i++)
             {
@@ -76,15 +97,8 @@ public static class BlackthornParser
     /// </summary>
     private static long? ReadAllTimeStat(IDocument doc, string statLabel)
     {
-        foreach (var table in doc.QuerySelectorAll("table"))
+        foreach (var (headers, rows) in Tables(doc))
         {
-            var rows = table.QuerySelectorAll("tr").ToArray();
-            if (rows.Length < 2)
-            {
-                continue;
-            }
-
-            var headers = rows[0].QuerySelectorAll("th, td").Select(Text).ToArray();
             var column = Array.FindIndex(headers,
                 h => h.Equals("All Time", StringComparison.OrdinalIgnoreCase));
 
@@ -95,7 +109,7 @@ public static class BlackthornParser
 
             foreach (var row in rows.Skip(1))
             {
-                var cells = row.QuerySelectorAll("th, td").Select(Text).ToArray();
+                var cells = Cells(row);
                 if (cells.Length <= column)
                 {
                     continue;

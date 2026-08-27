@@ -120,27 +120,27 @@ public class MembersModel(RmvDbContext db, IConfiguration config, CurrentMember 
             .Select(m => new Row(m, AdminPolicy.IsRootAdmin(config, m.DiscordId), m.DiscordId == me))
             .ToList();
 
-        if (Request.Query["error"] == "self")
+        if (this.Flash("error") == "self")
         {
             Error = "You cannot remove your own access. Ask another admin.";
         }
 
-        if (Request.Query["approved"] is { Count: > 0 } ap)
+        if (this.Flash("approved") is { } ap)
         {
             Notice = $"{ap} is approved and can add characters.";
         }
 
-        if (Request.Query["blocked"] is { Count: > 0 } bl)
+        if (this.Flash("blocked") is { } bl)
         {
             Notice = $"{bl} is blocked.";
         }
 
-        if (Request.Query["granted"] is { Count: > 0 } g)
+        if (this.Flash("granted") is { } g)
         {
             Notice = $"{g} is now an admin.";
         }
 
-        if (Request.Query["revoked"] is { Count: > 0 } r)
+        if (this.Flash("revoked") is { } r)
         {
             Notice = $"{r} is no longer an admin.";
         }

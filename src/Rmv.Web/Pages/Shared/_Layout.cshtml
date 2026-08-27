@@ -60,7 +60,7 @@
                             }
                             else
                             {
-                                <span class="portrait__initials">@DiscordUser.Initials(User)</span>
+                                <span class="portrait__initials">@(await Me.InitialsAsync(User))</span>
                             }
                         </span>
                         <span class="account__name">@(await Me.HandleAsync(User))</span>

@@ -113,6 +113,27 @@ public class MemberDirectoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_masthead_initials_follow_the_alias()
+    {
+        // The reported bug, through the exact path the masthead uses: the diamond
+        // showed NE from the Discord name while the name beside it said Property.
+        var id = $"t{Guid.NewGuid():N}"[..20];
+        var principal = SignedIn(id, "networkgnome_x9");
+
+        Assert.Equal("NE", await new CurrentMember(_directory).InitialsAsync(principal));
+
+        var member = await _directory.EnsureAsync(principal, default);
+        member!.Alias = "Property";
+        await _db.SaveChangesAsync();
+
+        var me = new CurrentMember(_directory);
+        Assert.Equal("Property", await me.HandleAsync(principal));
+        // The two must agree, which is the whole point of deriving one from the
+        // other rather than reading the claim for one and the row for the other.
+        Assert.Equal("PR", await me.InitialsAsync(principal));
+    }
+
+    [Fact]
     public async Task A_blank_alias_falls_back_to_the_discord_name()
     {
         var id = $"t{Guid.NewGuid():N}"[..20];

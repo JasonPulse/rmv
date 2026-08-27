@@ -1,0 +1,16 @@
+@model Rmv.Web.Pages.Shared.Flash
+@*
+    What a redirect-after-post has to say. Error first, always, because a page
+    that reports both should lead with the thing that did not work.
+
+    Four pages had their own copy of this pair of if blocks and two of them had
+    drifted into showing them in the other order.
+*@
+@if (Model.Error is not null)
+{
+    <p class="notice" role="alert">@Model.Error</p>
+}
+@if (Model.Notice is not null)
+{
+    <p class="notice notice--ok" role="status">@Model.Notice</p>
+}

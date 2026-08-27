@@ -23,7 +23,7 @@ public class IndexModel(
     RmvDbContext db,
     CharacterService characters,
     HeraldRegistry heralds,
-    MemberDirectory members) : PageModel
+    CurrentMember me) : PageModel
 {
     public IReadOnlyList<Character> Mine { get; private set; } = [];
 
@@ -53,11 +53,28 @@ public class IndexModel(
     [BindProperty]
     public EditModel Edit { get; set; } = new();
 
-    public class EditModel
+    public class EditModel : SheetInput
     {
+        // The stored name, so this is the column's own limit rather than the add
+        // form's allowance for a pasted URL.
         [StringLength(32, MinimumLength = 2)]
         public string Name { get; set; } = "";
+    }
 
+    /// <summary>
+    /// The stats a member types for a game with no herald.
+    ///
+    /// Neither is [Required]: whether they apply depends on the game picked, and a
+    /// blanket attribute would block every herald add with a message about a field
+    /// that was never shown. Both may be blank because plenty of these characters
+    /// are a name and nothing else.
+    ///
+    /// A base class rather than a copy in each model. The add form and the per-card
+    /// edit form take the same two fields with the same limits, and the limits have
+    /// to match what CharacterService enforces.
+    /// </summary>
+    public abstract class SheetInput
+    {
         [StringLength(60)]
         [Display(Name = "Job or class")]
         public string? Class { get; set; }
@@ -66,53 +83,57 @@ public class IndexModel(
         public int? Level { get; set; }
     }
 
-    public class InputModel
+    public class InputModel : SheetInput
     {
         [Required(ErrorMessage = "Pick a game.")]
         [Display(Name = "Game")]
         public int GamePresenceId { get; set; }
 
+        /// <summary>
+        /// Longer than a name allows, because some heralds take a pasted character
+        /// URL instead. The adapter decides what its own server accepts.
+        /// </summary>
         [Required(ErrorMessage = "Enter the character's name.")]
         [StringLength(200, MinimumLength = 2)]
         public string Name { get; set; } = "";
-
-        /// <summary>
-        /// Only used for a game with no herald. Not [Required], because whether it
-        /// applies depends on the game picked, and a blanket attribute would block
-        /// every herald add with a message about a field that was not shown.
-        /// </summary>
-        [StringLength(60)]
-        [Display(Name = "Job or class")]
-        public string? Class { get; set; }
-
-        [Range(1, 999)]
-        public int? Level { get; set; }
     }
 
-    public async Task<IActionResult> OnGetAsync(CancellationToken ct)
+    /// <summary>
+    /// Re-renders the page, optionally saying what went wrong.
+    ///
+    /// Six paths ended in the same three lines. LoadAsync is the part worth having
+    /// once: forget it and the page comes back with an empty game list and no
+    /// characters, which reads as the site having lost your data rather than as a
+    /// rejected form.
+    /// </summary>
+    private async Task<IActionResult> RedisplayAsync(CancellationToken ct, string? error = null)
     {
+        if (error is not null)
+        {
+            Error = error;
+        }
+
         await LoadAsync(ct);
         return Page();
     }
 
+    public Task<IActionResult> OnGetAsync(CancellationToken ct) => RedisplayAsync(ct);
+
     public async Task<IActionResult> OnPostAddAsync(CancellationToken ct)
     {
-        var member = await CurrentMemberAsync(ct);
+        var member = await me.GetAsync(User, ct);
         if (member is null)
         {
             // Only reachable without a Discord id on the principal, which should
             // not happen for an authenticated caller.
-            Error = "Could not identify your account. Sign out and back in.";
-            await LoadAsync(ct);
-            return Page();
+            return await RedisplayAsync(ct, "Could not identify your account. Sign out and back in.");
         }
 
         this.ValidateOnly(nameof(Input));
 
         if (!ModelState.IsValid)
         {
-            await LoadAsync(ct);
-            return Page();
+            return await RedisplayAsync(ct);
         }
 
         // The game decides which path this is, not a radio button. A game either
@@ -129,9 +150,7 @@ public class IndexModel(
 
         if (!outcome.Ok)
         {
-            Error = outcome.Error;
-            await LoadAsync(ct);
-            return Page();
+            return await RedisplayAsync(ct, outcome.Error);
         }
 
         return RedirectToPage(new { added = outcome.Character!.Name });
@@ -143,29 +162,15 @@ public class IndexModel(
     /// </summary>
     public async Task<IActionResult> OnPostEditAsync(int id, CancellationToken ct)
     {
-        var member = await CurrentMemberAsync(ct);
-        if (member is null)
-        {
-            return Forbid();
-        }
-
-        // Scoped to the caller's own rows, so an id from someone else's page
-        // simply is not found.
-        var character = await db.Characters
-            .Include(c => c.Game)
-            .FirstOrDefaultAsync(c => c.Id == id && c.MemberId == member.Id, ct);
-
-        if (character is null)
-        {
-            return RedirectToPage();
-        }
+        var (member, character) = await MineAsync(id, ct);
+        if (member is null) return Forbid();
+        if (character is null) return RedirectToPage();
 
         this.ValidateOnly(nameof(Edit));
 
         if (!ModelState.IsValid)
         {
-            await LoadAsync(ct);
-            return Page();
+            return await RedisplayAsync(ct);
         }
 
         var outcome = await characters.UpdateManualAsync(
@@ -173,9 +178,7 @@ public class IndexModel(
 
         if (!outcome.Ok)
         {
-            Error = outcome.Error;
-            await LoadAsync(ct);
-            return Page();
+            return await RedisplayAsync(ct, outcome.Error);
         }
 
         return RedirectToPage(new { saved = character.Name });
@@ -183,43 +186,21 @@ public class IndexModel(
 
     public async Task<IActionResult> OnPostRemoveAsync(int id, CancellationToken ct)
     {
-        var member = await CurrentMemberAsync(ct);
-        if (member is null)
-        {
-            return Forbid();
-        }
+        var (member, character) = await MineAsync(id, ct);
+        if (member is null) return Forbid();
+        if (character is null) return RedirectToPage();
 
-        // Scoped to the caller's own rows, so an id from someone else's page
-        // simply is not found.
-        var character = await db.Characters
-            .FirstOrDefaultAsync(c => c.Id == id && c.MemberId == member.Id, ct);
+        db.Characters.Remove(character);
+        await db.SaveChangesAsync(ct);
 
-        if (character is not null)
-        {
-            db.Characters.Remove(character);
-            await db.SaveChangesAsync(ct);
-            return RedirectToPage(new { removed = character.Name });
-        }
-
-        return RedirectToPage();
+        return RedirectToPage(new { removed = character.Name });
     }
 
     public async Task<IActionResult> OnPostRefreshAsync(int id, CancellationToken ct)
     {
-        var member = await CurrentMemberAsync(ct);
-        if (member is null)
-        {
-            return Forbid();
-        }
-
-        var character = await db.Characters
-            .Include(c => c.Game)
-            .FirstOrDefaultAsync(c => c.Id == id && c.MemberId == member.Id, ct);
-
-        if (character is null)
-        {
-            return RedirectToPage();
-        }
+        var (member, character) = await MineAsync(id, ct);
+        if (member is null) return Forbid();
+        if (character is null) return RedirectToPage();
 
         var ok = await characters.RefreshAsync(character, ct);
         await db.SaveChangesAsync(ct);
@@ -229,14 +210,33 @@ public class IndexModel(
             : new { failed = character.Name });
     }
 
-    // Creates the row if it is missing, so a valid session from before the
-    // sign-in hook existed does not dead-end on "your member record is missing".
-    private Task<Member?> CurrentMemberAsync(CancellationToken ct) =>
-        members.EnsureAsync(User, ct);
+    /// <summary>
+    /// One of the caller's own characters, with the member that owns it.
+    ///
+    /// Three handlers had their own copy of this: resolve the member or Forbid,
+    /// then find the character scoped to that member's rows. The scoping is the
+    /// authorisation check as much as the lookup, so an id from someone else's
+    /// page simply is not found, and that is not a thing to keep three copies of.
+    ///
+    /// CurrentMember creates the row if it is missing, so a valid session from
+    /// before the sign-in hook existed does not dead-end on "your member record is
+    /// missing".
+    /// </summary>
+    private async Task<(Member? Member, Character? Character)> MineAsync(
+        int id, CancellationToken ct)
+    {
+        var member = await me.GetAsync(User, ct);
+
+        return member is null
+            ? (null, null)
+            : (member, await db.Characters
+                .Include(c => c.Game)
+                .FirstOrDefaultAsync(c => c.Id == id && c.MemberId == member.Id, ct));
+    }
 
     private async Task LoadAsync(CancellationToken ct)
     {
-        var member = await CurrentMemberAsync(ct);
+        var member = await me.GetAsync(User, ct);
 
         Mine = member is null
             ? []
@@ -261,10 +261,10 @@ public class IndexModel(
             .Select(g => g.Id)
             .ToHashSet();
 
-        if (Request.Query["added"] is { Count: > 0 } a) Notice = $"Added {a}.";
-        if (Request.Query["removed"] is { Count: > 0 } r) Notice = $"Removed {r}.";
-        if (Request.Query["refreshed"] is { Count: > 0 } f) Notice = $"Refreshed {f}.";
-        if (Request.Query["saved"] is { Count: > 0 } s) Notice = $"Saved {s}.";
-        if (Request.Query["failed"] is { Count: > 0 } x) Error = $"Could not refresh {x}. The herald may be down.";
+        if (this.Flash("added") is { } a) Notice = $"Added {a}.";
+        if (this.Flash("removed") is { } r) Notice = $"Removed {r}.";
+        if (this.Flash("refreshed") is { } f) Notice = $"Refreshed {f}.";
+        if (this.Flash("saved") is { } s) Notice = $"Saved {s}.";
+        if (this.Flash("failed") is { } x) Error = $"Could not refresh {x}. The herald may be down.";
     }
 }

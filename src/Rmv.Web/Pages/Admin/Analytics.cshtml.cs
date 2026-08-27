@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Rmv.Web.Data;
@@ -45,6 +46,28 @@ public class AnalyticsModel(RmvDbContext db) : PageModel
 
     public record SlowPath(string Path, int WorstMs, int Total);
 
+    /// <summary>
+    /// The four "top N by count" panels, once.
+    ///
+    /// The anonymous type in the middle is not incidental. Projecting straight into
+    /// a record constructor inside a GroupBy is not translatable and throws at
+    /// runtime rather than at compile time, so the shape has to be: group and count
+    /// in the database, map to the record afterwards. Four copies of that meant four
+    /// chances to forget it.
+    /// </summary>
+    private static async Task<IReadOnlyList<Count>> TopAsync(
+        IQueryable<RequestLog> rows,
+        Expression<Func<RequestLog, string>> by,
+        int take,
+        CancellationToken ct) =>
+        (await rows
+                .GroupBy(by)
+                .Select(g => new { Key = g.Key, Total = g.Count() })
+                .OrderByDescending(x => x.Total).Take(take)
+                .ToListAsync(ct))
+            .Select(x => new Count(x.Key, x.Total))
+            .ToList();
+
     public async Task OnGetAsync(int? days, bool? bots, CancellationToken ct)
     {
         Days = days is >= 1 and <= 90 ? days.Value : 7;
@@ -58,36 +81,16 @@ public class AnalyticsModel(RmvDbContext db) : PageModel
         TotalRequests = await all.CountAsync(ct);
         HumanRequests = await all.CountAsync(r => !r.IsBot, ct);
 
-        // Every grouped query projects an anonymous type and is mapped to a
-        // record afterwards. Projecting straight into a record constructor inside
-        // a GroupBy is not translatable and throws at runtime, not compile time.
-        TopPaths = (await scoped
-                .Where(r => r.Status < 400)
-                .GroupBy(r => r.Path)
-                .Select(g => new { Key = g.Key, Total = g.Count() })
-                .OrderByDescending(x => x.Total).Take(25)
-                .ToListAsync(ct))
-            .Select(x => new Count(x.Key, x.Total)).ToList();
+        TopPaths = await TopAsync(scoped.Where(r => r.Status < 400), r => r.Path, 25, ct);
 
         // Bots are included here on purpose: a flood of 404s for /wp-login.php is
         // exactly what this panel is for.
-        TopMisses = (await all
-                .Where(r => r.Status == 404)
-                .GroupBy(r => r.Path)
-                .Select(g => new { Key = g.Key, Total = g.Count() })
-                .OrderByDescending(x => x.Total).Take(25)
-                .ToListAsync(ct))
-            .Select(x => new Count(x.Key, x.Total)).ToList();
+        TopMisses = await TopAsync(all.Where(r => r.Status == 404), r => r.Path, 25, ct);
 
-        TopReferrers = (await scoped
-                .Where(r => r.Referrer != null)
-                .GroupBy(r => r.Referrer!)
-                .Select(g => new { Key = g.Key, Total = g.Count() })
-                .OrderByDescending(x => x.Total).Take(15)
-                .ToListAsync(ct))
-            .Select(x => new Count(x.Key, x.Total)).ToList();
+        TopReferrers = await TopAsync(scoped.Where(r => r.Referrer != null), r => r.Referrer!, 15, ct);
 
-        TopCountries = (await scoped
+        TopCountries = await TopAsync(scoped.Where(r => r.Country != null), r => r.Country!, 15, ct);
+        var unusedTail = (await scoped
                 .Where(r => r.Country != null)
                 .GroupBy(r => r.Country!)
                 .Select(g => new { Key = g.Key, Total = g.Count() })

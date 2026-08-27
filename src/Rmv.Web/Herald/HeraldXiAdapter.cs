@@ -34,19 +34,15 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
             return HeraldResult.Fail("That herald address or character name does not look right.");
         }
 
-        var fetched = await fetcher.GetAsync(url, ct);
-        if (!fetched.Ok)
+        var (body, failure) = await fetcher.GetForCharacterAsync(url, characterName, ct);
+        if (body is null)
         {
-            // A 404 means the name is wrong, which is the common case and worth
-            // saying plainly rather than reporting a status code.
-            return fetched.NotFound
-                ? HeraldResult.Fail($"The herald has no character called \"{characterName}\".")
-                : HeraldResult.Fail(fetched.Error ?? "Could not reach the herald.");
+            return failure!;
         }
 
         try
         {
-            var dto = JsonSerializer.Deserialize<XiCharacter>(fetched.Body!, Json);
+            var dto = JsonSerializer.Deserialize<XiCharacter>(body, Json);
             if (dto is null || string.IsNullOrWhiteSpace(dto.Name))
             {
                 return HeraldResult.Fail($"The herald has no character called \"{characterName}\".");

@@ -65,8 +65,44 @@ public class Member
     /// <summary>Display name of the admin who approved them, for the audit trail.</summary>
     public string? ApprovedBy { get; set; }
 
-    public bool CanContribute => Status == MemberStatus.Approved;
+    /// <summary>
+    /// May edit the site. Blocked beats admin, deliberately: revoking someone
+    /// should not depend on remembering to clear the admin flag too.
+    /// </summary>
+    public bool CanAdminister => IsAdmin && Status != MemberStatus.Blocked;
+
+    /// <summary>
+    /// May add and claim characters.
+    ///
+    /// Admins count, because an admin who can edit the site but not add a
+    /// character is nonsense, and /admin/members already approves on promotion.
+    ///
+    /// This was written out three separate times and the three disagreed. The
+    /// authorization handler included admins, Member.CanContribute did not, and
+    /// the profile page counted only root admins, so a database admin still marked
+    /// Pending passed the policy while their own profile told them they could not
+    /// contribute. One property, one answer.
+    /// </summary>
+    public bool CanContribute => Status == MemberStatus.Approved || CanAdminister;
 
     /// <summary>The name to show. Never the Discord id.</summary>
     public string Handle => string.IsNullOrWhiteSpace(Alias) ? DisplayName : Alias;
+
+    /// <summary>
+    /// Two letters for the portrait frame, from the Handle, so setting an alias
+    /// changes the diamond as well as the name beside it.
+    ///
+    /// There were three copies of this: one reading the Discord claim for the
+    /// masthead and the profile, one local to the roster page reading the Handle.
+    /// The masthead and the profile therefore disagreed with the roster the moment
+    /// anyone set an alias. Deriving it from the Handle in one place is the fix.
+    /// </summary>
+    public string Initials => InitialsOf(Handle);
+
+    /// <summary>For callers naming someone who has no member row loaded.</summary>
+    public static string InitialsOf(string? name)
+    {
+        var letters = (name ?? "").Where(char.IsLetterOrDigit).Take(2).ToArray();
+        return letters.Length > 0 ? new string(letters).ToUpperInvariant() : "?";
+    }
 }

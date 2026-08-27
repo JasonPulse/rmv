@@ -2,8 +2,23 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Rmv.Web.Pages;
 
-public static class ModelStateScope
+/// <summary>
+/// The two things every page with a form ends up needing, kept out of the pages
+/// themselves so there is one copy of each.
+/// </summary>
+public static class PageHelpers
 {
+    /// <summary>
+    /// Reads a one-shot value a redirect put in the query string, or null.
+    ///
+    /// Redirect-after-post is how every form here reports what it did, so this
+    /// idiom was written out ten times across three pages. The Count check is the
+    /// part worth having once: an absent key yields an empty StringValues, not
+    /// null, so a plain null test silently passes.
+    /// </summary>
+    public static string? Flash(this PageModel page, string key) =>
+        page.Request.Query[key] is { Count: > 0 } value ? value.ToString() : null;
+
     /// <summary>
     /// Discards validation state for every bound model except the one whose form
     /// was actually posted.

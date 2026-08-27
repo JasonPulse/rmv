@@ -29,20 +29,36 @@ public sealed class CurrentMember(MemberDirectory directory)
             return null;
         }
 
-        try
-        {
-            _member = await directory.EnsureAsync(user, ct);
-        }
-        catch
-        {
-            // Naming someone is not worth failing a page render over.
-            _member = null;
-        }
-
+        _member = await directory.EnsureAsync(user, ct);
         return _member;
     }
 
-    /// <summary>The alias if set, else the Discord name. Never the Discord id.</summary>
-    public async Task<string> HandleAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
-        (await GetAsync(user, ct))?.Handle ?? DiscordUser.Name(user);
+    /// <summary>
+    /// The alias if set, else the Discord name. Never the Discord id.
+    ///
+    /// Swallows a database failure to get there, because naming someone in the
+    /// masthead is not worth failing a page render over. The swallow lives here
+    /// rather than in GetAsync deliberately: a handler deciding whether you own a
+    /// character needs an outage to surface as an outage, not as "could not
+    /// identify your account".
+    /// </summary>
+    public async Task<string> HandleAsync(ClaimsPrincipal user, CancellationToken ct = default)
+    {
+        try
+        {
+            return (await GetAsync(user, ct))?.Handle ?? DiscordUser.Name(user);
+        }
+        catch
+        {
+            return DiscordUser.Name(user);
+        }
+    }
+
+    /// <summary>
+    /// Initials of the Handle, not of the Discord name. The masthead diamond and
+    /// the name beside it have to agree, and they did not: the diamond read the
+    /// claim, so an alias changed the name and left the diamond on the old one.
+    /// </summary>
+    public async Task<string> InitialsAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
+        Member.InitialsOf(await HandleAsync(user, ct));
 }

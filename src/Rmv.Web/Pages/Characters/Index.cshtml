@@ -17,14 +17,8 @@
 <div class="shell">
     <hr class="rule" />
 
-    @if (Model.Error is not null)
-    {
-        <p class="notice">@Model.Error</p>
-    }
-    @if (Model.Notice is not null)
-    {
-        <p class="notice notice--ok">@Model.Notice</p>
-    }
+    @{ var flash = new Rmv.Web.Pages.Shared.Flash(Model.Notice, Model.Error); }
+    <partial name="_Flash" model="flash" />
 
     <section class="section grid grid--wide">
         <article class="panel">

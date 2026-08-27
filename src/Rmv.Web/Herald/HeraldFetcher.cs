@@ -24,6 +24,31 @@ public sealed class HeraldFetcher(HttpClient client, ILogger<HeraldFetcher> log)
     /// <summary>Heralds are HTML pages. Anything much larger is not one.</summary>
     public const int MaxBytes = 2 * 1024 * 1024;
 
+    /// <summary>
+    /// Fetches a character page, with the failure already turned into the message a
+    /// member should see.
+    ///
+    /// Every adapter did this itself and they were the same five lines: a 404 means
+    /// the name is wrong, which is the common case and worth saying plainly rather
+    /// than reporting a status code at someone who simply mistyped.
+    ///
+    /// Returns the body on success, or the failure to hand straight back.
+    /// </summary>
+    public async Task<(string? Body, HeraldResult? Failure)> GetForCharacterAsync(
+        string url, string characterName, CancellationToken ct)
+    {
+        var fetched = await GetAsync(url, ct);
+
+        if (fetched.Ok)
+        {
+            return (fetched.Body!, null);
+        }
+
+        return (null, fetched.NotFound
+            ? HeraldResult.Fail($"The herald has no character called \"{characterName}\".")
+            : HeraldResult.Fail(fetched.Error ?? "Could not reach the herald."));
+    }
+
     public async Task<FetchResult> GetAsync(string url, CancellationToken ct)
     {
         if (!Data.ExternalUrl.TryParse(url, out var safe))

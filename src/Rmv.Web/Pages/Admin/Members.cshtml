@@ -15,14 +15,8 @@
 <div class="shell">
     <hr class="rule" />
 
-    @if (Model.Error is not null)
-    {
-        <p class="notice">@Model.Error</p>
-    }
-    @if (Model.Notice is not null)
-    {
-        <p class="notice notice--ok">@Model.Notice</p>
-    }
+    @{ var flash = new Rmv.Web.Pages.Shared.Flash(Model.Notice, Model.Error); }
+    <partial name="_Flash" model="flash" />
 
     <section class="section">
         <div class="panel">
@@ -68,18 +62,7 @@
                                 }
                             </td>
                             <td>
-                                @switch (row.Member.Status)
-                                {
-                                    case MemberStatus.Approved:
-                                        <span class="pill pill--ok">approved</span>
-                                        break;
-                                    case MemberStatus.Blocked:
-                                        <span class="pill pill--bad">blocked</span>
-                                        break;
-                                    default:
-                                        <span class="pill pill--warn">pending</span>
-                                        break;
-                                }
+                                <partial name="_StatusPill" model="row.Member.Status" />
                                 <span class="dim block-hint">seen @row.Member.LastSeenAt.ToString("yyyy-MM-dd")</span>
                             </td>
                             <td>

@@ -48,66 +48,32 @@ public static class MemberPolicy
 }
 
 /// <summary>
-/// Approved members, and admins. Scoped so it can resolve the DbContext.
+/// The shape both member policies share: read the Discord id off the principal,
+/// let root admins through without touching the database, then look the member up
+/// and ask the requirement's own question.
+///
+/// The two handlers were copies of each other differing only in that question,
+/// and the copies had drifted: one expressed "blocked beats admin" as a SQL
+/// predicate, the other as a pattern match, and they did not agree. Security code
+/// is the worst place to keep two versions of a rule.
+///
+/// Fails closed throughout. No id, no database, or a database that throws all end
+/// without calling Succeed, so the answer is no.
 /// </summary>
-public sealed class ApprovedMemberAuthorizationHandler(
+public abstract class MemberRequirementHandler<TRequirement>(
     IServiceProvider services,
     IConfiguration config,
-    ILogger<ApprovedMemberAuthorizationHandler> log)
-    : AuthorizationHandler<ApprovedMemberRequirement>
+    ILogger log) : AuthorizationHandler<TRequirement>
+    where TRequirement : IAuthorizationRequirement
 {
-    protected override async Task HandleRequirementAsync(
-        AuthorizationHandlerContext context, ApprovedMemberRequirement requirement)
-    {
-        var id = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(id))
-        {
-            return;
-        }
+    /// <summary>What this requirement asks of a member. Both answers live on Member.</summary>
+    protected abstract bool Qualifies(Member member);
 
-        if (AdminPolicy.IsRootAdmin(config, id))
-        {
-            context.Succeed(requirement);
-            return;
-        }
+    /// <summary>For the log line, so a denial can be traced to a requirement.</summary>
+    protected abstract string What { get; }
 
-        var db = services.GetService<RmvDbContext>();
-        if (db is null)
-        {
-            return;
-        }
-
-        try
-        {
-            var member = await db.Members
-                .AsNoTracking()
-                .FirstOrDefaultAsync(m => m.DiscordId == id);
-
-            // Blocked beats admin: a removed member does not keep write access
-            // because a flag was left set.
-            if (member is { Status: MemberStatus.Approved } || (member is { IsAdmin: true, Status: not MemberStatus.Blocked }))
-            {
-                context.Succeed(requirement);
-            }
-        }
-        catch (Exception ex)
-        {
-            log.LogWarning(ex, "Could not check member status for {Id}.", id);
-        }
-    }
-}
-
-/// <summary>
-/// Scoped, so it can resolve the scoped DbContext. Registered even when no
-/// database exists, in which case only config admins pass.
-/// </summary>
-public sealed class AdminAuthorizationHandler(
-    IServiceProvider services,
-    IConfiguration config,
-    ILogger<AdminAuthorizationHandler> log) : AuthorizationHandler<AdminRequirement>
-{
-    protected override async Task HandleRequirementAsync(
-        AuthorizationHandlerContext context, AdminRequirement requirement)
+    protected sealed override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context, TRequirement requirement)
     {
         var id = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(id))
@@ -131,10 +97,14 @@ public sealed class AdminAuthorizationHandler(
 
         try
         {
-            // Blocked beats admin, deliberately: revoking someone should not
-            // depend on remembering to clear the admin flag too.
-            if (await db.Members.AnyAsync(m =>
-                    m.DiscordId == id && m.IsAdmin && m.Status != MemberStatus.Blocked))
+            // The whole row rather than a SQL predicate, so the rule can be one
+            // property on Member instead of an expression tree per handler. One
+            // indexed read on an authorised request.
+            var member = await db.Members
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.DiscordId == id);
+
+            if (member is not null && Qualifies(member))
             {
                 context.Succeed(requirement);
             }
@@ -143,7 +113,34 @@ public sealed class AdminAuthorizationHandler(
         {
             // Database down. Root admins already succeeded above; everyone else
             // is denied rather than allowed.
-            log.LogWarning(ex, "Could not check admin status for {Id}.", id);
+            log.LogWarning(ex, "Could not check {What} for {Id}.", What, id);
         }
     }
+}
+
+/// <summary>Approved members, and admins. Scoped so it can resolve the DbContext.</summary>
+public sealed class ApprovedMemberAuthorizationHandler(
+    IServiceProvider services,
+    IConfiguration config,
+    ILogger<ApprovedMemberAuthorizationHandler> log)
+    : MemberRequirementHandler<ApprovedMemberRequirement>(services, config, log)
+{
+    protected override string What => "contributor status";
+
+    protected override bool Qualifies(Member member) => member.CanContribute;
+}
+
+/// <summary>
+/// Scoped, so it can resolve the scoped DbContext. Registered even when no
+/// database exists, in which case only config admins pass.
+/// </summary>
+public sealed class AdminAuthorizationHandler(
+    IServiceProvider services,
+    IConfiguration config,
+    ILogger<AdminAuthorizationHandler> log)
+    : MemberRequirementHandler<AdminRequirement>(services, config, log)
+{
+    protected override string What => "admin status";
+
+    protected override bool Qualifies(Member member) => member.CanAdminister;
 }

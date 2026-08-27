@@ -1,0 +1,20 @@
+@model Rmv.Web.Data.MemberStatus
+@*
+    A member's status as a pill.
+
+    The profile and the admin table each had their own copy of this switch, and
+    they had drifted: the same Pending status read "awaiting approval" on one page
+    and "pending" on the other. One switch, one wording.
+*@
+@switch (Model)
+{
+    case Rmv.Web.Data.MemberStatus.Approved:
+        <span class="pill pill--ok">approved</span>
+        break;
+    case Rmv.Web.Data.MemberStatus.Blocked:
+        <span class="pill pill--bad">blocked</span>
+        break;
+    default:
+        <span class="pill pill--warn">pending</span>
+        break;
+}

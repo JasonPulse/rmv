@@ -11,7 +11,7 @@
     <div class="shell">
         <div class="hero__crestline">
             <span class="portrait portrait--lg">
-                <span class="portrait__initials">@Initials(who)</span>
+                <span class="portrait__initials">@Rmv.Web.Data.Member.InitialsOf(who)</span>
             </span>
         </div>
         <div class="hero__plaque"><h1>@who</h1></div>
@@ -61,11 +61,3 @@
 
     <p class="center"><a class="btn" href="/history">Back to the games</a></p>
 </div>
-
-@functions {
-    static string Initials(string name)
-    {
-        var letters = name.Where(char.IsLetterOrDigit).Take(2).ToArray();
-        return letters.Length > 0 ? new string(letters).ToUpperInvariant() : "?";
-    }
-}
