@@ -1,10 +1,22 @@
 namespace Rmv.Web.Data;
 
+/// <summary>Where a character's stats came from, which decides who may change them.</summary>
+public enum CharacterSource
+{
+    /// <summary>Fetched from the game's herald. Refreshable, and not hand-editable.</summary>
+    Herald,
+
+    /// <summary>Typed in by the owner, because the game has no herald to ask.</summary>
+    Manual,
+}
+
 /// <summary>
 /// A character on a game server, owned by the member who added it.
 ///
-/// The stats are a cached copy of what the herald said. They are not the source
-/// of truth and are allowed to be stale; LastFetchedAt says how stale.
+/// For a herald character the stats are a cached copy of what the herald said.
+/// They are not the source of truth and are allowed to be stale; LastFetchedAt
+/// says how stale. For a manual character the row IS the source of truth, so the
+/// owner edits it and nothing ever refreshes it.
 /// </summary>
 public class Character
 {
@@ -46,7 +58,17 @@ public class Character
 
     public string? HeraldUrl { get; set; }
 
+    /// <summary>Hotlinked from the herald's CDN. See HeraldCharacter.PortraitUrl.</summary>
+    public string? PortraitUrl { get; set; }
+
+    public string? AvatarUrl { get; set; }
+
     // --- bookkeeping ---------------------------------------------------------
+
+    public CharacterSource Source { get; set; }
+
+    /// <summary>A manual character has no herald to ask, so nothing refreshes it.</summary>
+    public bool IsManual => Source == CharacterSource.Manual;
 
     public DateTimeOffset AddedAt { get; set; }
 

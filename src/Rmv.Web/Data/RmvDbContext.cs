@@ -109,7 +109,11 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             e.Property(c => c.RealmRank).HasMaxLength(40);
             e.Property(c => c.LastOnline).HasMaxLength(40);
             e.Property(c => c.HeraldUrl).HasMaxLength(ExternalUrl.MaxLength);
+            e.Property(c => c.PortraitUrl).HasMaxLength(ExternalUrl.MaxLength);
+            e.Property(c => c.AvatarUrl).HasMaxLength(ExternalUrl.MaxLength);
             e.Property(c => c.LastError).HasMaxLength(300);
+            // Text, like MemberStatus, so the table reads without a lookup.
+            e.Property(c => c.Source).HasConversion<string>().HasMaxLength(16).IsRequired();
 
             e.HasOne(c => c.Member).WithMany()
                 .HasForeignKey(c => c.MemberId)

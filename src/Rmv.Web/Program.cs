@@ -196,6 +196,7 @@ builder.Services.AddHttpClient<HeraldFetcher>(http =>
         builder.Configuration["Herald:AllowedPrivateHosts"])));
 builder.Services.AddScoped<IHeraldAdapter, BlackthornHeraldAdapter>();
 builder.Services.AddScoped<IHeraldAdapter, HeraldXiAdapter>();
+builder.Services.AddScoped<IHeraldAdapter, LodestoneAdapter>();
 builder.Services.AddScoped<HeraldRegistry>();
 builder.Services.AddScoped<CharacterService>();
 

@@ -1,0 +1,85 @@
+@model Rmv.Web.Pages.Shared.CharacterCard
+@*
+    Portrait, name, and the stat sheet. Shared by the member's own list and the
+    public roster so the two cannot drift apart.
+
+    Every stat is conditional. A herald gives whatever it gives, and a hand-typed
+    sheet is often just a name and a level, so a card renders whatever it has
+    rather than showing empty rows.
+*@
+@{
+    var c = Model.Character;
+}
+
+@if (!string.IsNullOrWhiteSpace(c.PortraitUrl))
+{
+    @* Hotlinked from the herald's own CDN, deliberately. Copying someone else's
+       character art onto our disk would be a licensing question and a cache to
+       invalidate, for no gain. Lazy, so a long list does not fetch art nobody
+       scrolled down to. *@
+    <img class="charcard__portrait" src="@c.PortraitUrl" alt="@c.Name"
+         loading="lazy" decoding="async" referrerpolicy="no-referrer"
+         width="220" height="300" />
+}
+
+<div class="charcard__body">
+<div class="charcard__head">
+    <h3 class="charcard__name">
+        @if (!string.IsNullOrWhiteSpace(c.HeraldUrl))
+        {
+            <a href="@c.HeraldUrl" target="_blank" rel="noopener noreferrer external">@c.Name</a>
+        }
+        else
+        {
+            @c.Name
+        }
+    </h3>
+    @if (Model.ShowGame && c.Game is not null)
+    {
+        <span class="dim">@c.Game.Game</span>
+    }
+    @if (Model.Badge is not null)
+    {
+        <span class="pill @Model.BadgeClass">@Model.Badge</span>
+    }
+</div>
+
+<dl class="facts">
+    @if (c.Level is not null)
+    {
+        <dt>Level</dt><dd>@c.Level</dd>
+    }
+    @if (!string.IsNullOrWhiteSpace(c.Class))
+    {
+        <dt>Job</dt><dd>@c.Class</dd>
+    }
+    @if (!string.IsNullOrWhiteSpace(c.Race))
+    {
+        <dt>Race</dt><dd>@c.Race</dd>
+    }
+    @if (!string.IsNullOrWhiteSpace(c.Realm))
+    {
+        <dt>Realm</dt><dd>@c.Realm</dd>
+    }
+    @if (!string.IsNullOrWhiteSpace(c.Guild))
+    {
+        <dt>Guild</dt><dd>@c.Guild</dd>
+    }
+    @if (!string.IsNullOrWhiteSpace(c.RealmRank))
+    {
+        <dt>Rank</dt><dd>@c.RealmRank</dd>
+    }
+    @if (c.Score is not null)
+    {
+        <dt>Score</dt><dd>@c.Score.Value.ToString("N0")</dd>
+    }
+    @if (Model.ShowKills && c.Kills is not null)
+    {
+        <dt>Kills</dt><dd>@c.Kills.Value.ToString("N0")</dd>
+    }
+    @if (!string.IsNullOrWhiteSpace(c.LastOnline))
+    {
+        <dt>Seen</dt><dd>@c.LastOnline</dd>
+    }
+</dl>
+</div>

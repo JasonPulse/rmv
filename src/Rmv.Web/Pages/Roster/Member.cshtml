@@ -44,57 +44,14 @@
                     {
                         var isHighlighted = c.Id == Model.HighlightId;
                         <div class="charcard @(isHighlighted ? "charcard--on" : "")" id="c-@c.Id">
-                            <div class="charcard__head">
-                                <h3 class="charcard__name">
-                                    @if (!string.IsNullOrWhiteSpace(c.HeraldUrl))
-                                    {
-                                        <a href="@c.HeraldUrl" target="_blank" rel="noopener noreferrer external">@c.Name</a>
-                                    }
-                                    else
-                                    {
-                                        @c.Name
-                                    }
-                                </h3>
-                                @if (isHighlighted)
+                            @{
+                                var card = new Rmv.Web.Pages.Shared.CharacterCard(c)
                                 {
-                                    <span class="pill pill--warn">this one</span>
-                                }
-                            </div>
-
-                            <dl class="facts">
-                                @if (c.Level is not null)
-                                {
-                                    <dt>Level</dt><dd>@c.Level</dd>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.Class))
-                                {
-                                    <dt>Job</dt><dd>@c.Class</dd>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.Race))
-                                {
-                                    <dt>Race</dt><dd>@c.Race</dd>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.Realm))
-                                {
-                                    <dt>Realm</dt><dd>@c.Realm</dd>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.Guild))
-                                {
-                                    <dt>Guild</dt><dd>@c.Guild</dd>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.RealmRank))
-                                {
-                                    <dt>Rank</dt><dd>@c.RealmRank</dd>
-                                }
-                                @if (c.Score is not null)
-                                {
-                                    <dt>Score</dt><dd>@c.Score.Value.ToString("N0")</dd>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.LastOnline))
-                                {
-                                    <dt>Seen</dt><dd>@c.LastOnline</dd>
-                                }
-                            </dl>
+                                    Badge = isHighlighted ? "this one" : null,
+                                    BadgeClass = "pill--warn",
+                                };
+                            }
+                            <partial name="_CharacterBody" model="card" />
                         </div>
                     }
                 </div>

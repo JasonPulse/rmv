@@ -7,7 +7,10 @@
 <section class="hero">
     <div class="shell">
         <div class="hero__plaque"><h1>My characters</h1></div>
-        <p>Add a character and we look it up on that server's herald.</p>
+        <p>
+            Games with a herald we look up for you. The rest take a sheet you
+            type once.
+        </p>
     </div>
 </section>
 
@@ -29,11 +32,10 @@
 
             @if (Model.Games.Count == 0)
             {
-                <h3>No games ready</h3>
+                <h3>No games yet</h3>
                 <p class="dim">
-                    None of the games have a herald configured yet, so there is
-                    nowhere to look a character up. An admin sets that on
-                    <a href="/admin/history">the history page</a>.
+                    There is nothing in the history to attach a character to. An
+                    admin adds games on <a href="/admin/history">the history page</a>.
                 </p>
             }
             else
@@ -43,11 +45,11 @@
 
                     <div class="field">
                         <label asp-for="Input.GamePresenceId">Game</label>
-                        <select class="input" asp-for="Input.GamePresenceId">
+                        <select class="input" asp-for="Input.GamePresenceId" data-gamepicker>
                             <option value="">Pick a game</option>
                             @foreach (var g in Model.Games)
                             {
-                                <option value="@g.Id">@g.Game</option>
+                                <option value="@g.Id" data-herald="@(Model.HasHerald(g) ? "true" : "false")">@g.Game</option>
                             }
                         </select>
                     </div>
@@ -56,10 +58,31 @@
                         <label asp-for="Input.Name">Character name</label>
                         <input class="input" asp-for="Input.Name" autocomplete="off"
                                placeholder="Exactly as it appears in game" />
-                        <p class="hint">
+                        <p class="hint" data-when="herald" hidden>
                             Spelling has to match. We ask the herald, and it is
-                            fussier than we are.
+                            fussier than we are. For the Lodestone you can paste
+                            your character's page address instead of the name.
                         </p>
+                    </div>
+
+                    @* Shown unless the picked game has a herald, which means shown
+                       by default, so this works with the script blocked. *@
+                    <div data-when="manual" class="stack" style="--stack-gap:1rem">
+                        <div class="field">
+                            <label asp-for="Input.Class">Job or class</label>
+                            <input class="input" asp-for="Input.Class" autocomplete="off"
+                                   placeholder="Paladin, White Mage, Champion" />
+                        </div>
+
+                        <div class="field">
+                            <label asp-for="Input.Level">Level</label>
+                            <input class="input input--narrow" asp-for="Input.Level" type="number"
+                                   min="1" max="999" placeholder="50" />
+                            <p class="hint">
+                                This game has no herald, so nothing updates the sheet
+                                for you. Leave a field blank if you do not remember.
+                            </p>
+                        </div>
                     </div>
 
                     <p style="margin:0"><button class="btn" type="submit">Add character</button></p>
@@ -81,60 +104,20 @@
                     @foreach (var c in Model.Mine)
                     {
                         <div class="charcard">
-                            <div class="charcard__head">
-                                <h3 class="charcard__name">
-                                    @if (!string.IsNullOrWhiteSpace(c.HeraldUrl))
-                                    {
-                                        <a href="@c.HeraldUrl" target="_blank" rel="noopener noreferrer external">@c.Name</a>
-                                    }
-                                    else
-                                    {
-                                        @c.Name
-                                    }
-                                </h3>
-                                <span class="dim">@c.Game?.Game</span>
-                            </div>
+                            @{
+                                var card = new Rmv.Web.Pages.Shared.CharacterCard(c)
+                                {
+                                    ShowGame = true,
+                                    ShowKills = true,
+                                };
+                            }
+                            <partial name="_CharacterBody" model="card" />
 
-                            <dl class="facts">
-                                @if (c.Level is not null)
-                                {
-                                    <dt>Level</dt><dd>@c.Level</dd>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.Class))
-                                {
-                                    <dt>Job</dt><dd>@c.Class</dd>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.Race))
-                                {
-                                    <dt>Race</dt><dd>@c.Race</dd>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.Realm))
-                                {
-                                    <dt>Realm</dt><dd>@c.Realm</dd>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.Guild))
-                                {
-                                    <dt>Guild</dt><dd>@c.Guild</dd>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.RealmRank))
-                                {
-                                    <dt>Rank</dt><dd>@c.RealmRank</dd>
-                                }
-                                @if (c.Score is not null)
-                                {
-                                    <dt>Score</dt><dd>@c.Score.Value.ToString("N0")</dd>
-                                }
-                                @if (c.Kills is not null)
-                                {
-                                    <dt>Kills</dt><dd>@c.Kills.Value.ToString("N0")</dd>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(c.LastOnline))
-                                {
-                                    <dt>Seen</dt><dd>@c.LastOnline</dd>
-                                }
-                            </dl>
-
-                            @if (!string.IsNullOrWhiteSpace(c.LastError))
+                            @if (c.IsManual)
+                            {
+                                <p class="hint">Typed in by you. @(c.Game?.Game) has no herald to ask.</p>
+                            }
+                            else if (!string.IsNullOrWhiteSpace(c.LastError))
                             {
                                 <p class="hint charcard__stale">Last refresh failed: @c.LastError</p>
                             }
@@ -144,14 +127,48 @@
                             }
 
                             <div class="charcard__actions">
-                                <form method="post" asp-page-handler="Refresh" asp-route-id="@c.Id">
-                                    <button class="linkish" type="submit">refresh</button>
-                                </form>
+                                @if (!c.IsManual)
+                                {
+                                    <form method="post" asp-page-handler="Refresh" asp-route-id="@c.Id">
+                                        <button class="linkish" type="submit">refresh</button>
+                                    </form>
+                                }
                                 <form method="post" asp-page-handler="Remove" asp-route-id="@c.Id"
                                       onsubmit="return confirm('Remove @c.Name?')">
                                     <button class="linkish linkish--danger" type="submit">remove</button>
                                 </form>
                             </div>
+
+                            @if (c.IsManual)
+                            {
+                                @* Its own form per card rather than one shared form
+                                   the page fills by script: nothing updates a manual
+                                   sheet, so correcting a typo has to work with the
+                                   script blocked. *@
+                                <details class="charcard__edit">
+                                    <summary class="linkish">edit sheet</summary>
+                                    <form method="post" asp-page-handler="Edit" asp-route-id="@c.Id"
+                                          class="stack" style="--stack-gap:0.75rem">
+                                        <div class="field">
+                                            <label for="edit-name-@c.Id">Name</label>
+                                            <input class="input" id="edit-name-@c.Id" name="Edit.Name"
+                                                   value="@c.Name" autocomplete="off" />
+                                        </div>
+                                        <div class="field">
+                                            <label for="edit-class-@c.Id">Job or class</label>
+                                            <input class="input" id="edit-class-@c.Id" name="Edit.Class"
+                                                   value="@c.Class" autocomplete="off" />
+                                        </div>
+                                        <div class="field">
+                                            <label for="edit-level-@c.Id">Level</label>
+                                            <input class="input input--narrow" id="edit-level-@c.Id"
+                                                   name="Edit.Level" type="number" min="1" max="999"
+                                                   value="@c.Level" />
+                                        </div>
+                                        <p style="margin:0"><button class="btn" type="submit">Save sheet</button></p>
+                                    </form>
+                                </details>
+                            }
                         </div>
                     }
                 </div>
@@ -159,3 +176,7 @@
         </article>
     </section>
 </div>
+
+@section Scripts {
+    <script src="~/js/character-form.js" asp-append-version="true" defer></script>
+}

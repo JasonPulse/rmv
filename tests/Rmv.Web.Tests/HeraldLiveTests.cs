@@ -78,4 +78,42 @@ public class HeraldLiveTests
         Assert.False(result.Ok);
         Assert.Contains("not public", result.Error!, StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// One character, three requests: the search, the profile, the Class/Job page.
+    /// Kept to a single test on purpose. The Lodestone is Square Enix's and this
+    /// suite has been rude to someone else's server once already.
+    /// </summary>
+    [Fact]
+    public async Task Lodestone_resolves_a_name_and_reads_the_character()
+    {
+        var adapter = new LodestoneAdapter(Fetcher());
+
+        var result = await adapter.FetchCharacterAsync(
+            "https://na.finalfantasyxiv.com", "Aoii Aeredel", CancellationToken.None);
+
+        Assert.True(result.Ok, result.Error);
+        var c = result.Character!;
+        Assert.Equal("Aoii Aeredel", c.Name);
+        Assert.Contains("Exodus", c.Realm);
+        // The job's name only exists as an image on the profile, so a name here
+        // proves the Class/Job page was fetched and the icons matched.
+        Assert.False(string.IsNullOrWhiteSpace(c.Class));
+        Assert.NotNull(c.Level);
+        Assert.StartsWith("https://img2.finalfantasyxiv.com/", c.PortraitUrl);
+    }
+
+    [Fact]
+    public async Task Lodestone_takes_a_pasted_character_address_without_searching()
+    {
+        var adapter = new LodestoneAdapter(Fetcher());
+
+        var result = await adapter.FetchCharacterAsync(
+            "https://na.finalfantasyxiv.com",
+            "https://na.finalfantasyxiv.com/lodestone/character/8868232/",
+            CancellationToken.None);
+
+        Assert.True(result.Ok, result.Error);
+        Assert.Equal("Aoii Aeredel", result.Character!.Name);
+    }
 }

@@ -33,6 +33,17 @@ public sealed record HeraldCharacter
 
     /// <summary>The character's page, for linking straight to the herald.</summary>
     public string? Url { get; init; }
+
+    /// <summary>
+    /// A portrait, tall, roughly 220x300. Absolute and on the herald's own CDN,
+    /// so it is rendered as an img the browser fetches directly. Nothing is
+    /// copied to our disk; if the herald deletes it the image simply stops
+    /// loading, which is the correct outcome for someone else's artwork.
+    /// </summary>
+    public string? PortraitUrl { get; init; }
+
+    /// <summary>A square face crop, for lists where a portrait is too tall.</summary>
+    public string? AvatarUrl { get; init; }
 }
 
 public sealed record HeraldResult(bool Ok, HeraldCharacter? Character, string? Error)

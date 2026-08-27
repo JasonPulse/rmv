@@ -112,9 +112,17 @@
                     @foreach (var c in Model.Characters)
                     {
                         <li>
+                            @if (!string.IsNullOrWhiteSpace(c.AvatarUrl))
+                            {
+                                @* The square face crop, not the portrait: a
+                                   single-line list has no room for a tall image. *@
+                                <img class="charlines__face" src="@c.AvatarUrl" alt=""
+                                     loading="lazy" decoding="async"
+                                     referrerpolicy="no-referrer" width="40" height="40" />
+                            }
                             <a href="/roster/@c.MemberId?c=@c.Id">@c.Name</a>
                             <span class="charlines__game">@c.Game?.Game</span>
-                            @if (!string.IsNullOrWhiteSpace(c.LastError))
+                            @if (!c.IsManual && !string.IsNullOrWhiteSpace(c.LastError))
                             {
                                 <span class="pill pill--bad">stale</span>
                             }
