@@ -29,6 +29,23 @@ teardown() {
     # rmv-dev project's own containers and volumes, and the image is removed by
     # exact tag. No prune, ever: there are other people's images on this machine.
     docker compose down -v --remove-orphans >/dev/null 2>&1 || true
+
+    # Then anything else running from the image we built, by exact ancestor.
+    #
+    # --remove-orphans does not catch these. The image is built by compose, so
+    # compose's own project labels are baked into the image and inherited by any
+    # container started from it with plain `docker run`. A stray therefore carries
+    # the labels without compose owning it, and one survived for a day looking
+    # like it belonged to the stack.
+    strays=$(docker ps -aq --filter "ancestor=rmv-web:local" 2>/dev/null || true)
+    if [ -n "$strays" ]; then
+        echo "  removing $(echo "$strays" | wc -l | tr -d ' ') stray container(s) from rmv-web:local"
+        # kill, not stop: the app does not handle SIGTERM as PID 1, so stop waits
+        # out its full timeout and looks hung.
+        docker kill $strays >/dev/null 2>&1 || true
+        docker rm -f $strays >/dev/null 2>&1 || true
+    fi
+
     docker image rm -f rmv-web:local >/dev/null 2>&1 || true
 }
 
@@ -49,6 +66,29 @@ if [ "$BASE" = "http://localhost:5080" ]; then
     echo
 fi
 
+# One member with one character, so /roster/{id} renders a real page rather than
+# 404. Needed because teardown wipes the volume, which is the point: the previous
+# version of this script checked /roster/1 and passed only because an earlier run
+# had left data behind. A check that depends on yesterday's leftovers is not a
+# check.
+ROSTER_ID=""
+if [ "$LOCAL" = 1 ]; then
+    psql() { docker compose exec -T db psql -qtAX -U "${POSTGRES_USER:-rmv}" -d "${POSTGRES_DB:-rmv}" "$@"; }
+    psql -c "
+        insert into members (\"DiscordId\",\"DisplayName\",\"Alias\",\"Status\",\"IsAdmin\",\"FirstSeenAt\",\"LastSeenAt\")
+        values ('smoke-1','smoketest_x9','Smoke','Approved',false,now(),now())
+        on conflict (\"DiscordId\") do nothing;
+        insert into characters (\"MemberId\",\"GamePresenceId\",\"Name\",\"Class\",\"Level\",\"Source\",\"AddedAt\")
+        select m.\"Id\", g.\"Id\", 'Smoketest', 'Champion', 50, 'Manual', now()
+        from members m, game_presences g
+        where m.\"DiscordId\" = 'smoke-1'
+        order by g.\"Id\" limit 1
+        on conflict do nothing;
+    " >/dev/null
+    ROSTER_ID=$(psql -c "select \"Id\" from members where \"DiscordId\" = 'smoke-1'" | tr -d '[:space:]')
+    echo "seeded member $ROSTER_ID with one character"
+fi
+
 # path expected_local expected_remote
 ROUTES="
 / 200 200
@@ -57,14 +97,20 @@ ROUTES="
 /tools/daoc/roll-parser 200 200
 /healthz/live 200 200
 /healthz/ready 200 200
-/roster/1 200 200
 /admin/history 200 302
 /admin/members 200 302
 /admin/analytics 200 302
 /characters 302 302
 /account/profile 302 302
+/roster/999999 404 404
 /no-such-page 404 404
 "
+
+# The seeded roster page, which only exists locally.
+if [ -n "$ROSTER_ID" ]; then
+    ROUTES="$ROUTES
+/roster/$ROSTER_ID 200 200"
+fi
 
 fails=0
 while read -r path want_local want_remote; do
@@ -78,6 +124,25 @@ while read -r path want_local want_remote; do
         fails=$((fails + 1))
     fi
 done <<< "$ROUTES"
+
+if [ -n "$ROSTER_ID" ]; then
+    body=$(curl -s --max-time 25 "$BASE/roster/$ROSTER_ID" || true)
+    for want in "Smoke" "Smoketest" "Champion"; do
+        if echo "$body" | grep -q "$want"; then
+            printf '  ok   %-26s renders %s\n' "/roster/$ROSTER_ID" "$want"
+        else
+            printf '  FAIL %-26s missing %s\n' "/roster/$ROSTER_ID" "$want"
+            fails=$((fails + 1))
+        fi
+    done
+    # The alias, not the Discord name. This is the bug that started the audit.
+    if echo "$body" | grep -q "smoketest_x9"; then
+        echo "  FAIL /roster/$ROSTER_ID leaks the Discord name instead of the alias"
+        fails=$((fails + 1))
+    else
+        printf '  ok   %-26s names by alias, not Discord\n' "/roster/$ROSTER_ID"
+    fi
+fi
 
 if [ "$LOCAL" = 1 ]; then
     # A 200 that logged a swallowed exception is still a broken page.
