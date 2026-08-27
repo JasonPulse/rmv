@@ -8,4 +8,10 @@ public static class RateLimitPolicies
     /// proportional to what they send.
     /// </summary>
     public const string Upload = "upload";
+
+    /// <summary>
+    /// Adding a character fetches from someone else's herald, so this is limited
+    /// more tightly than an upload: the cost lands on a server that is not ours.
+    /// </summary>
+    public const string Herald = "herald";
 }

@@ -57,6 +57,30 @@
                     <span>Still active</span>
                 </label>
 
+                <div class="field">
+                    <label asp-for="Input.HeraldAdapterKey">Herald adapter</label>
+                    <select class="input" asp-for="Input.HeraldAdapterKey">
+                        <option value="">None, no character lookup</option>
+                        @foreach (var a in Model.Adapters)
+                        {
+                            <option value="@a.Key">@a.DisplayName</option>
+                        }
+                    </select>
+                    <p class="hint">Set this before members can add characters for the game.</p>
+                    <span class="hint" asp-validation-for="Input.HeraldAdapterKey"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Input.HeraldBaseUrl">Herald base URL</label>
+                    <input class="input" asp-for="Input.HeraldBaseUrl" placeholder="https://herald.example.com" />
+                    <p class="hint">
+                        Root only; the adapter appends its own paths. An internal
+                        host also needs listing in
+                        <span class="mono">Herald__AllowedPrivateHosts</span>.
+                    </p>
+                    <span class="hint" asp-validation-for="Input.HeraldBaseUrl"></span>
+                </div>
+
                 <p style="margin:0"><button class="btn" type="submit">Save</button></p>
             </form>
         </article>
@@ -125,6 +149,10 @@
                             {
                                 <span class="pill pill--ok">active</span>
                             }
+                            @if (row.SupportsCharacters)
+                            {
+                                <span class="pill">@row.HeraldAdapterKey</span>
+                            }
                         </td>
                         <td class="dim">
                             @row.Guilds
@@ -154,7 +182,9 @@
                                data-guilds="@row.Guilds"
                                data-period="@row.Period"
                                data-sort="@row.SortOrder"
-                               data-active="@(row.IsActive ? "true" : "false")">edit</a>
+                               data-active="@(row.IsActive ? "true" : "false")"
+                               data-adapter="@row.HeraldAdapterKey"
+                               data-heraldurl="@row.HeraldBaseUrl">edit</a>
                             <form method="post" asp-page-handler="Delete" asp-route-id="@row.Id"
                                   onsubmit="return confirm('Delete @row.Game?')">
                                 <button class="linkish linkish--danger" type="submit">delete</button>
@@ -181,6 +211,8 @@ document.querySelectorAll('[data-edit]').forEach(a => a.addEventListener('click'
     document.querySelector('#Input_Period').value = d.period ?? '';
     document.querySelector('#Input_SortOrder').value = d.sort;
     document.querySelector('#Input_IsActive').checked = d.active === 'true';
+    document.querySelector('#Input_HeraldAdapterKey').value = d.adapter ?? '';
+    document.querySelector('#Input_HeraldBaseUrl').value = d.heraldurl ?? '';
     document.querySelector('#Input_Game').focus();
 }));
 </script>

@@ -12,6 +12,7 @@ namespace Rmv.Web.Tests;
 ///   dotnet test --filter Category=Network
 /// </summary>
 [Trait("Category", "Network")]
+[Collection(NetworkCollection.Name)]
 public class HeraldLiveTests
 {
     private static HeraldFetcher Fetcher(params string[] allowedPrivateHosts)

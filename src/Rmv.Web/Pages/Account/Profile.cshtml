@@ -87,11 +87,12 @@
 
             @if (Model.CanContribute)
             {
-                <h3>Nothing yet</h3>
+                <h3>Add yours</h3>
                 <p class="dim">
-                    Adding characters is not built yet. When it is, this is where
-                    yours will live.
+                    Tell us a character name and we look it up on that server's
+                    herald.
                 </p>
+                <p><a class="btn" href="/characters">My characters</a></p>
             }
             else if (Model.Record is { Status: MemberStatus.Blocked })
             {

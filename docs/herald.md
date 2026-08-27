@@ -92,16 +92,53 @@ needs an OAuth client created at develop.battle.net and its credentials in
 configuration. Not built. WoW is also a no-longer-active game on the history
 page, so its characters are historical.
 
+## Adding a character
+
+A member goes to `/characters`, picks a game and types a name. Only games with an
+adapter *and* a base URL appear in the list: offering the rest just produces a
+failure after the fact.
+
+Nothing is saved unless the herald confirms the character, so a typo leaves no
+row behind. The name stored is the herald's echo of it, not what was typed, so
+capitalisation matches the game.
+
+**One character belongs to one member**, enforced by a unique index on
+`(game, name)` rather than only in the handler, so a double submit cannot create
+two owners. A second claim says who already has it. Comparison is
+case-insensitive, because "Arwen" and "arwen" are the same character.
+
+Adding requires the approved policy, not merely a sign-in. Rate limited to 10 per
+five minutes per caller, harder than the upload limit, because the cost lands on
+a server that is not ours.
+
+A refresh keeps the previous stats when the herald fails. A herald being down
+should not blank a character that was fine yesterday; `LastError` records why and
+`LastFetchedAt` says how stale it is.
+
 ## Testing
 
 Adapters are tested against real saved responses in
 `tests/Rmv.Web.Tests/Fixtures`, not hand-written markup, because hand-written
 markup only proves the parser matches my idea of the page.
 
-`HeraldLiveTests` drives the whole pipeline against the live heralds with nothing
-mocked. Tagged `Network` and excluded from CI, since a runner cannot reach an
-internal host:
+Three suites, and the split matters:
+
+| Filter | What it uses | In CI |
+|---|---|---|
+| default | saved fixtures | yes |
+| `Category=Database` | real Postgres, fake herald | no |
+| `Category=Network` | real heralds | no |
 
 ```bash
+dotnet test --filter Category=Database    # needs RMV_TEST_POSTGRES
 dotnet test --filter Category=Network
 ```
+
+The service tests use a **fake adapter on purpose**. An earlier version hit
+Blackthorn eight times per run, and after a few runs in a minute results started
+failing. That looked like a bug in the service and was my own suite being rude to
+someone else's server. Only the parsing needs real markup, and saved fixtures
+cover that; the live tests are four requests, run deliberately.
+
+A test that passes on retry is worse than one that fails, because it teaches you
+to rerun instead of to look.

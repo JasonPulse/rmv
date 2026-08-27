@@ -28,6 +28,22 @@ public class GamePresence
 
     public List<GameLink> Links { get; set; } = [];
 
+    public List<Character> Characters { get; set; } = [];
+
+    /// <summary>
+    /// Which herald adapter handles this game, e.g. "blackthorn". Null means
+    /// characters cannot be added: there is nowhere to look them up.
+    /// </summary>
+    public string? HeraldAdapterKey { get; set; }
+
+    /// <summary>
+    /// Root of the herald, set by an admin. Adapters append their own paths.
+    /// </summary>
+    public string? HeraldBaseUrl { get; set; }
+
+    public bool SupportsCharacters =>
+        !string.IsNullOrWhiteSpace(HeraldAdapterKey) && !string.IsNullOrWhiteSpace(HeraldBaseUrl);
+
     public IEnumerable<string> GuildList() => Guilds
         .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 }

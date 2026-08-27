@@ -192,6 +192,11 @@ builder.Services.AddHttpClient<HeraldFetcher>(http =>
     // internal address. The FFXI herald is internal, so it needs listing here.
     HeraldHttpHandler.ParseAllowedPrivateHosts(
         builder.Configuration["Herald:AllowedPrivateHosts"])));
+builder.Services.AddScoped<IHeraldAdapter, BlackthornHeraldAdapter>();
+builder.Services.AddScoped<IHeraldAdapter, HeraldXiAdapter>();
+builder.Services.AddScoped<HeraldRegistry>();
+builder.Services.AddScoped<CharacterService>();
+
 // ---------------------------------------------------------------------------
 // Rate limiting
 //
@@ -203,6 +208,17 @@ builder.Services.AddHttpClient<HeraldFetcher>(http =>
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Character adds hit somebody else's server, so they are limited harder than
+    // an upload that only costs us CPU.
+    o.AddPolicy(RateLimitPolicies.Herald, http => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(5),
+            QueueLimit = 0,
+        }));
 
     o.AddPolicy(RateLimitPolicies.Upload, http => RateLimitPartition.GetFixedWindowLimiter(
         partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",

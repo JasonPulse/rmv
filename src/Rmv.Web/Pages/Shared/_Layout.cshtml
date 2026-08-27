@@ -68,6 +68,10 @@
 
                     <div class="menu" id="account-menu" role="menu" hidden data-account-menu>
                         <a class="menu__item" role="menuitem" href="/Account/Profile">Profile</a>
+                        @if ((await Auth.AuthorizeAsync(User, MemberPolicy.Approved)).Succeeded)
+                        {
+                            <a class="menu__item" role="menuitem" href="/characters">My characters</a>
+                        }
                         @if ((await Auth.AuthorizeAsync(User, AdminPolicy.Name)).Succeeded)
                         {
                             <a class="menu__item" role="menuitem" href="/admin/history">Edit history</a>

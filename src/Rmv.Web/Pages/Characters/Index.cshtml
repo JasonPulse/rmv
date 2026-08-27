@@ -1,0 +1,161 @@
+@page "/characters"
+@model Rmv.Web.Pages.Characters.IndexModel
+@{
+    ViewData["Title"] = "My characters";
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>My characters</h1></div>
+        <p>Add a character and we look it up on that server's herald.</p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    @if (Model.Error is not null)
+    {
+        <p class="notice">@Model.Error</p>
+    }
+    @if (Model.Notice is not null)
+    {
+        <p class="notice notice--ok">@Model.Notice</p>
+    }
+
+    <section class="section grid grid--wide">
+        <article class="panel">
+            <p class="panel__title">Add one</p>
+
+            @if (Model.Games.Count == 0)
+            {
+                <h3>No games ready</h3>
+                <p class="dim">
+                    None of the games have a herald configured yet, so there is
+                    nowhere to look a character up. An admin sets that on
+                    <a href="/admin/history">the history page</a>.
+                </p>
+            }
+            else
+            {
+                <form method="post" asp-page-handler="Add" class="stack" style="--stack-gap:1rem">
+                    <div asp-validation-summary="All" class="notice validation-summary"></div>
+
+                    <div class="field">
+                        <label asp-for="Input.GamePresenceId">Game</label>
+                        <select class="input" asp-for="Input.GamePresenceId">
+                            <option value="">Pick a game</option>
+                            @foreach (var g in Model.Games)
+                            {
+                                <option value="@g.Id">@g.Game</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="Input.Name">Character name</label>
+                        <input class="input" asp-for="Input.Name" autocomplete="off"
+                               placeholder="Exactly as it appears in game" />
+                        <p class="hint">
+                            Spelling has to match. We ask the herald, and it is
+                            fussier than we are.
+                        </p>
+                    </div>
+
+                    <p style="margin:0"><button class="btn" type="submit">Add character</button></p>
+                </form>
+            }
+        </article>
+
+        <article class="panel panel--inset">
+            <p class="panel__title">Yours</p>
+
+            @if (Model.Mine.Count == 0)
+            {
+                <h3>Nothing yet</h3>
+                <p class="dim">Characters you add appear here.</p>
+            }
+            else
+            {
+                <div class="charlist">
+                    @foreach (var c in Model.Mine)
+                    {
+                        <div class="charcard">
+                            <div class="charcard__head">
+                                <h3 class="charcard__name">
+                                    @if (!string.IsNullOrWhiteSpace(c.HeraldUrl))
+                                    {
+                                        <a href="@c.HeraldUrl" target="_blank" rel="noopener noreferrer external">@c.Name</a>
+                                    }
+                                    else
+                                    {
+                                        @c.Name
+                                    }
+                                </h3>
+                                <span class="dim">@c.Game?.Game</span>
+                            </div>
+
+                            <dl class="facts">
+                                @if (c.Level is not null)
+                                {
+                                    <dt>Level</dt><dd>@c.Level</dd>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.Class))
+                                {
+                                    <dt>Job</dt><dd>@c.Class</dd>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.Race))
+                                {
+                                    <dt>Race</dt><dd>@c.Race</dd>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.Realm))
+                                {
+                                    <dt>Realm</dt><dd>@c.Realm</dd>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.Guild))
+                                {
+                                    <dt>Guild</dt><dd>@c.Guild</dd>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.RealmRank))
+                                {
+                                    <dt>Rank</dt><dd>@c.RealmRank</dd>
+                                }
+                                @if (c.Score is not null)
+                                {
+                                    <dt>Score</dt><dd>@c.Score.Value.ToString("N0")</dd>
+                                }
+                                @if (c.Kills is not null)
+                                {
+                                    <dt>Kills</dt><dd>@c.Kills.Value.ToString("N0")</dd>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.LastOnline))
+                                {
+                                    <dt>Seen</dt><dd>@c.LastOnline</dd>
+                                }
+                            </dl>
+
+                            @if (!string.IsNullOrWhiteSpace(c.LastError))
+                            {
+                                <p class="hint charcard__stale">Last refresh failed: @c.LastError</p>
+                            }
+                            else if (c.LastFetchedAt is not null)
+                            {
+                                <p class="hint">Updated @c.LastFetchedAt.Value.ToString("yyyy-MM-dd HH:mm 'UTC'")</p>
+                            }
+
+                            <div class="charcard__actions">
+                                <form method="post" asp-page-handler="Refresh" asp-route-id="@c.Id">
+                                    <button class="linkish" type="submit">refresh</button>
+                                </form>
+                                <form method="post" asp-page-handler="Remove" asp-route-id="@c.Id"
+                                      onsubmit="return confirm('Remove @c.Name?')">
+                                    <button class="linkish linkish--danger" type="submit">remove</button>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </article>
+    </section>
+</div>

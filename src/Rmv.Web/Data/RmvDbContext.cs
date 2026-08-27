@@ -20,6 +20,8 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
 
     public DbSet<Member> Members => Set<Member>();
 
+    public DbSet<Character> Characters => Set<Character>();
+
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
 
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -41,6 +43,8 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             e.Property(g => g.Game).HasMaxLength(80).IsRequired();
             e.Property(g => g.Guilds).HasMaxLength(240).IsRequired();
             e.Property(g => g.Period).HasMaxLength(40);
+            e.Property(g => g.HeraldAdapterKey).HasMaxLength(40);
+            e.Property(g => g.HeraldBaseUrl).HasMaxLength(ExternalUrl.MaxLength);
             e.HasIndex(g => new { g.IsActive, g.SortOrder });
 
             // Seeded so the page has content the moment it deploys, and so the
@@ -91,6 +95,33 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             // The identity Discord guarantees is stable, so it is the natural key.
             e.HasIndex(m => m.DiscordId).IsUnique();
             e.HasIndex(m => m.IsAdmin);
+        });
+
+        b.Entity<Character>(e =>
+        {
+            e.ToTable("characters");
+            e.Property(c => c.Name).HasMaxLength(32).IsRequired();
+            e.Property(c => c.Guild).HasMaxLength(80);
+            e.Property(c => c.Realm).HasMaxLength(40);
+            e.Property(c => c.Class).HasMaxLength(60);
+            e.Property(c => c.Race).HasMaxLength(40);
+            e.Property(c => c.RealmRank).HasMaxLength(40);
+            e.Property(c => c.LastOnline).HasMaxLength(40);
+            e.Property(c => c.HeraldUrl).HasMaxLength(ExternalUrl.MaxLength);
+            e.Property(c => c.LastError).HasMaxLength(300);
+
+            e.HasOne(c => c.Member).WithMany()
+                .HasForeignKey(c => c.MemberId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(c => c.Game).WithMany(g => g.Characters)
+                .HasForeignKey(c => c.GamePresenceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // One character belongs to one person. Enforced in the database, not
+            // only in the handler, so a double submit cannot create two owners.
+            e.HasIndex(c => new { c.GamePresenceId, c.Name }).IsUnique();
+            e.HasIndex(c => c.MemberId);
         });
 
         b.Entity<RequestLog>(e =>

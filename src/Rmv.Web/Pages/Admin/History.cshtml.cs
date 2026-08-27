@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Rmv.Web.Data;
+using Rmv.Web.Herald;
 
 namespace Rmv.Web.Pages.Admin;
 
@@ -13,7 +14,7 @@ namespace Rmv.Web.Pages.Admin;
 /// /Admin with the Admin policy, so being signed in is not enough. Open in
 /// Development so it can be used before Discord exists.
 /// </summary>
-public class HistoryModel(RmvDbContext db) : PageModel
+public class HistoryModel(RmvDbContext db, HeraldRegistry heralds) : PageModel
 {
     public IReadOnlyList<GamePresence> Rows { get; private set; } = [];
 
@@ -24,6 +25,9 @@ public class HistoryModel(RmvDbContext db) : PageModel
     public LinkInputModel LinkInput { get; set; } = new();
 
     public string? Notice { get; private set; }
+
+    /// <summary>Adapters available to point a game at.</summary>
+    public IReadOnlyCollection<IHeraldAdapter> Adapters => heralds.All;
 
     public class InputModel
     {
@@ -44,6 +48,14 @@ public class HistoryModel(RmvDbContext db) : PageModel
 
         [Range(0, 999)]
         public int SortOrder { get; set; }
+
+        /// <summary>Blank means characters cannot be added for this game.</summary>
+        [Display(Name = "Herald adapter")]
+        public string? HeraldAdapterKey { get; set; }
+
+        [StringLength(ExternalUrl.MaxLength)]
+        [Display(Name = "Herald base URL")]
+        public string? HeraldBaseUrl { get; set; }
     }
 
     public class LinkInputModel
@@ -154,6 +166,25 @@ public class HistoryModel(RmvDbContext db) : PageModel
     {
         ValidateOnly(nameof(Input));
 
+        var adapterKey = string.IsNullOrWhiteSpace(Input.HeraldAdapterKey) ? null : Input.HeraldAdapterKey.Trim();
+        string? heraldUrl = null;
+
+        if (adapterKey is not null)
+        {
+            if (heralds.Find(adapterKey) is null)
+            {
+                ModelState.AddModelError("Input.HeraldAdapterKey", "Unknown herald adapter.");
+            }
+
+            // Same scheme allowlist as the link URLs. The fetcher will also refuse
+            // a private address at connect time unless it is allowlisted.
+            if (!ExternalUrl.TryParse(Input.HeraldBaseUrl, out heraldUrl))
+            {
+                ModelState.AddModelError("Input.HeraldBaseUrl",
+                    "Pick an adapter and give an absolute http or https URL.");
+            }
+        }
+
         if (!ModelState.IsValid)
         {
             await LoadAsync(ct);
@@ -173,6 +204,8 @@ public class HistoryModel(RmvDbContext db) : PageModel
             row.Period = string.IsNullOrWhiteSpace(Input.Period) ? null : Input.Period.Trim();
             row.IsActive = Input.IsActive;
             row.SortOrder = Input.SortOrder;
+            row.HeraldAdapterKey = adapterKey;
+            row.HeraldBaseUrl = adapterKey is null ? null : heraldUrl;
         }
         else
         {
@@ -183,6 +216,8 @@ public class HistoryModel(RmvDbContext db) : PageModel
                 Period = string.IsNullOrWhiteSpace(Input.Period) ? null : Input.Period.Trim(),
                 IsActive = Input.IsActive,
                 SortOrder = Input.SortOrder,
+                HeraldAdapterKey = adapterKey,
+                HeraldBaseUrl = adapterKey is null ? null : heraldUrl,
             });
         }
 
