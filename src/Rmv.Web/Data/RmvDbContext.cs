@@ -87,6 +87,7 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             e.ToTable("members");
             e.Property(m => m.DiscordId).HasMaxLength(32).IsRequired();
             e.Property(m => m.DisplayName).HasMaxLength(80).IsRequired();
+            e.Property(m => m.Alias).HasMaxLength(32);
             e.Property(m => m.AvatarHash).HasMaxLength(64);
             e.Property(m => m.ApprovedBy).HasMaxLength(80);
             // Stored as text so the table reads without a lookup.
@@ -122,6 +123,8 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             // only in the handler, so a double submit cannot create two owners.
             e.HasIndex(c => new { c.GamePresenceId, c.Name }).IsUnique();
             e.HasIndex(c => c.MemberId);
+            // The public roster reads characters by game, newest first.
+            e.HasIndex(c => new { c.GamePresenceId, c.AddedAt });
         });
 
         b.Entity<RequestLog>(e =>

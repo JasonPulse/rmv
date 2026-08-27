@@ -29,7 +29,17 @@ public class Member
     /// <summary>Discord snowflake. The stable identity; the display name changes.</summary>
     public string DiscordId { get; set; } = "";
 
+    /// <summary>Whatever Discord calls them. Updated on every sign-in.</summary>
     public string DisplayName { get; set; } = "";
+
+    /// <summary>
+    /// What they want to be called here.
+    ///
+    /// Discord names are whoever got there first, so they rarely match the name
+    /// people know each other by in game. The alias is member-editable and is
+    /// what the site shows; the Discord name is only a fallback.
+    /// </summary>
+    public string? Alias { get; set; }
 
     public string? AvatarHash { get; set; }
 
@@ -56,4 +66,7 @@ public class Member
     public string? ApprovedBy { get; set; }
 
     public bool CanContribute => Status == MemberStatus.Approved;
+
+    /// <summary>The name to show. Never the Discord id.</summary>
+    public string Handle => string.IsNullOrWhiteSpace(Alias) ? DisplayName : Alias;
 }

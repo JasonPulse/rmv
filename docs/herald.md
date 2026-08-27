@@ -129,6 +129,22 @@ A refresh keeps the previous stats when the herald fails. A herald being down
 should not blank a character that was fine yesterday; `LastError` records why and
 `LastFetchedAt` says how stale it is.
 
+## The public roster
+
+Each game card on `/history` lists the characters added for it, linking to
+`/roster/{memberId}?c={characterId}`. That page shows the owner's handle, the
+clicked character highlighted, and every other character they have across other
+games, grouped by game.
+
+Public, like the history page it is linked from: looking each other up is the
+point of a roster. It shows a handle and never a Discord id.
+
+A blocked member is off the roster entirely, and their characters go with them:
+the history card filters them out and `/roster/{id}` returns 404.
+
+Cards cap at 14 names with "and N more", so one popular game cannot swamp the
+page.
+
 ## Testing
 
 Adapters are tested against real saved responses in

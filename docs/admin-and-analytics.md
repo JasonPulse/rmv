@@ -42,6 +42,18 @@ approves them, since an admin who cannot add a character is nonsense.
 Blocked rows are kept rather than deleted, or the person could re-register simply
 by signing in again.
 
+### Alias, not Discord name
+
+Discord names are whoever got there first, so they rarely match the name people
+know each other by in game. Every member has a member-editable `Alias`, set on
+their own profile, and `Member.Handle` resolves to the alias with the Discord name
+only as a fallback.
+
+`Handle` is what appears on public pages. It is never the Discord id, which is
+deliberate: roster pages are public and an account identifier should not leak
+through a display name. The admin members list shows both, since knowing which
+Discord account an alias belongs to is the point there.
+
 ### The row is created on access, not only at sign-in
 
 A sign-in hook records the member, but that is not sufficient on its own. Sessions

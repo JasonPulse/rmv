@@ -55,7 +55,7 @@ public sealed class CharacterService(
             return existing.MemberId == member.Id
                 ? AddOutcome.Fail($"You have already added {existing.Name}.")
                 : AddOutcome.Fail(
-                    $"{existing.Name} is already claimed by {existing.Member?.DisplayName ?? "another member"}. "
+                    $"{existing.Name} is already claimed by {existing.Member?.Handle ?? "another member"}. "
                     + "If that is wrong, ask an admin.");
         }
 

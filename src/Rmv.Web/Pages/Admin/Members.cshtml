@@ -57,7 +57,11 @@
                     {
                         <tr>
                             <td>
-                                @row.Member.DisplayName
+                                @row.Member.Handle
+                                @if (!string.IsNullOrWhiteSpace(row.Member.Alias))
+                                {
+                                    <span class="dim block-hint">discord: @row.Member.DisplayName</span>
+                                }
                                 @if (row.IsSelf)
                                 {
                                     <span class="pill">you</span>

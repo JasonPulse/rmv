@@ -1,0 +1,114 @@
+@page "/roster/{id:int}"
+@model Rmv.Web.Pages.Roster.MemberModel
+@{
+    var who = Model.Owner!.Handle;
+    ViewData["Title"] = who;
+    ViewData["Description"] = $"{who} and the characters they have played with Results May Vary.";
+    var total = Model.Games.Sum(g => g.Characters.Count);
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__crestline">
+            <span class="portrait portrait--lg">
+                <span class="portrait__initials">@Initials(who)</span>
+            </span>
+        </div>
+        <div class="hero__plaque"><h1>@who</h1></div>
+        @if (Model.Highlighted is { } hl)
+        {
+            <p>Owner of @hl.Name@(hl.Game is null ? "" : $" on {hl.Game.Game}").</p>
+        }
+        else
+        {
+            <p>@total character@(total == 1 ? "" : "s") across @Model.Games.Count game@(Model.Games.Count == 1 ? "" : "s").</p>
+        }
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    @if (Model.Games.Count == 0)
+    {
+        <p class="center dim">No characters listed yet.</p>
+    }
+    else
+    {
+        @foreach (var group in Model.Games)
+        {
+            <div class="bar"><h2>@group.Game.Game</h2></div>
+            <section class="section">
+                <div class="charlist">
+                    @foreach (var c in group.Characters)
+                    {
+                        var isHighlighted = c.Id == Model.HighlightId;
+                        <div class="charcard @(isHighlighted ? "charcard--on" : "")" id="c-@c.Id">
+                            <div class="charcard__head">
+                                <h3 class="charcard__name">
+                                    @if (!string.IsNullOrWhiteSpace(c.HeraldUrl))
+                                    {
+                                        <a href="@c.HeraldUrl" target="_blank" rel="noopener noreferrer external">@c.Name</a>
+                                    }
+                                    else
+                                    {
+                                        @c.Name
+                                    }
+                                </h3>
+                                @if (isHighlighted)
+                                {
+                                    <span class="pill pill--warn">this one</span>
+                                }
+                            </div>
+
+                            <dl class="facts">
+                                @if (c.Level is not null)
+                                {
+                                    <dt>Level</dt><dd>@c.Level</dd>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.Class))
+                                {
+                                    <dt>Job</dt><dd>@c.Class</dd>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.Race))
+                                {
+                                    <dt>Race</dt><dd>@c.Race</dd>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.Realm))
+                                {
+                                    <dt>Realm</dt><dd>@c.Realm</dd>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.Guild))
+                                {
+                                    <dt>Guild</dt><dd>@c.Guild</dd>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.RealmRank))
+                                {
+                                    <dt>Rank</dt><dd>@c.RealmRank</dd>
+                                }
+                                @if (c.Score is not null)
+                                {
+                                    <dt>Score</dt><dd>@c.Score.Value.ToString("N0")</dd>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.LastOnline))
+                                {
+                                    <dt>Seen</dt><dd>@c.LastOnline</dd>
+                                }
+                            </dl>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+    }
+
+    <p class="center"><a class="btn" href="/history">Back to the games</a></p>
+</div>
+
+@functions {
+    static string Initials(string name)
+    {
+        var letters = name.Where(char.IsLetterOrDigit).Take(2).ToArray();
+        return letters.Length > 0 ? new string(letters).ToUpperInvariant() : "?";
+    }
+}

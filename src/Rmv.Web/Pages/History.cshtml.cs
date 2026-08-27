@@ -27,9 +27,21 @@ public class HistoryModel(IServiceProvider services) : PageModel
         {
             var all = await db.GamePresences
                 .Include(g => g.Links.OrderBy(l => l.SortOrder).ThenBy(l => l.Label))
+                // Owners come along so a card can link a character to its member
+                // without a query per character.
+                .Include(g => g.Characters).ThenInclude(c => c.Member)
                 .OrderBy(g => g.SortOrder).ThenBy(g => g.Game)
                 .AsNoTracking()
                 .ToListAsync(ct);
+
+            // A blocked member is off the roster, so their characters go with them.
+            foreach (var game in all)
+            {
+                game.Characters = game.Characters
+                    .Where(c => c.Member is not null && c.Member.Status != MemberStatus.Blocked)
+                    .OrderBy(c => c.Name)
+                    .ToList();
+            }
 
             Active = all.Where(g => g.IsActive).ToList();
             Past = all.Where(g => !g.IsActive).ToList();

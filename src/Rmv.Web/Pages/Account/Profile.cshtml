@@ -4,12 +4,17 @@
 
 <section class="hero">
     <div class="shell">
-        <div class="hero__plaque"><h1>@Model.DisplayName</h1></div>
+        <div class="hero__plaque"><h1>@Model.Handle</h1></div>
     </div>
 </section>
 
 <div class="shell">
     <hr class="rule" />
+
+    @if (Model.Notice is not null)
+    {
+        <p class="notice notice--ok">@Model.Notice</p>
+    }
 
     <section class="section grid grid--wide">
         <article class="panel">
@@ -27,10 +32,26 @@
                     }
                 </span>
                 <div>
-                    <h3 style="margin:0">@Model.DisplayName</h3>
-                    <p class="dim mono" style="margin:.25rem 0 0">@Model.DiscordId</p>
+                    <h3 style="margin:0">@Model.Handle</h3>
+                    <p class="dim" style="margin:.25rem 0 0">Discord: @Model.DiscordName</p>
                 </div>
             </div>
+
+            <hr class="rule rule--fine" />
+
+            <form method="post" asp-page-handler="Alias" class="stack" style="--stack-gap:.7rem">
+                <div asp-validation-summary="All" class="notice validation-summary"></div>
+                <div class="field">
+                    <label asp-for="Alias">Alias</label>
+                    <input class="input" asp-for="Alias" placeholder="@Model.DiscordName" autocomplete="off" />
+                    <p class="hint">
+                        What the site calls you. Discord names are whoever got there
+                        first; this is the name people actually know you by. Blank
+                        falls back to your Discord name.
+                    </p>
+                </div>
+                <p style="margin:0"><button class="btn" type="submit">Save alias</button></p>
+            </form>
 
             <hr class="rule rule--fine" />
 

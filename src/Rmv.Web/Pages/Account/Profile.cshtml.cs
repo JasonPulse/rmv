@@ -1,7 +1,7 @@
-using System.Security.Claims;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
 using Rmv.Web.Data;
 
 namespace Rmv.Web.Pages.Account;
@@ -9,7 +9,7 @@ namespace Rmv.Web.Pages.Account;
 [Authorize]
 public class ProfileModel(IServiceProvider services, IConfiguration config) : PageModel
 {
-    public string DisplayName => DiscordUser.Name(User);
+    public string DiscordName => DiscordUser.Name(User);
 
     public string? DiscordId => DiscordUser.Id(User);
 
@@ -19,15 +19,59 @@ public class ProfileModel(IServiceProvider services, IConfiguration config) : Pa
 
     public bool IsRoot { get; private set; }
 
-    /// <summary>Root admins are not in the members table as approved, but they are.</summary>
+    public string? Notice { get; private set; }
+
+    /// <summary>Root admins are not marked approved in the table, but they are.</summary>
     public bool CanContribute => IsRoot || Record is { Status: MemberStatus.Approved };
 
+    /// <summary>What the site calls them: the alias if set, otherwise Discord.</summary>
+    public string Handle => Record?.Handle ?? DiscordName;
+
+    [BindProperty]
+    [StringLength(32, MinimumLength = 2, ErrorMessage = "Between 2 and 32 characters.")]
+    [Display(Name = "Alias")]
+    public string? Alias { get; set; }
+
     public async Task OnGetAsync(CancellationToken ct)
+    {
+        await LoadAsync(ct);
+        Alias = Record?.Alias;
+
+        if (Request.Query.ContainsKey("saved"))
+        {
+            Notice = "Saved.";
+        }
+    }
+
+    public async Task<IActionResult> OnPostAliasAsync(CancellationToken ct)
+    {
+        await LoadAsync(ct);
+
+        if (!ModelState.IsValid || Record is null)
+        {
+            return Page();
+        }
+
+        var db = services.GetRequiredService<RmvDbContext>();
+        var row = await db.Members.FindAsync([Record.Id], ct);
+        if (row is null)
+        {
+            return Page();
+        }
+
+        // Blank clears it, falling back to the Discord name.
+        row.Alias = string.IsNullOrWhiteSpace(Alias) ? null : Alias.Trim();
+        await db.SaveChangesAsync(ct);
+
+        return RedirectToPage(new { saved = true });
+    }
+
+    private async Task LoadAsync(CancellationToken ct)
     {
         IsRoot = AdminPolicy.IsRootAdmin(config, DiscordId);
 
         var db = services.GetService<RmvDbContext>();
-        if (db is null || DiscordId is null)
+        if (db is null)
         {
             return;
         }
