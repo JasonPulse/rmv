@@ -19,9 +19,10 @@
 
     <section class="section grid grid--wide">
         <article class="panel">
-            <p class="panel__title">Add or edit</p>
+            <p class="panel__title">Games</p>
+            <p class="hint" data-mode="game">Adding a new game.</p>
 
-            <form method="post" asp-page-handler="Save" class="stack" style="--stack-gap:1rem">
+            <form method="post" asp-page-handler="Save" class="stack" id="game-form" style="--stack-gap:1rem">
                 @* Without this a failed save is silent: the per-field messages sit
                    beside fields the operator is not looking at. *@
                 <div asp-validation-summary="All" class="notice validation-summary"></div>
@@ -85,14 +86,18 @@
                     <span class="hint" asp-validation-for="Input.HeraldBaseUrl"></span>
                 </details>
 
-                <p style="margin:0"><button class="btn" type="submit">Save</button></p>
+                <p class="row-actions" style="margin:0">
+                    <button class="btn" type="submit">Save</button>
+                    <button class="linkish" type="button" data-cancel="game" hidden>cancel edit</button>
+                </p>
             </form>
         </article>
 
         <article class="panel">
             <p class="panel__title">Links</p>
+            <p class="hint" data-mode="link">Adding a new link.</p>
 
-            <form method="post" asp-page-handler="SaveLink" class="stack" style="--stack-gap:1rem">
+            <form method="post" asp-page-handler="SaveLink" class="stack" id="link-form" style="--stack-gap:1rem">
                 <div asp-validation-summary="All" class="notice validation-summary"></div>
                 <input type="hidden" asp-for="LinkInput.Id" />
 
@@ -133,7 +138,10 @@
                     <input class="input" asp-for="LinkInput.SortOrder" type="number" min="0" max="999" />
                 </div>
 
-                <p style="margin:0"><button class="btn" type="submit">Save link</button></p>
+                <p class="row-actions" style="margin:0">
+                    <button class="btn" type="submit">Save link</button>
+                    <button class="linkish" type="button" data-cancel="link" hidden>cancel edit</button>
+                </p>
             </form>
         </article>
 
@@ -172,6 +180,15 @@
                                         <li>
                                             <span class="mono">@l.DisplayLabel</span>
                                             <span class="dim">@l.Host</span>
+                                            <a href="#"
+                                               class="linkish"
+                                               data-edit-link
+                                               data-id="@l.Id"
+                                               data-game="@l.GamePresenceId"
+                                               data-kind="@((int)l.Kind)"
+                                               data-label="@l.Label"
+                                               data-url="@l.Url"
+                                               data-sort="@l.SortOrder">edit</a>
                                             <form method="post" asp-page-handler="DeleteLink" asp-route-id="@l.Id"
                                                   onsubmit="return confirm('Remove @l.DisplayLabel?')">
                                                 <button class="linkish linkish--danger" type="submit">remove</button>
@@ -208,20 +225,93 @@
 
 @section Scripts {
 <script>
-// Clicking edit fills the form rather than navigating. Values come from data
+// Clicking edit fills a form rather than navigating. Values come from data
 // attributes Razor has already HTML-encoded.
-document.querySelectorAll('[data-edit]').forEach(a => a.addEventListener('click', e => {
-    e.preventDefault();
-    const d = a.dataset;
-    document.querySelector('#Input_Id').value = d.id;
-    document.querySelector('#Input_Game').value = d.game;
-    document.querySelector('#Input_Guilds').value = d.guilds;
-    document.querySelector('#Input_Period').value = d.period ?? '';
-    document.querySelector('#Input_SortOrder').value = d.sort;
-    document.querySelector('#Input_IsActive').checked = d.active === 'true';
-    document.querySelector('#Input_HeraldAdapterKey').value = d.adapter ?? '';
-    document.querySelector('#Input_HeraldBaseUrl').value = d.heraldurl ?? '';
-    document.querySelector('#Input_Game').focus();
+//
+// Each form doubles as its own add form, so the hidden Id is what decides insert
+// against update. Getting stuck in edit mode with no way out means the next save
+// silently overwrites the row you were last looking at, which is why cancel is
+// not optional polish.
+//
+// Clearing needs explicit blanks, not empty strings for everything. Assigning ''
+// to a <select> with no matching option leaves selectedIndex at -1, so the field
+// posts nothing at all, and '' in a number input fails its Range check. Both of
+// those turned a cancelled edit into a form that could not be submitted.
+const FORMS = {
+    game: {
+        prefix: 'Input',
+        adding: 'Adding a new game.',
+        focus: 'Game',
+        name: d => d.game,
+        fields: {
+            Id: { attr: 'id', blank: '' },
+            Game: { attr: 'game', blank: '' },
+            Guilds: { attr: 'guilds', blank: '' },
+            Period: { attr: 'period', blank: '' },
+            SortOrder: { attr: 'sort', blank: '0' },
+            HeraldAdapterKey: { attr: 'adapter', blank: '' },
+            HeraldBaseUrl: { attr: 'heraldurl', blank: '' },
+        },
+        checks: { IsActive: { attr: 'active', blank: false } },
+    },
+    link: {
+        prefix: 'LinkInput',
+        adding: 'Adding a new link.',
+        focus: 'Label',
+        name: d => d.label || 'this link',
+        fields: {
+            Id: { attr: 'id', blank: '' },
+            GamePresenceId: { attr: 'game', blank: '' },
+            Kind: { attr: 'kind', blank: '0' },
+            Label: { attr: 'label', blank: '' },
+            Url: { attr: 'url', blank: '' },
+            SortOrder: { attr: 'sort', blank: '0' },
+        },
+        checks: {},
+    },
+};
+
+function field(form, key) {
+    return document.querySelector('#' + FORMS[form].prefix + '_' + key);
+}
+
+function setMode(form, editing) {
+    const hint = document.querySelector(`[data-mode="${form}"]`);
+    const cancel = document.querySelector(`[data-cancel="${form}"]`);
+    if (hint) hint.textContent = editing ? `Editing ${editing}. Saving overwrites it.` : FORMS[form].adding;
+    if (cancel) cancel.hidden = !editing;
+}
+
+// dataset null means clear, so each field falls back to its own blank.
+function fill(form, dataset) {
+    const spec = FORMS[form];
+    for (const [key, f] of Object.entries(spec.fields)) {
+        const el = field(form, key);
+        if (el) el.value = dataset?.[f.attr] ?? f.blank;
+    }
+    for (const [key, f] of Object.entries(spec.checks)) {
+        const el = field(form, key);
+        if (el) el.checked = dataset ? dataset[f.attr] === 'true' : f.blank;
+    }
+}
+
+function bindEdit(selector, form) {
+    document.querySelectorAll(selector).forEach(a => a.addEventListener('click', e => {
+        e.preventDefault();
+        fill(form, a.dataset);
+        setMode(form, FORMS[form].name(a.dataset));
+        field(form, FORMS[form].focus)?.focus();
+        document.querySelector('#' + form + '-form')
+            ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }));
+}
+
+bindEdit('[data-edit]', 'game');
+bindEdit('[data-edit-link]', 'link');
+
+document.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', () => {
+    fill(b.dataset.cancel, null);
+    setMode(b.dataset.cancel, null);
 }));
 </script>
 }
