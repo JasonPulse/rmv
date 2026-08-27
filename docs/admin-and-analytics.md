@@ -42,6 +42,31 @@ approves them, since an admin who cannot add a character is nonsense.
 Blocked rows are kept rather than deleted, or the person could re-register simply
 by signing in again.
 
+### The row is created on access, not only at sign-in
+
+A sign-in hook records the member, but that is not sufficient on its own. Sessions
+outlive deployments now that the Data Protection key ring is in Postgres, so a
+perfectly valid cookie can predate the hook or come from a sign-in where it
+failed. `MemberDirectory.EnsureAsync` therefore finds or creates, which makes the
+row a consequence of *being* signed in rather than of having signed in at the
+right moment.
+
+It creates as `Pending`. Backfilling a row must not grant anything, and a root
+admin's access comes from configuration regardless.
+
+### Sign-out forms must not set `action`
+
+`<form method="post" action="/Account/Logout">` gets **no antiforgery token**. The
+form tag helper only injects one when it owns the URL, so writing the action by
+hand silently opts out and every submit is a 400. Use `asp-page` instead:
+
+```html
+<form method="post" asp-page="/Account/Logout">
+```
+
+Verified by rendering all three shapes: explicit `action` had no token, `asp-page`
+and no-action both did.
+
 Two guards:
 
 - You cannot remove your own admin access. It is the one mistake with no route

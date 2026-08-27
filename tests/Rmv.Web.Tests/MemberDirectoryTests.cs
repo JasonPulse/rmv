@@ -1,0 +1,105 @@
+using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using Rmv.Web.Data;
+
+namespace Rmv.Web.Tests;
+
+/// <summary>
+/// A signed-in caller must always resolve to a member row. The sign-in hook is
+/// not enough on its own: a session outlives a deployment, so a valid cookie can
+/// predate the hook or come from a sign-in where it failed.
+/// </summary>
+[Trait("Category", "Database")]
+[Collection(NetworkCollection.Name)]
+public class MemberDirectoryTests : IAsyncLifetime
+{
+    private RmvDbContext _db = null!;
+    private MemberDirectory _directory = null!;
+    private readonly List<string> _created = [];
+
+    public async Task InitializeAsync()
+    {
+        var cs = Environment.GetEnvironmentVariable("RMV_TEST_POSTGRES")
+                 ?? throw new InvalidOperationException("Set RMV_TEST_POSTGRES to run Database tests.");
+
+        _db = new RmvDbContext(new DbContextOptionsBuilder<RmvDbContext>().UseNpgsql(cs).Options);
+        await _db.Database.MigrateAsync();
+        _directory = new MemberDirectory(_db, NullLogger<MemberDirectory>.Instance);
+    }
+
+    public async Task DisposeAsync()
+    {
+        _db.Members.RemoveRange(_db.Members.Where(m => _created.Contains(m.DiscordId)));
+        await _db.SaveChangesAsync();
+        await _db.DisposeAsync();
+    }
+
+    private ClaimsPrincipal SignedIn(string discordId, string name = "Someone")
+    {
+        _created.Add(discordId);
+        return new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, discordId),
+                new Claim(ClaimTypes.Name, name),
+            ],
+            "TestAuth"));
+    }
+
+    [Fact]
+    public async Task Creates_the_row_when_it_is_missing()
+    {
+        // The reported failure: a valid session with no member row.
+        var id = $"t{Guid.NewGuid():N}"[..20];
+
+        var member = await _directory.EnsureAsync(SignedIn(id, "NetworkGnome"), default);
+
+        Assert.NotNull(member);
+        Assert.Equal(id, member.DiscordId);
+        Assert.Equal("NetworkGnome", member.DisplayName);
+        // Pending, not Approved: backfilling a row must not grant anything.
+        Assert.Equal(MemberStatus.Pending, member.Status);
+        Assert.False(member.IsAdmin);
+    }
+
+    [Fact]
+    public async Task Returns_the_existing_row_without_duplicating_it()
+    {
+        var id = $"t{Guid.NewGuid():N}"[..20];
+        var principal = SignedIn(id);
+
+        var first = await _directory.EnsureAsync(principal, default);
+        var second = await _directory.EnsureAsync(principal, default);
+
+        Assert.NotNull(first);
+        Assert.NotNull(second);
+        Assert.Equal(first.Id, second.Id);
+        Assert.Equal(1, await _db.Members.CountAsync(m => m.DiscordId == id));
+    }
+
+    [Fact]
+    public async Task Does_not_downgrade_an_approved_member()
+    {
+        var id = $"t{Guid.NewGuid():N}"[..20];
+        var principal = SignedIn(id);
+
+        var member = await _directory.EnsureAsync(principal, default);
+        member!.Status = MemberStatus.Approved;
+        member.IsAdmin = true;
+        await _db.SaveChangesAsync();
+
+        var again = await _directory.EnsureAsync(principal, default);
+
+        Assert.Equal(MemberStatus.Approved, again!.Status);
+        Assert.True(again.IsAdmin);
+    }
+
+    [Fact]
+    public async Task A_principal_with_no_discord_id_resolves_to_nothing()
+    {
+        var anonymousish = new ClaimsPrincipal(
+            new ClaimsIdentity([new Claim(ClaimTypes.Name, "No id")], "TestAuth"));
+
+        Assert.Null(await _directory.EnsureAsync(anonymousish, default));
+    }
+}

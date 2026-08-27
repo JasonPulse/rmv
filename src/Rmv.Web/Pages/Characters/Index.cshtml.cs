@@ -19,7 +19,11 @@ namespace Rmv.Web.Pages.Characters;
 /// </summary>
 [Authorize(Policy = MemberPolicy.Approved)]
 [EnableRateLimiting(RateLimitPolicies.Herald)]
-public class IndexModel(RmvDbContext db, CharacterService characters, HeraldRegistry heralds) : PageModel
+public class IndexModel(
+    RmvDbContext db,
+    CharacterService characters,
+    HeraldRegistry heralds,
+    MemberDirectory members) : PageModel
 {
     public IReadOnlyList<Character> Mine { get; private set; } = [];
 
@@ -54,9 +58,9 @@ public class IndexModel(RmvDbContext db, CharacterService characters, HeraldRegi
         var member = await CurrentMemberAsync(ct);
         if (member is null)
         {
-            // Approved by policy but with no row: only reachable for a root admin
-            // who has never been recorded.
-            Error = "Your member record is missing. Sign out and back in.";
+            // Only reachable without a Discord id on the principal, which should
+            // not happen for an authenticated caller.
+            Error = "Could not identify your account. Sign out and back in.";
             await LoadAsync(ct);
             return Page();
         }
@@ -127,13 +131,10 @@ public class IndexModel(RmvDbContext db, CharacterService characters, HeraldRegi
             : new { failed = character.Name });
     }
 
-    private Task<Member?> CurrentMemberAsync(CancellationToken ct)
-    {
-        var id = DiscordUser.Id(User);
-        return id is null
-            ? Task.FromResult<Member?>(null)
-            : db.Members.FirstOrDefaultAsync(m => m.DiscordId == id, ct);
-    }
+    // Creates the row if it is missing, so a valid session from before the
+    // sign-in hook existed does not dead-end on "your member record is missing".
+    private Task<Member?> CurrentMemberAsync(CancellationToken ct) =>
+        members.EnsureAsync(User, ct);
 
     private async Task LoadAsync(CancellationToken ct)
     {

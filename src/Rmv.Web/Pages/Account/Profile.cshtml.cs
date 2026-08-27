@@ -34,9 +34,10 @@ public class ProfileModel(IServiceProvider services, IConfiguration config) : Pa
 
         try
         {
-            Record = await db.Members
-                .AsNoTracking()
-                .FirstOrDefaultAsync(m => m.DiscordId == DiscordId, ct);
+            // Ensure rather than look up, so the profile is never the page that
+            // tells you your account does not exist while you are signed in.
+            var directory = services.GetRequiredService<MemberDirectory>();
+            Record = await directory.EnsureAsync(User, ct);
         }
         catch
         {
