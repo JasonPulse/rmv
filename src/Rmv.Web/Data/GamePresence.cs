@@ -50,4 +50,68 @@ public class GamePresence
 
     public IEnumerable<string> GuildList() => Guilds
         .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>
+    /// The year this presence ended, for putting the newest first.
+    ///
+    /// Read out of Period rather than stored, because Period is already the thing
+    /// an admin types and every value in it is a year range: "2001-2005",
+    /// "2025-Present". Adding a date field would mean re-entering twenty years of
+    /// history to sort a page.
+    ///
+    /// Ongoing beats every year, which is what "Present" means. An unparseable or
+    /// missing period sorts last rather than first, so a typo does not silently
+    /// jump a game to the top of the page.
+    /// </summary>
+    public int EndYear => YearRange().End;
+
+    /// <summary>The year it started, to break a tie between two that ended together.</summary>
+    public int StartYear => YearRange().Start;
+
+    /// <summary>
+    /// Newest first. Active games lead regardless of what their period says, so a
+    /// current game with no period filled in is still at the top where it belongs.
+    /// </summary>
+    public (bool NotActive, int EndDesc, int StartDesc, int SortOrder, string Game) NewestFirst =>
+        (!IsActive, -EndYear, -StartYear, SortOrder, Game);
+
+    private (int Start, int End) YearRange()
+    {
+        if (string.IsNullOrWhiteSpace(Period))
+        {
+            return (0, 0);
+        }
+
+        var years = new List<int>();
+
+        // Every four-digit run in the text. Simpler than a date parse and it does
+        // not care whether the separator is a hyphen, an en dash or the word "to".
+        for (var i = 0; i <= Period.Length - 4; i++)
+        {
+            if (Period.AsSpan(i, 4).ContainsAnyExcept("0123456789"))
+            {
+                continue;
+            }
+
+            // Not part of a longer number.
+            var before = i == 0 || !char.IsAsciiDigit(Period[i - 1]);
+            var after = i + 4 >= Period.Length || !char.IsAsciiDigit(Period[i + 4]);
+
+            if (before && after && int.TryParse(Period.AsSpan(i, 4), out var year))
+            {
+                years.Add(year);
+                i += 3;
+            }
+        }
+
+        // Ongoing, however it is worded. Higher than any year, so it leads.
+        var ongoing = Period.Contains("present", StringComparison.OrdinalIgnoreCase)
+                      || Period.Contains("now", StringComparison.OrdinalIgnoreCase)
+                      || Period.TrimEnd().EndsWith('-');
+
+        var start = years.Count > 0 ? years[0] : 0;
+        var end = ongoing ? int.MaxValue : years.Count > 0 ? years[^1] : 0;
+
+        return (start, end);
+    }
 }

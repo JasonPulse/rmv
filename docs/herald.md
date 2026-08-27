@@ -247,7 +247,7 @@ should not blank a character that was fine yesterday; `LastError` records why an
 
 ## The public roster
 
-Each game card on `/history` lists the characters added for it, linking to
+Each game entry on `/history` lists the characters added for it, linking to
 `/roster/{memberId}?c={characterId}`. That page shows the owner's handle, the
 clicked character highlighted, and every other character they have across other
 games, grouped by game.
@@ -258,8 +258,23 @@ point of a roster. It shows a handle and never a Discord id.
 A blocked member is off the roster entirely, and their characters go with them:
 the history card filters them out and `/roster/{id}` returns 404.
 
-Cards cap at 14 names with "and N more", so one popular game cannot swamp the
-page.
+Every name is shown. There used to be a cap of 14 with "and N more", which existed
+only because the entries were ~380px cards in a three-across grid, so a name list
+wrapped into a tall narrow column. Full width entries with wrapping chips make
+fifty names four lines, and a cap that hides guild members to save space on a page
+about the guild was the wrong trade.
+
+The entries are one list, newest first, rather than an active grid above a past
+grid. The split said the same thing twice, since an entry already carries a "still
+going" pill and its own years, and it cost reading order: within each grid the
+games were alphabetical.
+
+The order comes from parsing `Period`, which is already what an admin types and is
+always a year range. `GamePresence.NewestFirst` sorts active games first, then by
+the year each presence ended, then by start year, then by the admin's SortOrder.
+"Present" outranks every year. An unreadable period sorts last rather than first,
+so a typo cannot silently jump a game to the top. A date column would have meant
+re-entering twenty years of history to sort a page.
 
 ## Testing
 

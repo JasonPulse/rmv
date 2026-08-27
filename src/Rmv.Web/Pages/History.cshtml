@@ -32,24 +32,23 @@
     }
     else
     {
-        @if (Model.Active.Count > 0)
-        {
-            <div class="bar"><h2>Still going</h2></div>
-            <section class="section gamegrid">
-                @foreach (var g in Model.Active)
-                {
-                    <partial name="_GameCard" model="g" />
-                }
-            </section>
-            <hr class="rule" />
-        }
+        @* One list, newest first, rather than an active grid above a past grid.
+           The split into two sections said the same thing twice: an entry already
+           carries a "still going" pill and its own years. What it cost was reading
+           order, because within each grid the games were alphabetical. *@
+        var shownPast = false;
 
-        <div class="bar"><h2>No longer active</h2></div>
-        <section class="section gamegrid gamegrid--past">
-            @foreach (var g in Model.Past)
+        <div class="gamelist">
+            @foreach (var g in Model.Games)
             {
-                <partial name="_GameCard" model="g" />
+                @if (!g.IsActive && !shownPast)
+                {
+                    shownPast = true;
+                    <div class="bar bar--quiet"><h2>No longer active</h2></div>
+                }
+
+                <partial name="_GameEntry" model="g" />
             }
-        </section>
+        </div>
     }
 </div>

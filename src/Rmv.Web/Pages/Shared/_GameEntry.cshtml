@@ -1,0 +1,82 @@
+@model Rmv.Web.Data.GamePresence
+@*
+    One game, full width.
+
+    This was a card in a three-across grid, and it stopped working as characters
+    accumulated. A card is about 380px wide, so a list of names wrapped into a tall
+    column and had to be capped at fourteen with "and N more", which is a cap that
+    exists only because the container is narrow. Full width and chips that wrap
+    means fifty names is four lines instead of a truncation.
+
+    Game names are set as wordmarks in the display face rather than as logos.
+    Deliberate: the logos are trademarks, and typography keeps the page visually
+    consistent with the rest of the kit.
+*@
+<article class="gameentry @(Model.IsActive ? "gameentry--active" : "")">
+    <header class="gameentry__head">
+        <h3 class="gameentry__name">@Model.Game</h3>
+        @if (Model.IsActive)
+        {
+            <span class="pill pill--ok">still going</span>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.Period))
+        {
+            <span class="gameentry__period">@Model.Period</span>
+        }
+    </header>
+
+    <div class="gameentry__rule" aria-hidden="true"></div>
+
+    <dl class="gameentry__rows">
+        @{
+            var guilds = Model.GuildList().ToList();
+        }
+        @if (guilds.Count > 0)
+        {
+            <dt>As</dt>
+            <dd>
+                <div class="chips">
+                    @foreach (var tag in guilds)
+                    {
+                        <span class="tag">@tag</span>
+                    }
+                </div>
+            </dd>
+        }
+
+        @* Links before characters. A link is where to go next; the character list
+           is the long one, so it reads better last and its wrapping does not push
+           the links out of sight. *@
+        @if (Model.Links.Count > 0)
+        {
+            <dt>Links</dt>
+            <dd>
+                <div class="chips">
+                    @foreach (var link in Model.Links)
+                    {
+                        <a class="glink glink--@link.Kind.ToString().ToLowerInvariant()"
+                           href="@link.Url"
+                           target="_blank"
+                           rel="noopener noreferrer external"
+                           title="@link.Host">@link.DisplayLabel</a>
+                    }
+                </div>
+            </dd>
+        }
+
+        @if (Model.Characters.Count > 0)
+        {
+            <dt>@Model.Characters.Count character@(Model.Characters.Count == 1 ? "" : "s")</dt>
+            <dd>
+                @* Every one of them. No cap: chips wrap, so the page grows by a
+                   line rather than hiding names behind "and N more". *@
+                <div class="chips">
+                    @foreach (var c in Model.Characters)
+                    {
+                        <a class="chip" href="/roster/@c.MemberId?c=@c.Id" title="@c.Member!.Handle">@c.Name</a>
+                    }
+                </div>
+            </dd>
+        }
+    </dl>
+</article>

@@ -6,9 +6,11 @@ namespace Rmv.Web.Pages;
 
 public class HistoryModel(IServiceProvider services) : PageModel
 {
-    public IReadOnlyList<GamePresence> Active { get; private set; } = [];
-
-    public IReadOnlyList<GamePresence> Past { get; private set; } = [];
+    /// <summary>
+    /// One list, newest first. Active games lead, then by the year each presence
+    /// ended; see GamePresence.NewestFirst.
+    /// </summary>
+    public IReadOnlyList<GamePresence> Games { get; private set; } = [];
 
     public bool DatabaseUnavailable { get; private set; }
 
@@ -30,7 +32,6 @@ public class HistoryModel(IServiceProvider services) : PageModel
                 // Owners come along so a card can link a character to its member
                 // without a query per character.
                 .Include(g => g.Characters).ThenInclude(c => c.Member)
-                .OrderBy(g => g.SortOrder).ThenBy(g => g.Game)
                 .AsNoTracking()
                 .ToListAsync(ct);
 
@@ -43,8 +44,9 @@ public class HistoryModel(IServiceProvider services) : PageModel
                     .ToList();
             }
 
-            Active = all.Where(g => g.IsActive).ToList();
-            Past = all.Where(g => !g.IsActive).ToList();
+            // Ordered here rather than in SQL: the key comes from parsing Period,
+            // which Postgres cannot do for us and which nine rows do not need it to.
+            Games = all.OrderBy(g => g.NewestFirst).ToList();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

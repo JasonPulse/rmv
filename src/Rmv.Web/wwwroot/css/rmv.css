@@ -810,23 +810,21 @@ textarea.input {
 
 /* --- Game cards --------------------------------------------------------- */
 
-.gamegrid {
+/* Full width entries, newest first, one per row.
+   
+   This was a three-across grid of ~380px cards. It stopped working as characters
+   accumulated: a name list wrapped into a tall narrow column and had to be capped
+   at fourteen with "and N more", a cap that existed only because the container was
+   narrow. At full width the same fifty names are four wrapped lines. */
+.gamelist {
   display: grid;
-  gap: clamp(1.25rem, 3vw, 2rem);
-  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-  /* Cards are centred in their cell and capped in width. 1fr alone let a single
-     active game stretch the full shell and read as a mostly empty box; a fixed
-     max column instead dropped three games from a row of three to a row of two. */
-  justify-items: center;
-  align-items: start;
+  gap: 1.5rem;
 }
 
-.gamecard {
+.gameentry {
   position: relative;
-  width: 100%;
-  max-width: 420px;
   display: grid;
-  gap: 1rem;
+  gap: 0.9rem;
   padding: var(--w-card);
   background: var(--panel);
   border: var(--w-card) solid transparent;
@@ -834,59 +832,79 @@ textarea.input {
     var(--slice-panel-frame-card) / var(--w-card) / 0 stretch;
 }
 
-.gamecard__head {
-  display: grid;
-  justify-items: center;
-  gap: 0.5rem;
+/* Name left, status and years right, wrapping to their own line when narrow. */
+.gameentry__head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
 }
 
 /* The wordmark, set as type. No box.
    A plaque was tried here and it was wrong twice over: the art is a 900x151
    horizontal bar, so a two or three line name stretched its diamond ends into
    ovals, and the 149px side slices rendered at 34px left the frame's inner box
-   far narrower than the content box, so the text sat on top of the frame art.
-   "FINAL FANTASY XI" over three lines was unreadable.
-
-   Type carries the weight instead, with the kit's hairline used as a hairline. */
-.gamecard__name {
+   far narrower than the content box, so the text sat on top of the frame art. */
+.gameentry__name {
   margin: 0;
-  text-align: center;
-  font-size: clamp(1.15rem, 2.4vw, 1.5rem);
+  margin-right: auto;
+  font-size: clamp(1.1rem, 2.2vw, 1.4rem);
   line-height: 1.2;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--trim-bright);
-  text-wrap: balance;
 }
 
-/* divider-hairline, used as drawn: a thin rule with a centre diamond. */
-.gamecard__rule {
-  width: min(78%, 240px);
+.gameentry__period {
+  font: 600 0.8rem/1.5 var(--font-display);
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.gameentry__rule {
   height: 12px;
   background: url("../img/ui/divider-hairline.png") center / 100% 100% no-repeat;
   opacity: 0.85;
 }
 
-.gamecard__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  justify-content: center;
+/* Label beside content, so three rows of chips read as three labelled groups
+   rather than one heap. The label column is fixed so the chips align down the
+   page; below 40rem it stacks, because a 7rem label column on a phone leaves
+   nothing for the chips. */
+.gameentry__rows {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 0.6rem 1rem;
+  margin: 0;
+  align-items: baseline;
+}
+.gameentry__rows dt {
+  font: 600 0.7rem/1.6 var(--font-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.gameentry__rows dd { margin: 0; }
+.gameentry__rows .chips { margin-bottom: 0; }
+
+@media (max-width: 40rem) {
+  .gameentry__rows { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
+  .gameentry__rows dd { margin-bottom: 0.5rem; }
 }
 
-.gamecard__links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  justify-content: center;
-}
-
-/* Past games sit back rather than disappear: the kit art is greyscale already,
+/* Past entries sit back rather than disappear: the kit art is greyscale already,
    so dropping the accent saturation is enough to separate them. */
-.gamegrid--past .gamecard { opacity: 0.82; }
-.gamegrid--past .gamecard__name { color: var(--ink); }
-.gamegrid--past .gamecard__rule { opacity: 0.5; }
-.gamegrid--past .tag { opacity: 0.7; }
+.gameentry:not(.gameentry--active) { opacity: 0.86; }
+.gameentry:not(.gameentry--active) .gameentry__name { color: var(--ink); }
+.gameentry:not(.gameentry--active) .gameentry__rule { opacity: 0.5; }
+.gameentry:not(.gameentry--active) .tag { opacity: 0.7; }
+
+/* Quieter than the section bars elsewhere: it separates one list rather than
+   introducing a new one. */
+.bar--quiet { opacity: 0.7; }
+
+.tag { opacity: 0.7; }
 
 .tag {
   padding: 0.2rem 0.6rem;
@@ -925,7 +943,7 @@ textarea.input {
 .glink--guild::before { content: "\2756"; }
 
 @media (max-width: 520px) {
-  .gamecard { padding: 1rem; }
+  .gameentry { padding: 1rem; }
 }
 
 /* --- Admin -------------------------------------------------------------- */
@@ -1016,102 +1034,6 @@ textarea.input {
   min-width: 3px;
   height: var(--h, 4%);
   background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
-}
-
-/* --- Who played a game -------------------------------------------------- */
-
-.gamecard__roster {
-  display: grid;
-  gap: 0.4rem;
-  justify-items: center;
-  width: 100%;
-}
-
-.gamecard__rosterlabel {
-  margin: 0;
-  font: 600 0.72rem/1 var(--font-display);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-
-.whoplayed {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  justify-content: center;
-}
-.whoplayed a {
-  display: block;
-  padding: 0.15rem 0.5rem;
-  font: 400 0.84rem/1.5 var(--font-body);
-  color: var(--accent);
-  text-decoration: none;
-  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
-}
-.whoplayed a:hover {
-  color: var(--gold-bright);
-  border-color: color-mix(in srgb, var(--accent-warm) 50%, transparent);
-  background: color-mix(in srgb, var(--accent-warm) 10%, transparent);
-}
-
-.hero__crestline { display: flex; justify-content: center; margin-bottom: 0.9rem; }
-
-/* The character that was clicked, so the page answers "which one did I click". */
-.charcard--on {
-  border-color: color-mix(in srgb, var(--accent-warm) 60%, transparent);
-  background: color-mix(in srgb, var(--accent-warm) 9%, transparent);
-}
-
-/* One line per character: name, then the game it belongs to. */
-.charlines {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.1rem;
-}
-.charlines li {
-  display: flex;
-  align-items: baseline;
-  gap: 0.55rem;
-  flex-wrap: wrap;
-  padding: 0.42rem 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--stone) 18%, transparent);
-}
-.charlines li:last-child { border-bottom: 0; }
-.charlines a {
-  font: 600 1rem/1.3 var(--font-display);
-  letter-spacing: 0.04em;
-  text-decoration: none;
-}
-.charlines a:hover { text-decoration: underline; }
-.charlines__game {
-  font-size: 0.85rem;
-  color: var(--ink-faint);
-}
-.charlines__game::before { content: "- "; }
-/* A small portrait, not a face crop.
-   
-   There used to be a real face crop here, supplied by the Lodestone. Storing one
-   portrait per character instead of two dropped it, and the FFXI herald has no
-   equivalent, so there is nothing to crop to. A fixed offset cannot fake it
-   either: the two renders frame their characters differently, so any offset that
-   finds one head misses the other.
-   
-   So: the whole figure, small, at its own ratio. The box is 2:3, which is the
-   FFXI render exactly and within a hair of the Lodestone's, so cover crops a
-   sliver of the sides at most and neither is ever squashed. */
-.charlines__face {
-  width: 17px;
-  height: 25px;
-  object-fit: cover;
-  object-position: 50% 0;
-  border: 1px solid color-mix(in srgb, var(--trim) 35%, transparent);
-  align-self: center;
 }
 
 /* --- Characters --------------------------------------------------------- */
