@@ -58,8 +58,12 @@ public sealed class FakeHeraldAdapter : IHeraldAdapter
         public string? Class { get; set; } = "Champion";
         public long? Score { get; set; } = 1234;
 
+        /// <summary>Null by default, so a test opts in to the portrait path.</summary>
+        public HeraldPortrait? Portrait { get; set; }
+
         public HeraldCharacter Build() => new()
         {
+            Portrait = Portrait,
             // Canonical capitalisation comes back from the herald, as the real
             // ones do, so the service storing the echo rather than the input is
             // exercised.

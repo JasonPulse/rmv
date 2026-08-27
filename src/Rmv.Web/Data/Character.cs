@@ -58,10 +58,29 @@ public class Character
 
     public string? HeraldUrl { get; set; }
 
-    /// <summary>Hotlinked from the herald's CDN. See HeraldCharacter.PortraitUrl.</summary>
-    public string? PortraitUrl { get; set; }
+    /// <summary>
+    /// Set when we hold a portrait for this character, and changes only when the
+    /// picture does. A short digest of whatever version the herald offered, so the
+    /// two heralds produce the same shape; see HeraldPortrait.Tag.
+    ///
+    /// The bytes live in CharacterPortrait, in their own table, so they are not
+    /// dragged along by every query that reads a character.
+    /// </summary>
+    public string? PortraitVersion { get; set; }
 
-    public string? AvatarUrl { get; set; }
+    public CharacterPortrait? Portrait { get; set; }
+
+    /// <summary>
+    /// Where a page points an img, or null when we have no picture.
+    ///
+    /// Our own route, always, for every herald. The FFXI herald is internal and a
+    /// browser cannot reach it; the Lodestone could be linked directly but its URL
+    /// carries a cache-buster that goes stale. The version is in the query so the
+    /// browser refetches when the picture changes and never otherwise.
+    /// </summary>
+    public string? PortraitPath => PortraitVersion is null
+        ? null
+        : $"/characters/{Id}/portrait?v={Uri.EscapeDataString(PortraitVersion)}";
 
     // --- bookkeeping ---------------------------------------------------------
 

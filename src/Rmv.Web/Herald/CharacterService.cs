@@ -12,6 +12,7 @@ public sealed record AddOutcome(bool Ok, Character? Character, string? Error)
 public sealed class CharacterService(
     RmvDbContext db,
     HeraldRegistry registry,
+    HeraldFetcher fetcher,
     ILogger<CharacterService> log)
 {
     /// <summary>
@@ -61,6 +62,7 @@ public sealed class CharacterService(
 
         var character = NewCharacter(member, gameId, CharacterSource.Herald);
         Apply(character, result.Character);
+        await SyncPortraitAsync(character, result.Character.Portrait, ct);
 
         return await SaveNewAsync(character, resolved, gameId, ct);
     }
@@ -271,6 +273,7 @@ public sealed class CharacterService(
         }
 
         Apply(character, result.Character);
+        await SyncPortraitAsync(character, result.Character.Portrait, ct);
         return true;
     }
 
@@ -280,6 +283,65 @@ public sealed class CharacterService(
     /// </summary>
     private static string BaseUrlFor(GamePresence game, IHeraldAdapter adapter) =>
         string.IsNullOrWhiteSpace(game.HeraldBaseUrl) ? adapter.DefaultBaseUrl : game.HeraldBaseUrl!;
+
+    /// <summary>
+    /// Brings the stored portrait into line with what the herald offers.
+    ///
+    /// Downloads only when the version changed, which is what makes a daily refresh
+    /// across every character cheap and polite. The FFXI herald asks for exactly
+    /// this: "poll appearances and re-render only where hash changed".
+    ///
+    /// A failure leaves the previous picture in place and is not recorded as a
+    /// character error. A portrait is decoration; losing it should not make a
+    /// character look stale, and a herald that has dropped its renderer should not
+    /// blank everyone's picture.
+    /// </summary>
+    private async Task SyncPortraitAsync(
+        Character character, HeraldPortrait? portrait, CancellationToken ct)
+    {
+        if (portrait is null)
+        {
+            return;
+        }
+
+        // Unchanged version and bytes actually present. The second half matters:
+        // a refresh interrupted between writing the bytes and writing the version
+        // would otherwise be skipped forever, leaving a character claiming a
+        // picture the endpoint cannot serve. One indexed existence check per
+        // character per refresh buys self-healing.
+        if (character.PortraitVersion == portrait.Tag
+            && await db.CharacterPortraits.AnyAsync(p => p.CharacterId == character.Id, ct))
+        {
+            return;
+        }
+
+        var fetched = await fetcher.GetImageAsync(portrait.Url, ct);
+        if (!fetched.Ok || fetched.Bytes is null)
+        {
+            log.LogInformation(
+                "No portrait for {Name}: {Error}", character.Name, fetched.Error);
+            return;
+        }
+
+        var row = character.Portrait
+                  ?? await db.CharacterPortraits.FirstOrDefaultAsync(p => p.CharacterId == character.Id, ct);
+
+        if (row is null)
+        {
+            row = new CharacterPortrait { Character = character };
+            db.CharacterPortraits.Add(row);
+            character.Portrait = row;
+        }
+
+        row.Bytes = fetched.Bytes;
+        row.ContentType = fetched.ContentType!;
+        row.Version = portrait.Tag;
+        row.FetchedAt = DateTimeOffset.UtcNow;
+
+        // Only after the bytes are in hand, so a failed download cannot leave a
+        // version claiming a picture we do not have.
+        character.PortraitVersion = portrait.Tag;
+    }
 
     private static void Apply(Character target, HeraldCharacter source)
     {
@@ -297,8 +359,6 @@ public sealed class CharacterService(
         target.Deaths = source.Deaths;
         target.LastOnline = source.LastOnline;
         target.HeraldUrl = source.Url;
-        target.PortraitUrl = source.PortraitUrl;
-        target.AvatarUrl = source.AvatarUrl;
         target.LastError = null;
     }
 }

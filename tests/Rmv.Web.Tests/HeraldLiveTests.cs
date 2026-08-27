@@ -100,7 +100,8 @@ public class HeraldLiveTests
         // proves the Class/Job page was fetched and the icons matched.
         Assert.False(string.IsNullOrWhiteSpace(c.Class));
         Assert.NotNull(c.Level);
-        Assert.StartsWith("https://img2.finalfantasyxiv.com/", c.PortraitUrl);
+        Assert.NotNull(c.Portrait);
+        Assert.StartsWith("https://img2.finalfantasyxiv.com/", c.Portrait.Url);
     }
 
     [Fact]
@@ -115,5 +116,47 @@ public class HeraldLiveTests
 
         Assert.True(result.Ok, result.Error);
         Assert.Equal("Aoii Aeredel", result.Character!.Name);
+    }
+
+    /// <summary>
+    /// The portrait route on the FFXI herald, which its API does not advertise.
+    ///
+    /// Network rather than default because the herald is internal: a build runner
+    /// cannot reach it, and neither can a visitor's browser, which is the whole
+    /// reason the bytes are stored rather than linked.
+    /// </summary>
+    [Fact]
+    public async Task HeraldXi_serves_a_real_portrait_when_allowlisted()
+    {
+        var fetcher = Fetcher("heraldxi.network-gnomes.com");
+        var adapter = new HeraldXiAdapter(fetcher);
+
+        var result = await adapter.FetchCharacterAsync(
+            "https://heraldxi.network-gnomes.com", "Arwen", CancellationToken.None);
+
+        Assert.True(result.Ok, result.Error);
+        var portrait = result.Character!.Portrait;
+        Assert.NotNull(portrait);
+        Assert.Contains("/portraits/", portrait.Url);
+
+        var image = await fetcher.GetImageAsync(portrait.Url, CancellationToken.None);
+
+        Assert.True(image.Ok, image.Error);
+        Assert.Equal("image/png", image.ContentType);
+        Assert.NotNull(image.Bytes);
+        // A real PNG, not an error page with a helpful status code.
+        Assert.Equal(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, image.Bytes.Take(4).ToArray());
+        Assert.True(image.Bytes.Length > 1000, $"suspiciously small: {image.Bytes.Length} bytes");
+    }
+
+    [Fact]
+    public async Task A_portrait_is_refused_when_the_internal_host_is_not_allowlisted()
+    {
+        // Same guard as the API itself. A portrait must not be the hole in it.
+        var image = await Fetcher().GetImageAsync(
+            "https://heraldxi.network-gnomes.com/portraits/3.png", CancellationToken.None);
+
+        Assert.False(image.Ok);
+        Assert.Contains("not public", image.Error!, StringComparison.OrdinalIgnoreCase);
     }
 }

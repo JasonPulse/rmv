@@ -48,7 +48,7 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
                 return HeraldResult.Fail($"The herald has no character called \"{characterName}\".");
             }
 
-            return HeraldResult.Found(Map(dto, url));
+            return HeraldResult.Found(Map(dto, url, baseUrl));
         }
         catch (JsonException ex)
         {
@@ -76,8 +76,30 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
         && name.Length <= 16
         && name.All(char.IsAsciiLetter);
 
-    public static HeraldCharacter Map(XiCharacter dto, string url) => new()
+    /// <summary>
+    /// The portrait the herald renders for a character, or null when it has none.
+    ///
+    /// The API does not list this route; it is what the herald's own player pages
+    /// use. The hash is the appearance hash the API returns, and the herald's notes
+    /// say plainly to "poll appearances and re-render only where hash changed", so
+    /// it is exactly the right version key. A character with renderable false, or a
+    /// missing hash, has no picture, and the herald 404s the route rather than
+    /// serving a placeholder.
+    /// </summary>
+    public static HeraldPortrait? MapPortrait(XiCharacter dto, string baseUrl)
     {
+        if (dto.Appearance is not { Renderable: true, Hash: { Length: > 0 } hash } || dto.Id <= 0)
+        {
+            return null;
+        }
+
+        var root = baseUrl.TrimEnd('/');
+        return new HeraldPortrait($"{root}/portraits/{dto.Id}.png?v={Uri.EscapeDataString(hash)}", hash);
+    }
+
+    public static HeraldCharacter Map(XiCharacter dto, string url, string baseUrl) => new()
+    {
+        Portrait = MapPortrait(dto, baseUrl),
         Name = dto.Name,
         // FFXI has no guild. Nation is the nearest equivalent and is what a
         // signature would show.
@@ -123,7 +145,12 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
     /// </summary>
     public sealed class XiCharacter
     {
+        public int Id { get; set; }
+
         public string Name { get; set; } = "";
+
+        /// <summary>Carries the render hash and whether a portrait exists at all.</summary>
+        public XiAppearance? Appearance { get; set; }
         public string? Nation { get; set; }
         public string? Race { get; set; }
         public string? Title { get; set; }
@@ -139,5 +166,17 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
         public bool Online { get; set; }
 
         [JsonPropertyName("last_logout")] public DateTimeOffset? LastLogout { get; set; }
+    }
+
+    /// <summary>
+    /// Only the two fields that decide whether there is a picture and whether it
+    /// has changed. The block also carries models, equipment and a face id, which
+    /// are the renderer's business rather than ours.
+    /// </summary>
+    public sealed class XiAppearance
+    {
+        public string? Hash { get; set; }
+
+        public bool Renderable { get; set; }
     }
 }

@@ -24,6 +24,7 @@ public class CharacterServiceTests : IAsyncLifetime
     private RmvDbContext _db = null!;
     private CharacterService _service = null!;
     private FakeHeraldAdapter _herald = null!;
+    private StubImageHandler _images = null!;
     private Member _member = null!;
     private int _blackthornId;
     private int _ffxiId;
@@ -53,10 +54,19 @@ public class CharacterServiceTests : IAsyncLifetime
             .WithCharacter("Enchantress")
             .WithCharacter("Balder", b => b.Realm = "Midgard")
             .WithCharacter("Fetva")
-            .WithCharacter("Teagan");
+            .WithCharacter("Teagan")
+            // The only one with a picture, so the portrait path is opt-in and the
+            // other tests are unaffected by it.
+            .WithCharacter("Sable", b => b.Portrait =
+                new HeraldPortrait("https://fake.test/portraits/1.png?v=aaa", "aaa"));
+
+        _images = new StubImageHandler();
 
         _service = new CharacterService(
-            _db, new HeraldRegistry([_herald]), NullLogger<CharacterService>.Instance);
+            _db,
+            new HeraldRegistry([_herald]),
+            new HeraldFetcher(new HttpClient(_images), NullLogger<HeraldFetcher>.Instance),
+            NullLogger<CharacterService>.Instance);
 
         // A member and two games wired to real heralds.
         _member = new Member
@@ -372,5 +382,175 @@ public class CharacterServiceTests : IAsyncLifetime
         Assert.True(added.Ok, added.Error);
         Assert.Equal(CharacterSource.Herald, added.Character!.Source);
         Assert.False(added.Character.IsManual);
+    }
+
+    // --- portraits -----------------------------------------------------------
+
+    /// <summary>
+    /// What the service stores for a given herald version. Derived rather than
+    /// hardcoded: a literal digest in an assertion is unreadable and says nothing
+    /// about why it is that value.
+    /// </summary>
+    private static string Tag(string version) =>
+        new HeraldPortrait("https://fake.test/x.png", version).Tag;
+
+    [Fact]
+    public async Task Stores_the_portrait_bytes_rather_than_a_link_to_them()
+    {
+        // The FFXI herald is internal: a visitor's browser cannot reach it, so a
+        // link would render a broken image for everyone.
+        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+        Assert.True(added.Ok, added.Error);
+
+        var c = added.Character!;
+        // A digest of the herald's version, not the version itself: the Lodestone's
+        // is a 120 character URL. See HeraldPortrait.Tag.
+        Assert.Equal(Tag("aaa"), c.PortraitVersion);
+        Assert.Equal($"/characters/{c.Id}/portrait?v={Tag("aaa")}", c.PortraitPath);
+        Assert.Equal(16, c.PortraitVersion!.Length);
+
+        var stored = await _db.CharacterPortraits.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.CharacterId == c.Id);
+
+        Assert.NotNull(stored);
+        Assert.Equal(StubImageHandler.Png, stored.Bytes);
+        Assert.Equal("image/png", stored.ContentType);
+        Assert.Equal(Tag("aaa"), stored.Version);
+        Assert.Equal(1, _images.Calls);
+    }
+
+    [Fact]
+    public async Task A_character_with_no_portrait_has_no_path_and_costs_no_request()
+    {
+        var added = await _service.AddAsync(_member, _blackthornId, "Enchantress", default);
+
+        Assert.True(added.Ok, added.Error);
+        Assert.Null(added.Character!.PortraitVersion);
+        Assert.Null(added.Character.PortraitPath);
+        Assert.Equal(0, _images.Calls);
+    }
+
+    [Fact]
+    public async Task A_refresh_does_not_download_a_picture_that_has_not_changed()
+    {
+        // The whole basis of the daily pass. Dozens of characters against someone
+        // else's server, so an unchanged portrait has to cost nothing.
+        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+        Assert.True(added.Ok, added.Error);
+        Assert.Equal(1, _images.Calls);
+
+        Assert.True(await _service.RefreshAsync(added.Character!, default));
+        await _db.SaveChangesAsync();
+
+        Assert.Equal(1, _images.Calls);
+    }
+
+    [Fact]
+    public async Task A_new_version_replaces_the_stored_picture()
+    {
+        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+        Assert.True(added.Ok, added.Error);
+        var id = added.Character!.Id;
+
+        // The character changed gear, so the herald re-rendered and the hash moved.
+        _herald.Known["Sable"] = _herald.Known["Sable"] with
+        {
+            Portrait = new HeraldPortrait("https://fake.test/portraits/1.png?v=bbb", "bbb"),
+        };
+        _images.Body = [.. StubImageHandler.Png, 0x00];
+
+        Assert.True(await _service.RefreshAsync(added.Character!, default));
+        await _db.SaveChangesAsync();
+
+        Assert.Equal(2, _images.Calls);
+
+        var stored = await _db.CharacterPortraits.AsNoTracking().FirstAsync(p => p.CharacterId == id);
+        Assert.Equal(Tag("bbb"), stored.Version);
+        Assert.Equal(_images.Body, stored.Bytes);
+        // One row per character, not one per version.
+        Assert.Equal(1, await _db.CharacterPortraits.CountAsync(p => p.CharacterId == id));
+    }
+
+    [Fact]
+    public async Task A_renderer_that_is_down_keeps_the_old_picture_and_is_not_an_error()
+    {
+        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+        Assert.True(added.Ok, added.Error);
+        var id = added.Character!.Id;
+
+        _herald.Known["Sable"] = _herald.Known["Sable"] with
+        {
+            Portrait = new HeraldPortrait("https://fake.test/portraits/1.png?v=ccc", "ccc"),
+        };
+        _images.ForcedStatus = System.Net.HttpStatusCode.ServiceUnavailable;
+
+        Assert.True(await _service.RefreshAsync(added.Character!, default));
+        await _db.SaveChangesAsync();
+
+        // The version stays on what we actually hold, so the path keeps pointing at
+        // bytes that exist.
+        Assert.Equal(Tag("aaa"), added.Character.PortraitVersion);
+        var stored = await _db.CharacterPortraits.AsNoTracking().FirstAsync(p => p.CharacterId == id);
+        Assert.Equal(Tag("aaa"), stored.Version);
+        Assert.Equal(StubImageHandler.Png, stored.Bytes);
+
+        // A portrait is decoration. Failing to fetch one must not make a character
+        // look stale on the page.
+        Assert.Null(added.Character.LastError);
+    }
+
+    [Fact]
+    public async Task Something_that_is_not_an_image_is_refused()
+    {
+        // The endpoint echoes the stored content type, so text/html from a herald
+        // would be stored cross-site scripting wearing an img tag.
+        _images.ContentType = "text/html";
+
+        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+
+        Assert.True(added.Ok, added.Error);
+        Assert.Null(added.Character!.PortraitVersion);
+        Assert.False(await _db.CharacterPortraits.AnyAsync(p => p.CharacterId == added.Character.Id));
+    }
+
+    [Fact]
+    public async Task A_portrait_larger_than_the_cap_is_refused()
+    {
+        _images.Body = new byte[HeraldFetcher.MaxImageBytes + 1];
+
+        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+
+        Assert.True(added.Ok, added.Error);
+        Assert.Null(added.Character!.PortraitVersion);
+    }
+
+    [Fact]
+    public async Task Removing_a_character_removes_its_portrait()
+    {
+        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+        Assert.True(added.Ok, added.Error);
+        var id = added.Character!.Id;
+
+        _db.Characters.Remove(added.Character);
+        await _db.SaveChangesAsync();
+
+        // By cascade, not by remembering to do it in the handler.
+        Assert.False(await _db.CharacterPortraits.AnyAsync(p => p.CharacterId == id));
+    }
+
+    [Fact]
+    public void Different_versions_give_different_tags_and_the_same_one_is_stable()
+    {
+        // The tag is what decides whether to download again, so a stable mapping
+        // is the whole property.
+        Assert.Equal(Tag("aaa"), Tag("aaa"));
+        Assert.NotEqual(Tag("aaa"), Tag("aab"));
+
+        // A Lodestone version is its whole image URL. The tag has to shorten that
+        // without losing the change it encodes.
+        const string a = "https://img2.finalfantasyxiv.com/f/abc_l0.jpg?1787848443";
+        const string b = "https://img2.finalfantasyxiv.com/f/abc_l0.jpg?1787870043";
+        Assert.NotEqual(Tag(a), Tag(b));
+        Assert.Equal(16, Tag(a).Length);
     }
 }

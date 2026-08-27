@@ -1094,9 +1094,22 @@ textarea.input {
   color: var(--ink-faint);
 }
 .charlines__game::before { content: "- "; }
+/* A small portrait, not a face crop.
+   
+   There used to be a real face crop here, supplied by the Lodestone. Storing one
+   portrait per character instead of two dropped it, and the FFXI herald has no
+   equivalent, so there is nothing to crop to. A fixed offset cannot fake it
+   either: the two renders frame their characters differently, so any offset that
+   finds one head misses the other.
+   
+   So: the whole figure, small, at its own ratio. The box is 2:3, which is the
+   FFXI render exactly and within a hair of the Lodestone's, so cover crops a
+   sliver of the sides at most and neither is ever squashed. */
 .charlines__face {
-  width: 22px;
-  height: 22px;
+  width: 17px;
+  height: 25px;
+  object-fit: cover;
+  object-position: 50% 0;
   border: 1px solid color-mix(in srgb, var(--trim) 35%, transparent);
   align-self: center;
 }
@@ -1151,8 +1164,10 @@ textarea.input {
 }
 .charcard__portrait {
   display: block;
-  /* Width only. The 220x300 attributes on the img carry the aspect ratio, and
-     height:auto keeps it, because a portrait squashed to fit is the wrong asset. */
+  /* Width only. The attributes on the img carry the aspect ratio and height:auto
+     keeps it, because a portrait squashed to fit is the wrong asset. The two
+     heralds render at different shapes, 384x576 and 880x1200, and both are
+     correct at their own ratio. */
   width: 132px;
   height: auto;
   border: 1px solid color-mix(in srgb, var(--trim) 35%, transparent);

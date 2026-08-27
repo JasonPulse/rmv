@@ -11,15 +11,14 @@
     var c = Model.Character;
 }
 
-@if (!string.IsNullOrWhiteSpace(c.PortraitUrl))
+@if (c.PortraitPath is { } portrait)
 {
-    @* Hotlinked from the herald's own CDN, deliberately. Copying someone else's
-       character art onto our disk would be a licensing question and a cache to
-       invalidate, for no gain. Lazy, so a long list does not fetch art nobody
-       scrolled down to. *@
-    <img class="charcard__portrait" src="@c.PortraitUrl" alt="@c.Name"
-         loading="lazy" decoding="async" referrerpolicy="no-referrer"
-         width="220" height="300" />
+    @* Served by us, not by the herald. The FFXI herald is internal, so a browser
+       cannot reach it; see PortraitEndpoint. The URL carries the version, so this
+       is cached for a year and refetched exactly when the picture changes. Lazy,
+       so a long list does not fetch art nobody scrolled down to. *@
+    <img class="charcard__portrait" src="@portrait" alt="@c.Name"
+         loading="lazy" decoding="async" width="384" height="576" />
 }
 
 <div class="charcard__body">

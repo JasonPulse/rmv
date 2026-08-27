@@ -15,6 +15,11 @@ public sealed record FetchResult(bool Ok, string? Body, string? Error, int? Stat
     public bool NotFound => StatusCode == 404;
 }
 
+public sealed record ImageResult(bool Ok, byte[]? Bytes, string? ContentType, string? Error)
+{
+    public static ImageResult Fail(string error) => new(false, null, null, error);
+}
+
 /// <summary>
 /// Fetches a herald page. Every limit here exists because the target is someone
 /// else's server, reached via a URL an admin typed.
@@ -23,6 +28,22 @@ public sealed class HeraldFetcher(HttpClient client, ILogger<HeraldFetcher> log)
 {
     /// <summary>Heralds are HTML pages. Anything much larger is not one.</summary>
     public const int MaxBytes = 2 * 1024 * 1024;
+
+    /// <summary>
+    /// A portrait is a render of one character. The two heralds serve 121KB and
+    /// 114KB; a megabyte is generous and still rules out being handed a video.
+    /// </summary>
+    public const int MaxImageBytes = 1024 * 1024;
+
+    /// <summary>
+    /// What we will store and hand back to a browser.
+    ///
+    /// An allowlist because the endpoint echoes this Content-Type. Letting a
+    /// herald choose it freely would let it serve text/html from our own origin,
+    /// which is a stored cross-site scripting hole wearing an img tag. SVG is
+    /// excluded for the same reason: it is a document that can carry script.
+    /// </summary>
+    private static readonly string[] ImageTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
     /// <summary>
     /// Fetches a character page, with the failure already turned into the message a
@@ -47,6 +68,74 @@ public sealed class HeraldFetcher(HttpClient client, ILogger<HeraldFetcher> log)
         return (null, fetched.NotFound
             ? HeraldResult.Fail($"The herald has no character called \"{characterName}\".")
             : HeraldResult.Fail(fetched.Error ?? "Could not reach the herald."));
+    }
+
+    /// <summary>
+    /// Fetches an image, capped and type-checked.
+    ///
+    /// Same SSRF-guarded handler as everything else here, which is the point: the
+    /// FFXI herald's portraits are on an internal host, so this is the only way to
+    /// reach them at all, and the operator allowlist is what permits it.
+    /// </summary>
+    public async Task<ImageResult> GetImageAsync(string url, CancellationToken ct)
+    {
+        if (!Data.ExternalUrl.TryParse(url, out var safe))
+        {
+            return ImageResult.Fail("Not an absolute http or https URL.");
+        }
+
+        try
+        {
+            using var response = await client.GetAsync(safe, HttpCompletionOption.ResponseHeadersRead, ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return ImageResult.Fail($"Herald returned {(int)response.StatusCode}.");
+            }
+
+            var type = response.Content.Headers.ContentType?.MediaType ?? "";
+            if (!ImageTypes.Contains(type, StringComparer.OrdinalIgnoreCase))
+            {
+                return ImageResult.Fail($"Not an image we serve: {(type.Length == 0 ? "no content type" : type)}.");
+            }
+
+            if (response.Content.Headers.ContentLength is > MaxImageBytes)
+            {
+                return ImageResult.Fail("Portrait is too large.");
+            }
+
+            // Capped while reading as well: a declared length is a hint, not a
+            // promise, and this one comes from someone else's server.
+            await using var stream = await response.Content.ReadAsStreamAsync(ct);
+            var body = new MemoryStream();
+            var buffer = new byte[16 * 1024];
+            var total = 0;
+            int read;
+
+            while ((read = await stream.ReadAsync(buffer, ct)) > 0)
+            {
+                total += read;
+                if (total > MaxImageBytes)
+                {
+                    return ImageResult.Fail("Portrait is too large.");
+                }
+
+                body.Write(buffer, 0, read);
+            }
+
+            return total == 0
+                ? ImageResult.Fail("Portrait was empty.")
+                : new ImageResult(true, body.ToArray(), type.ToLowerInvariant(), null);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning(ex, "Portrait fetch failed for {Url}.", safe);
+            return ImageResult.Fail($"Could not fetch the portrait: {ex.GetBaseException().Message}");
+        }
     }
 
     public async Task<FetchResult> GetAsync(string url, CancellationToken ct)

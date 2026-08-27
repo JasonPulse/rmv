@@ -98,16 +98,16 @@ public class LodestoneParserTests
     }
 
     [Fact]
-    public async Task Takes_both_images_as_absolute_urls()
+    public async Task The_portrait_url_is_absolute_and_doubles_as_its_own_version()
     {
         var c = LodestoneParser.Parse(await CharacterAsync(), await ClassJobAsync(), "https://x.test/c/1/");
 
-        Assert.NotNull(c.PortraitUrl);
-        Assert.NotNull(c.AvatarUrl);
-        Assert.StartsWith("https://img2.finalfantasyxiv.com/", c.PortraitUrl);
-        Assert.StartsWith("https://img2.finalfantasyxiv.com/", c.AvatarUrl);
-        // Different crops: the portrait is tall, the avatar is the square face.
-        Assert.NotEqual(c.PortraitUrl, c.AvatarUrl);
+        Assert.NotNull(c.Portrait);
+        Assert.StartsWith("https://img2.finalfantasyxiv.com/", c.Portrait.Url);
+        // The Lodestone offers no hash, but it appends a cache-buster that changes
+        // when the character re-renders, so the URL is the version.
+        Assert.Equal(c.Portrait.Url, c.Portrait.Version);
+        Assert.Contains("?", c.Portrait.Version);
     }
 
     [Fact]

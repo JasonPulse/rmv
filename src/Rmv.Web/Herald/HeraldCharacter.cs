@@ -34,16 +34,50 @@ public sealed record HeraldCharacter
     /// <summary>The character's page, for linking straight to the herald.</summary>
     public string? Url { get; init; }
 
-    /// <summary>
-    /// A portrait, tall, roughly 220x300. Absolute and on the herald's own CDN,
-    /// so it is rendered as an img the browser fetches directly. Nothing is
-    /// copied to our disk; if the herald deletes it the image simply stops
-    /// loading, which is the correct outcome for someone else's artwork.
-    /// </summary>
-    public string? PortraitUrl { get; init; }
+    /// <summary>The character's portrait, if the herald has one.</summary>
+    public HeraldPortrait? Portrait { get; init; }
+}
 
-    /// <summary>A square face crop, for lists where a portrait is too tall.</summary>
-    public string? AvatarUrl { get; init; }
+/// <summary>
+/// A portrait a herald will serve us.
+///
+/// The bytes are fetched by the server and stored, not linked from the page, and
+/// the reason is not caution. The FFXI herald is internal: it resolves to an
+/// RFC1918 address, so a visitor's browser cannot reach it at all. Only the pod
+/// can.
+///
+/// Doing the same for the public heralds is not extra work, it is less. The
+/// Lodestone's image URL carries a cache-buster that changes whenever a character
+/// re-renders, so a stored URL goes stale and 404s until the next refresh. One
+/// mechanism, keyed on <see cref="Version"/>, is both simpler and more correct
+/// than a link for some heralds and a copy for others.
+/// </summary>
+/// <param name="Url">Where the server fetches it from. Never sent to a browser.</param>
+/// <param name="Version">
+/// Changes when the picture changes, and nothing else. The FFXI herald gives an
+/// appearance hash for exactly this and says to re-render only where it changed.
+/// The Lodestone has no hash, so its URL serves as one. A refresh that finds the
+/// same version does not download anything.
+/// </param>
+public sealed record HeraldPortrait(string Url, string Version)
+{
+    /// <summary>
+    /// A short, fixed-width stand-in for <see cref="Version"/>, which is what gets
+    /// stored and what appears in the portrait URL.
+    ///
+    /// The versions themselves are whatever each herald offers. The FFXI herald's
+    /// is a tidy twelve characters; the Lodestone has no hash at all, so its own
+    /// image URL serves, and that is 120 characters which then have to be
+    /// percent-encoded into a query string. Digesting both gives one shape, a URL
+    /// short enough to read in a log, and an ETag that is not an embedded URL.
+    ///
+    /// Not a security boundary, so a truncated digest is fine: two different
+    /// pictures colliding here would mean a stale image, not a wrong one served to
+    /// the wrong character, because the character id is separate.
+    /// </summary>
+    public string Tag => Convert.ToHexStringLower(
+        System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(Version)))[..16];
 }
 
 public sealed record HeraldResult(bool Ok, HeraldCharacter? Character, string? Error)

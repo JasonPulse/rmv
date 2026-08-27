@@ -22,6 +22,8 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
 
     public DbSet<Character> Characters => Set<Character>();
 
+    public DbSet<CharacterPortrait> CharacterPortraits => Set<CharacterPortrait>();
+
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
 
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -109,8 +111,9 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             e.Property(c => c.RealmRank).HasMaxLength(40);
             e.Property(c => c.LastOnline).HasMaxLength(40);
             e.Property(c => c.HeraldUrl).HasMaxLength(ExternalUrl.MaxLength);
-            e.Property(c => c.PortraitUrl).HasMaxLength(ExternalUrl.MaxLength);
-            e.Property(c => c.AvatarUrl).HasMaxLength(ExternalUrl.MaxLength);
+            // A digest of the herald's own version, so a fixed width. See
+            // HeraldPortrait.Tag.
+            e.Property(c => c.PortraitVersion).HasMaxLength(32);
             e.Property(c => c.LastError).HasMaxLength(300);
             // Text, like MemberStatus, so the table reads without a lookup.
             e.Property(c => c.Source).HasConversion<string>().HasMaxLength(16).IsRequired();
@@ -129,6 +132,21 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             e.HasIndex(c => c.MemberId);
             // The public roster reads characters by game, newest first.
             e.HasIndex(c => new { c.GamePresenceId, c.AddedAt });
+        });
+
+        b.Entity<CharacterPortrait>(e =>
+        {
+            e.ToTable("character_portraits");
+            e.HasKey(p => p.CharacterId);
+            e.Property(p => p.ContentType).HasMaxLength(40).IsRequired();
+            e.Property(p => p.Version).HasMaxLength(32).IsRequired();
+
+            // Its own table so the bytes are never loaded by a query that only
+            // wanted a character's name. Nothing configures this as a required
+            // navigation, so Include is always a deliberate act.
+            e.HasOne(p => p.Character).WithOne(c => c.Portrait)
+                .HasForeignKey<CharacterPortrait>(p => p.CharacterId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<RequestLog>(e =>

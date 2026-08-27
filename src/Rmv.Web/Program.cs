@@ -301,6 +301,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapRazorPages();
+// Only when there is a database to read portraits out of.
+if (databaseConfigured)
+{
+    app.MapPortraits();
+}
+
 app.MapHealthChecks("/healthz/live", new() { Predicate = _ => false });
 app.MapHealthChecks("/healthz/ready", new() { Predicate = c => c.Tags.Contains("ready") });
 

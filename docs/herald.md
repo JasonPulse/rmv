@@ -121,16 +121,71 @@ the add.
 
 ## Character portraits
 
-The Lodestone gives a tall portrait and a square face crop. Both are stored as
-URLs and rendered as `img` elements the browser fetches from Square Enix's CDN.
+Both heralds render one. The FFXI herald serves a 384x576 transparent PNG at
+`/portraits/{id}.png?v={hash}`, a route its API does not advertise; the Lodestone
+serves an 880x1200 JPEG on its CDN.
 
-Nothing is copied to our disk. That would be a licensing question about someone
-else's character art and a cache to invalidate, for no gain. If the Lodestone
-deletes an image it stops loading, which is the correct outcome. Both carry
-`loading="lazy"` and `referrerpolicy="no-referrer"`.
+**The bytes are fetched by the server and stored, not linked from the page.** The
+FFXI herald is internal. It resolves to an RFC1918 address, so a visitor's browser
+cannot reach it at all and a link would render a broken image for everyone. Only
+the pod can fetch it, and only because `Herald__AllowedPrivateHosts` permits it.
 
-The width and height attributes are the real aspect ratio and the CSS sets width
-only, so a portrait is never squashed to fit.
+Doing the same for the Lodestone is not extra work, it is less. Its image URL
+carries a cache-buster that changes whenever a character re-renders, so a stored
+URL goes stale and 404s until the next refresh. One mechanism for both is simpler
+and more correct than a link for some heralds and a copy for others.
+
+An earlier version of this file argued the opposite, on the grounds that copying
+someone else's character art was a licensing question. That reasoning does not
+survive the FFXI herald: the art there is this guild's own characters, rendered by
+a server the guild runs.
+
+### Versions, and not downloading the same picture daily
+
+`HeraldPortrait.Version` changes when the picture changes and at no other time.
+The FFXI herald gives an appearance hash for exactly this and its notes say to
+"poll appearances and re-render only where hash changed". The Lodestone has no
+hash, so its URL serves as one.
+
+`HeraldPortrait.Tag` is a 16-character digest of that, and it is what gets stored
+and what appears in the URL. Without it the Lodestone's version would be 120
+characters of URL, percent-encoded into a query string and repeated in an ETag.
+
+A refresh that finds the same tag downloads nothing. It does check that the bytes
+are actually present, so a refresh interrupted between writing the bytes and
+writing the version heals on the next pass instead of being skipped forever.
+
+A fetch that fails leaves the previous picture in place and is **not** recorded as
+a character error. A portrait is decoration; losing one should not make a
+character look stale, and a herald that has dropped its renderer should not blank
+everyone's picture.
+
+### Storage and serving
+
+`character_portraits` is its own table, one row per character, rather than a
+`bytea` column on `characters`. A column would be loaded by every query that
+touches a character, and `/history` reads every character on the site to build the
+game cards.
+
+`PortraitEndpoint` serves `/characters/{id}/portrait?v={tag}`. It is not a proxy:
+it never takes a URL from the request, only a character id, and returns only bytes
+already stored against that character.
+
+| Property | Why |
+|---|---|
+| ETag is the tag | 304 without loading bytes |
+| `immutable`, one year | URL carries the tag |
+| 404 for a blocked owner | matches the roster |
+
+The stored Content-Type comes from an allowlist of `image/png`, `image/jpeg`,
+`image/webp` and `image/gif`, checked at fetch time. The endpoint echoes it, so a
+herald that could choose it freely could serve `text/html` from our own origin,
+which is stored cross-site scripting wearing an `img` tag. SVG is excluded for the
+same reason: it is a document that can carry script. Fetches are capped at 1MB.
+
+There is no separate face crop. The Lodestone offers one and the FFXI herald does
+not, so the profile list shows the same portrait small, at its own aspect ratio,
+rather than two heralds rendering differently in one list.
 
 ## WoW
 

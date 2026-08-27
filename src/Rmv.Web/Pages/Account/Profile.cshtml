@@ -99,13 +99,16 @@
                     @foreach (var c in Model.Characters)
                     {
                         <li>
-                            @if (!string.IsNullOrWhiteSpace(c.AvatarUrl))
+                            @if (c.PortraitPath is { } face)
                             {
-                                @* The square face crop, not the portrait: a
-                                   single-line list has no room for a tall image. *@
-                                <img class="charlines__face" src="@c.AvatarUrl" alt=""
+                                @* The same picture as the card, cropped to a square
+                                   by CSS rather than fetched again at another size.
+                                   One stored portrait per character means one
+                                   download, one cache entry, and no second URL to
+                                   go stale. *@
+                                <img class="charlines__face" src="@face" alt=""
                                      loading="lazy" decoding="async"
-                                     referrerpolicy="no-referrer" width="40" height="40" />
+                                     width="384" height="576" />
                             }
                             <a href="/roster/@c.MemberId?c=@c.Id">@c.Name</a>
                             <span class="charlines__game">@c.Game?.Game</span>

@@ -45,6 +45,10 @@ services:
         Host=db;Port=5432;Database=${POSTGRES_DB:-rmv};Username=${POSTGRES_USER:-rmv};Password=${POSTGRES_PASSWORD}
       Discord__ClientId: ${DISCORD_CLIENT_ID:-}
       Discord__ClientSecret: ${DISCORD_CLIENT_SECRET:-}
+      # Operator level, not admin level. The FFXI herald resolves to an RFC1918
+      # address, so the SSRF guard refuses it unless it is named here. Needed for
+      # its portraits as much as its API. Matches the deployment.
+      Herald__AllowedPrivateHosts: ${HERALD_ALLOWED_PRIVATE_HOSTS:-}
     ports:
       - "127.0.0.1:5080:8080"
     volumes:

@@ -149,8 +149,12 @@ public static class LodestoneParser
             Race = Block(character, "Race/Clan/Gender"),
             Guild = FreeCompany(character),
             Url = url,
-            PortraitUrl = Image(character, ".character__detail__image img"),
-            AvatarUrl = Image(character, ".frame__chara__face img"),
+            // The URL is its own version: the Lodestone appends a cache-buster
+            // that changes whenever the character re-renders, which is precisely
+            // when we want to fetch it again.
+            Portrait = Image(character, ".character__detail__image img") is { } portrait
+                ? new HeraldPortrait(portrait, portrait)
+                : null,
         };
     }
 

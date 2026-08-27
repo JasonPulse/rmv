@@ -56,10 +56,18 @@ trap teardown EXIT
 if [ "$BASE" = "http://localhost:5080" ]; then
     LOCAL=1
     ASPNETCORE_ENVIRONMENT=Development docker compose up -d --build >/dev/null
+    # Two consecutive passes, not one. /healthz/ready depends on Postgres, and on
+    # a cold volume the migration runs in a background service, so readiness can
+    # flick to 200 and back to 503 while that finishes. Waiting for a single 200
+    # let the route pass start mid-migration and report a 503 that was mine.
     printf 'waiting for %s ' "$BASE"
-    for _ in $(seq 1 40); do
+    streak=0
+    for _ in $(seq 1 60); do
         if [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$BASE/healthz/ready" || true)" = "200" ]; then
-            break
+            streak=$((streak + 1))
+            [ "$streak" -ge 2 ] && break
+        else
+            streak=0
         fi
         printf '.'; sleep 2
     done

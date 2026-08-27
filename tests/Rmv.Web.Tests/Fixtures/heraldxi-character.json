@@ -309,6 +309,28 @@
   ],
   "skills": [],
   "crafts": [],
+  "appearance": {
+    "character_id": 3,
+    "name": "Arwen",
+    "race": 4,
+    "race_name": "Elvaan",
+    "face": 3,
+    "size": 0,
+    "style_locked": false,
+    "models": {
+      "body": 8,
+      "feet": 8,
+      "hands": 8,
+      "head": 0,
+      "legs": 8,
+      "main": 21,
+      "ranged": 0,
+      "sub": 0
+    },
+    "equip_arg": "body=8,hands=8,legs=8,feet=8,main=21",
+    "hash": "a57c46727615",
+    "renderable": true
+  },
   "missions": [],
   "history": {
     "abilities_used": 0,
