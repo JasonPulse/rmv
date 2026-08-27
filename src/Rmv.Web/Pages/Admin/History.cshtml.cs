@@ -169,6 +169,8 @@ public class HistoryModel(RmvDbContext db, HeraldRegistry heralds) : PageModel
         var adapterKey = string.IsNullOrWhiteSpace(Input.HeraldAdapterKey) ? null : Input.HeraldAdapterKey.Trim();
         string? heraldUrl = null;
 
+        var urlGiven = !string.IsNullOrWhiteSpace(Input.HeraldBaseUrl);
+
         if (adapterKey is not null)
         {
             if (heralds.Find(adapterKey) is null)
@@ -181,8 +183,16 @@ public class HistoryModel(RmvDbContext db, HeraldRegistry heralds) : PageModel
             if (!ExternalUrl.TryParse(Input.HeraldBaseUrl, out heraldUrl))
             {
                 ModelState.AddModelError("Input.HeraldBaseUrl",
-                    "Pick an adapter and give an absolute http or https URL.");
+                    "Give an absolute http or https URL, e.g. https://herald.example.com");
             }
+        }
+        else if (urlGiven)
+        {
+            // Half-configured is the trap. Silently discarding the URL because no
+            // adapter was chosen looks exactly like a save that worked, and then
+            // the game never appears on /characters.
+            ModelState.AddModelError("Input.HeraldAdapterKey",
+                "Choose a herald adapter as well, or clear the URL. A URL on its own does nothing.");
         }
 
         if (!ModelState.IsValid)

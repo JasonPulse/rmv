@@ -151,7 +151,17 @@
                             }
                             @if (row.SupportsCharacters)
                             {
-                                <span class="pill">@row.HeraldAdapterKey</span>
+                                <span class="pill pill--ok">herald: @row.HeraldAdapterKey</span>
+                            }
+                            else if (!string.IsNullOrWhiteSpace(row.HeraldAdapterKey)
+                                     || !string.IsNullOrWhiteSpace(row.HeraldBaseUrl))
+                            {
+                                @* Half-configured, so characters still cannot be added. *@
+                                <span class="pill pill--bad">herald incomplete</span>
+                            }
+                            else
+                            {
+                                <span class="pill">no herald</span>
                             }
                         </td>
                         <td class="dim">
