@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using Rmv.Web.Analytics;
 using Rmv.Web.Data;
 
 namespace Rmv.Web.Pages.Admin;
@@ -22,6 +23,12 @@ public class AnalyticsModel(RmvDbContext db) : PageModel
 
     public IReadOnlyList<Count> TopReferrers { get; private set; } = [];
 
+    /// <summary>
+    /// Domains rather than full URLs. Asked for, and the better view: fifty forum
+    /// thread URLs from one site are one line here and fifty in TopReferrers.
+    /// </summary>
+    public IReadOnlyList<Count> TopReferrerHosts { get; private set; } = [];
+
     public IReadOnlyList<Count> TopCountries { get; private set; } = [];
 
     public IReadOnlyList<StatusCount> Statuses { get; private set; } = [];
@@ -38,35 +45,9 @@ public class AnalyticsModel(RmvDbContext db) : PageModel
         ? "Every request in this window came from a bot. Use \u201cinclude bots\u201d to see them."
         : "Nothing recorded in this window yet.";
 
-    public record Count(string Key, int Total);
-
-    public record StatusCount(int Status, int Total);
-
     public record DayCount(DateOnly Day, int Total);
 
     public record SlowPath(string Path, int WorstMs, int Total);
-
-    /// <summary>
-    /// The four "top N by count" panels, once.
-    ///
-    /// The anonymous type in the middle is not incidental. Projecting straight into
-    /// a record constructor inside a GroupBy is not translatable and throws at
-    /// runtime rather than at compile time, so the shape has to be: group and count
-    /// in the database, map to the record afterwards. Four copies of that meant four
-    /// chances to forget it.
-    /// </summary>
-    private static async Task<IReadOnlyList<Count>> TopAsync(
-        IQueryable<RequestLog> rows,
-        Expression<Func<RequestLog, string>> by,
-        int take,
-        CancellationToken ct) =>
-        (await rows
-                .GroupBy(by)
-                .Select(g => new { Key = g.Key, Total = g.Count() })
-                .OrderByDescending(x => x.Total).Take(take)
-                .ToListAsync(ct))
-            .Select(x => new Count(x.Key, x.Total))
-            .ToList();
 
     public async Task OnGetAsync(int? days, bool? bots, CancellationToken ct)
     {
@@ -81,15 +62,20 @@ public class AnalyticsModel(RmvDbContext db) : PageModel
         TotalRequests = await all.CountAsync(ct);
         HumanRequests = await all.CountAsync(r => !r.IsBot, ct);
 
-        TopPaths = await TopAsync(scoped.Where(r => r.Status < 400), r => r.Path, 25, ct);
+        TopPaths = await RequestLogQueries.TopAsync(scoped.Where(r => r.Status < 400), r => r.Path, 25, ct);
 
         // Bots are included here on purpose: a flood of 404s for /wp-login.php is
         // exactly what this panel is for.
-        TopMisses = await TopAsync(all.Where(r => r.Status == 404), r => r.Path, 25, ct);
+        TopMisses = await RequestLogQueries.TopAsync(all.Where(r => r.Status == 404), r => r.Path, 25, ct);
 
-        TopReferrers = await TopAsync(scoped.Where(r => r.Referrer != null), r => r.Referrer!, 15, ct);
+        TopReferrers = await RequestLogQueries.TopAsync(scoped.Where(r => r.Referrer != null), r => r.Referrer!, 15, ct);
 
-        TopCountries = await TopAsync(scoped.Where(r => r.Country != null), r => r.Country!, 15, ct);
+        TopCountries = await RequestLogQueries.TopAsync(scoped.Where(r => r.Country != null), r => r.Country!, 15, ct);
+
+        // Bots included, deliberately. A crawler is a real source of traffic, and
+        // excluding them here hid the answer to "who is still requesting this".
+        TopReferrerHosts = await RequestLogQueries.TopAsync(
+            all.Where(r => r.ReferrerHost != null), r => r.ReferrerHost!, 20, ct);
         var unusedTail = (await scoped
                 .Where(r => r.Country != null)
                 .GroupBy(r => r.Country!)
@@ -98,12 +84,7 @@ public class AnalyticsModel(RmvDbContext db) : PageModel
                 .ToListAsync(ct))
             .Select(x => new Count(x.Key, x.Total)).ToList();
 
-        Statuses = (await scoped
-                .GroupBy(r => r.Status)
-                .Select(g => new { Key = g.Key, Total = g.Count() })
-                .OrderByDescending(x => x.Total)
-                .ToListAsync(ct))
-            .Select(x => new StatusCount(x.Key, x.Total)).ToList();
+        Statuses = await RequestLogQueries.StatusesAsync(scoped, ct);
 
         PerDay = (await scoped
                 .GroupBy(r => new { r.At.Year, r.At.Month, r.At.Day })

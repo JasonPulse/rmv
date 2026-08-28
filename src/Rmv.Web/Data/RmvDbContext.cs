@@ -155,6 +155,9 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             e.Property(r => r.Path).HasMaxLength(400).IsRequired();
             e.Property(r => r.Method).HasMaxLength(10).IsRequired();
             e.Property(r => r.Referrer).HasMaxLength(400);
+            e.Property(r => r.ReferrerHost).HasMaxLength(Analytics.RequestLogMiddleware.MaxHostLength);
+            // The panel that answers "which site is sending these" groups on it.
+            e.HasIndex(r => r.ReferrerHost);
             e.Property(r => r.UserAgent).HasMaxLength(400);
             e.Property(r => r.Country).HasMaxLength(2);
             // Every query is either recent-first or grouped by path over a window.

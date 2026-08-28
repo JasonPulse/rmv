@@ -58,6 +58,7 @@ public sealed class RequestLogMiddleware(RequestDelegate next, RequestLogWriter 
         finally
         {
             var ua = context.Request.Headers.UserAgent.ToString();
+            var referrer = Truncate(NullIfEmpty(context.Request.Headers.Referer.ToString()), 400);
 
             writer.Enqueue(new RequestLog
             {
@@ -69,7 +70,8 @@ public sealed class RequestLogMiddleware(RequestDelegate next, RequestLogWriter 
                 Path = Truncate(path + context.Request.QueryString.Value, 400)!,
                 Status = context.Response.StatusCode,
                 DurationMs = (int)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
-                Referrer = Truncate(NullIfEmpty(context.Request.Headers.Referer.ToString()), 400),
+                Referrer = referrer,
+                ReferrerHost = HostOf(referrer),
                 UserAgent = Truncate(NullIfEmpty(ua), 400),
                 // Cloudflare adds this at the edge; null when not behind it.
                 Country = NullIfEmpty(context.Request.Headers["CF-IPCountry"].ToString()) is { } c
@@ -78,6 +80,30 @@ public sealed class RequestLogMiddleware(RequestDelegate next, RequestLogWriter 
             });
         }
     }
+
+    /// <summary>
+    /// A DNS name cannot exceed this, so the column is this wide and nothing real
+    /// is ever truncated. That matters because the migration that added the column
+    /// backfills it with a regex, and a truncation rule the regex did not share
+    /// would make old rows disagree with new ones.
+    /// </summary>
+    public const int MaxHostLength = 253;
+
+    /// <summary>
+    /// The host from a Referer header, or null.
+    ///
+    /// Absolute http or https only. A relative Referer is not a thing a browser
+    /// sends, and anything else is a client that made it up, which is not a domain
+    /// worth recording. Uri also rejects a host with an over-long label, which is
+    /// why an absurd one comes back null rather than shortened. Lowercased, so
+    /// "Example.com" and "example.com" are one row.
+    /// </summary>
+    public static string? HostOf(string? referrer) =>
+        Uri.TryCreate(referrer, UriKind.Absolute, out var uri)
+        && uri.Host.Length is > 0 and <= MaxHostLength
+        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+            ? uri.Host.ToLowerInvariant()
+            : null;
 
     private static bool ShouldIgnore(string path) =>
         IgnoredPaths.Contains(path, StringComparer.OrdinalIgnoreCase)

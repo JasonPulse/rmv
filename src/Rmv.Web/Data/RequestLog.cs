@@ -27,6 +27,16 @@ public class RequestLog
 
     public string? Referrer { get; set; }
 
+    /// <summary>
+    /// Just the host from Referrer, lowercased, or null when there is no referrer.
+    ///
+    /// Stored rather than derived at read time so grouping is an indexed GROUP BY
+    /// instead of parsing four hundred characters of URL per row in memory. The
+    /// question it answers is "which site is sending these", and for a request that
+    /// is an img embedded in someone else's page, the host is the whole answer.
+    /// </summary>
+    public string? ReferrerHost { get; set; }
+
     public string? UserAgent { get; set; }
 
     /// <summary>ISO-3166 alpha-2 from CF-IPCountry, or null off Cloudflare.</summary>

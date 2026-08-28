@@ -1,0 +1,135 @@
+@page "/admin/path"
+@model Rmv.Web.Pages.Admin.PathModel
+@{
+    ViewData["Title"] = "One path";
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>One path</h1></div>
+        <p class="mono wrap">@Model.Path</p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    <p class="chips">
+        @foreach (var d in new[] { 7, 30, 90, 365 })
+        {
+            <a class="chip @(Model.Days == d ? "chip--on" : "")"
+               href="/admin/path?p=@Uri.EscapeDataString(Model.Path)&days=@d">@d days</a>
+        }
+        <a class="chip" href="/admin/analytics">back to analytics</a>
+    </p>
+
+    @if (Model.Hits == 0)
+    {
+        <p class="notice">Nothing logged for that path in the last @Model.Days days.</p>
+    }
+    else
+    {
+        <section class="section grid grid--wide">
+            <article class="panel panel--inset">
+                <p class="panel__title">Summary</p>
+                <dl class="facts">
+                    <dt>Hits</dt><dd>@Model.Hits.ToString("N0")</dd>
+                    <dt>From bots</dt>
+                    <dd>
+                        @Model.BotHits.ToString("N0")
+                        <span class="dim">(@(Model.Hits == 0 ? 0 : Model.BotHits * 100 / Model.Hits)%)</span>
+                    </dd>
+                    @if (Model.FirstSeen is { } first)
+                    {
+                        <dt>First seen</dt><dd>@first.ToString("yyyy-MM-dd HH:mm 'UTC'")</dd>
+                    }
+                    @if (Model.LastSeen is { } last)
+                    {
+                        <dt>Last seen</dt><dd>@last.ToString("yyyy-MM-dd HH:mm 'UTC'")</dd>
+                    }
+                    @foreach (var s in Model.Statuses)
+                    {
+                        <dt>Status @s.Status</dt><dd>@s.Total.ToString("N0")</dd>
+                    }
+                </dl>
+            </article>
+
+            @* First, because it is the question: which site is sending these. *@
+            <article class="panel panel--inset">
+                <p class="panel__title">Referring domains</p>
+                <table class="table table--tight">
+                    <tbody>
+                    @foreach (var r in Model.ReferrerHosts)
+                    {
+                        <tr><td class="mono wrap">@r.Key</td><td class="num">@r.Total</td></tr>
+                    }
+                    </tbody>
+                </table>
+                <p class="hint">
+                    "(none)" means the request arrived with no Referer header. A
+                    crawler replaying an old URL sends none, and so does a browser
+                    following a link from an http page to this https one. When that
+                    is most of the list, the user agent below is the better signal.
+                </p>
+            </article>
+
+            <article class="panel panel--inset">
+                <p class="panel__title">User agents</p>
+                <table class="table table--tight">
+                    <tbody>
+                    @foreach (var u in Model.UserAgents)
+                    {
+                        <tr><td class="wrap">@u.Key</td><td class="num">@u.Total</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </article>
+
+            <article class="panel panel--inset">
+                <p class="panel__title">Countries</p>
+                <table class="table table--tight">
+                    <tbody>
+                    @foreach (var c in Model.Countries)
+                    {
+                        <tr><td class="mono">@c.Key</td><td class="num">@c.Total</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </article>
+        </section>
+
+        <div class="bar bar--quiet"><h2>Last @Model.Recent.Count hits</h2></div>
+        <section class="section">
+            <article class="panel panel--inset">
+                <table class="table table--tight">
+                    <thead>
+                        <tr>
+                            <th scope="col">When</th>
+                            <th scope="col">From</th>
+                            <th scope="col">Agent</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var h in Model.Recent)
+                    {
+                        <tr>
+                            <td class="mono">
+                                @h.At.ToString("MM-dd HH:mm")
+                                <span class="dim block-hint">@h.Status@(h.Country is null ? "" : " " + h.Country)</span>
+                            </td>
+                            <td class="mono wrap">
+                                @(h.ReferrerHost ?? "(none)")
+                                @if (h.IsBot)
+                                {
+                                    <span class="pill">bot</span>
+                                }
+                            </td>
+                            <td class="wrap dim">@(h.UserAgent ?? "(none)")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </article>
+        </section>
+    }
+</div>

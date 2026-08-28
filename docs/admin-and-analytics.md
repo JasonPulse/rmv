@@ -186,12 +186,48 @@ bounded at 10k and drops on overflow: losing analytics rows under load is always
 better than slowing down the actual request. Static assets and `/healthz/*` are
 skipped, since kubelet alone would otherwise be most of the table.
 
+### /admin/path, and where a request came from
+
+The counts answer "what is being hit" and stop there. The question that actually
+came up was different: requests for a DAoC signature generator that has been gone
+for ten years are still arriving, for character names that belong to this guild,
+and where are they coming from.
+
+Every path on the overview links to `/admin/path?p=...`, matched exactly including
+the query string, because `?chars=property` is the interesting part. It shows hits,
+bot share, first and last seen, status breakdown, referring domains, user agents,
+countries, and the last forty hits individually.
+
+**Which signal answers it depends on the caller.** A browser loading an `img`
+embedded in a forum post sends that page as `Referer`, so the domain is the whole
+answer. A crawler replaying a URL it indexed years ago sends none, and then the
+user agent is the answer. Nulls are shown as `(none)` rather than dropped: for a
+ten year old URL, "every one of these arrived with no referrer" is the finding, not
+an absence of data.
+
+`RequestLog.ReferrerHost` holds the domain on its own. Stored rather than derived
+at read time so grouping is an indexed `GROUP BY` instead of parsing 400 characters
+of URL per row, and because the domain alone was what was asked for. Only absolute
+http and https referrers produce one; a relative or `javascript:` value is a client
+making something up, not a site.
+
+The migration backfills it from existing `Referrer` values, which is the point: the
+rows that raised the question were already in the table, so filling in only future
+traffic would answer the wrong question. Its regex has to agree with
+`RequestLogMiddleware.HostOf`, and `ReferrerHostTests` pins that agreement,
+including on an over-long host where an unanchored pattern would have stored 253
+characters of something that was never a domain.
+
 ### Grouped queries
 
 Every grouped query projects an anonymous type and maps to a record afterwards.
 Projecting straight into a record constructor inside a `GroupBy` is not
 translatable by EF Core and throws at runtime rather than compile time. It looks
 fine until the page 500s.
+
+That shape lives once, in `RequestLogQueries`, which both analytics pages use.
+Four panels on the overview and three on the path page had their own copies, which
+was four then seven chances to forget it.
 
 ## Umami
 

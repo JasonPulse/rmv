@@ -77,7 +77,15 @@
                     <tbody>
                     @foreach (var m in Model.TopMisses)
                     {
-                        <tr><td class="mono wrap">@m.Key</td><td class="num">@m.Total</td></tr>
+                        @* Clickable, because a count alone does not say where a
+                           request came from, and that is usually the question a
+                           404 raises. *@
+                        <tr>
+                            <td class="mono wrap">
+                                <a href="/admin/path?p=@Uri.EscapeDataString(m.Key)">@m.Key</a>
+                            </td>
+                            <td class="num">@m.Total</td>
+                        </tr>
                     }
                     </tbody>
                 </table>
@@ -96,7 +104,34 @@
                     <tbody>
                     @foreach (var pth in Model.TopPaths)
                     {
-                        <tr><td class="mono wrap">@pth.Key</td><td class="num">@pth.Total</td></tr>
+                        <tr>
+                            <td class="mono wrap">
+                                <a href="/admin/path?p=@Uri.EscapeDataString(pth.Key)">@pth.Key</a>
+                            </td>
+                            <td class="num">@pth.Total</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </article>
+
+        <article class="panel panel--inset">
+            <p class="panel__title">Referring domains (bots included)</p>
+            @if (Model.TopReferrerHosts.Count == 0)
+            {
+                <p class="dim">
+                    Nothing arriving with a Referer header. Crawlers send none, and
+                    neither does a browser coming from an http page.
+                </p>
+            }
+            else
+            {
+                <table class="table table--tight">
+                    <tbody>
+                    @foreach (var h in Model.TopReferrerHosts)
+                    {
+                        <tr><td class="mono wrap">@h.Key</td><td class="num">@h.Total</td></tr>
                     }
                     </tbody>
                 </table>
