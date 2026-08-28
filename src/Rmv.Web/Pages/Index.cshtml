@@ -1,6 +1,5 @@
 @page
 @model IndexModel
-@inject SiteOptions Site
 @{
     ViewData["Title"] = "Hall";
     ViewData["Description"] = "Results May Vary, a gaming guild that started in Dark Age of Camelot and never quite stopped.";
@@ -48,25 +47,22 @@
             <p><a class="btn" href="/tools">Look in</a></p>
         </article>
 
-        <article class="panel">
-            <p class="panel__title">Join</p>
-            <h3>Ware actively not recruiting</h3>
-            @if (Site.DiscordEnabled)
-            {
+        @* Nothing to say to someone who is already in. Joining is not a thing you
+           do twice, and membership is approved by an admin rather than by pressing
+           a button here. *@
+        @if (User.Identity?.IsAuthenticated != true)
+        {
+            <article class="panel">
+                <p class="panel__title">Join</p>
+                <h3>Ware actively not recruiting</h3>
+                @* No sign-in button. The masthead owns signing in, and a second
+                   entry point for it here was a way to have two. *@
                 <p class="dim">
-                    Sign in with Discord and say hello. We are not fussy about
-                    hours, only about being pleasant to raid with.
-                </p>
-                <p><a class="btn" href="/Account/Login">Sign in</a></p>
-            }
-            else
-            {
-                <p class="dim">
-                    We are not currently accepting anyone of any game/class/level. 
+                    We are not currently accepting anyone of any game/class/level.
                     The only way to get in is to not want in.
                     We're not you, and we're god damn proud of it.
                 </p>
-            }
-        </article>
+            </article>
+        }
     </section>
 </div>
