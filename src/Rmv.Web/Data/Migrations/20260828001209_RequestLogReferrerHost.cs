@@ -28,14 +28,26 @@ namespace Rmv.Web.Data.Migrations
             // scheme, host, then a delimiter or the end of the string. The trailing
             // delimiter is what makes it agree on a long host: without it this would
             // store the first 253 characters of a 300 character host while HostOf
-            // rejects it outright. Anything unmatched is left null, which is the
-            // same answer HostOf gives. ReferrerHostTests pins the agreement.
+            // rejects it outright.
+            //
+            // The port is matched and discarded for the same reason. Uri.Host
+            // excludes it, so an earlier version of this stored
+            // "vnboards.ign.com:8443" where live logging stores "vnboards.ign.com",
+            // and one forum would have appeared as two domains depending on whether
+            // the row predated the column. Found by running it, not by reading it.
+            //
+            // Anything unmatched is left null, which is the same answer HostOf
+            // gives. An IPv6 literal referrer, "http://[::1]/", is the one shape
+            // where they differ: HostOf reads "::1" and this leaves null. A browser
+            // has never sent one of those at this site.
+            //
+            // ReferrerHostTests pins the agreement.
             migrationBuilder.Sql("""
                 UPDATE request_logs
                 SET "ReferrerHost" = lower(
-                        substring("Referrer" from '^https?://([^/?#]{1,253})(?:[/?#]|$)'))
+                        substring("Referrer" from '^https?://([^/?#:]{1,253})(?::[0-9]{1,5})?(?:[/?#]|$)'))
                 WHERE "Referrer" IS NOT NULL
-                  AND "Referrer" ~* '^https?://[^/?#]{1,253}([/?#]|$)';
+                  AND "Referrer" ~* '^https?://[^/?#:]{1,253}(:[0-9]{1,5})?([/?#]|$)';
                 """);
 
             migrationBuilder.CreateIndex(

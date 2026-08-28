@@ -76,39 +76,62 @@ public class ReferrerHostTests
         Assert.Equal("192.0.2.10", RequestLogMiddleware.HostOf("http://192.0.2.10/page"));
     }
 
+    /// <summary>The migration's expression, so the two can be compared directly.</summary>
+    private const string BackfillPattern =
+        "^https?://([^/?#:]{1,253})(?::[0-9]{1,5})?(?:[/?#]|$)";
+
+    private static string? Backfilled(string referrer)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            referrer, BackfillPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return match.Success ? match.Groups[1].Value.ToLowerInvariant() : null;
+    }
+
     [Theory]
     // The shapes the migration's SQL backfill has to agree with, since it fills in
     // rows that were logged before this column existed.
-    [InlineData("https://forum.example.com/thread/1234", "forum.example.com")]
-    [InlineData("http://a.b.c.example.co.uk/x?y=1", "a.b.c.example.co.uk")]
-    public void Agrees_with_what_the_backfill_extracts(string referrer, string expected)
+    [InlineData("https://forum.example.com/thread/1234")]
+    [InlineData("http://a.b.c.example.co.uk/x?y=1")]
+    [InlineData("https://example.com")]
+    [InlineData("https://example.com/")]
+    [InlineData("https://Forum.Example.COM/x")]
+    [InlineData("https://a.b.example.co.uk/x?y=1#z")]
+    // The one that caught a real disagreement. Uri.Host drops the port, and the
+    // first version of the backfill kept it, so one forum would have shown up as
+    // both "vnboards.ign.com" and "vnboards.ign.com:8443".
+    [InlineData("https://vnboards.ign.com:8443/topic/999")]
+    [InlineData("http://example.com:80/x")]
+    // And the shapes where both must answer nothing.
+    [InlineData("javascript:alert(1)")]
+    [InlineData("/history")]
+    [InlineData("ftp://example.com/x")]
+    [InlineData("not a url")]
+    public void The_backfill_and_the_parser_agree(string referrer)
     {
-        // Mirrors the migration's expression exactly.
-        var match = System.Text.RegularExpressions.Regex.Match(
-            referrer,
-            "^https?://([^/?#]{1,253})(?:[/?#]|$)",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-        Assert.True(match.Success);
-        Assert.Equal(expected, match.Groups[1].Value.ToLowerInvariant());
-        Assert.Equal(RequestLogMiddleware.HostOf(referrer), match.Groups[1].Value.ToLowerInvariant());
+        Assert.Equal(RequestLogMiddleware.HostOf(referrer), Backfilled(referrer));
     }
 
     [Fact]
     public void The_backfill_and_the_parser_agree_that_an_absurd_host_is_nothing()
     {
-        // The disagreement this guards against: an unanchored regex would have
-        // stored the first 253 characters of a 300 character host, so a row logged
-        // before the column existed would carry a "domain" that live logging would
-        // never produce.
+        // An unanchored pattern would have stored the first 253 characters of a 300
+        // character host, so a row logged before the column existed would carry a
+        // "domain" that live logging would never produce.
         var referrer = "https://" + new string('a', 300) + ".example.com/x";
 
-        var backfilled = System.Text.RegularExpressions.Regex.Match(
-            referrer,
-            "^https?://([^/?#]{1,253})(?:[/?#]|$)",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-        Assert.False(backfilled.Success);
+        Assert.Null(Backfilled(referrer));
         Assert.Null(RequestLogMiddleware.HostOf(referrer));
+    }
+
+    [Fact]
+    public void A_host_at_the_dns_limit_reads_the_same_both_ways()
+    {
+        var host = string.Join('.', Enumerable.Repeat(new string('a', 62), 3))
+                   + "." + new string('b', 60);
+        var referrer = $"https://{host}/x";
+
+        Assert.Equal(host, RequestLogMiddleware.HostOf(referrer));
+        Assert.Equal(host, Backfilled(referrer));
     }
 }

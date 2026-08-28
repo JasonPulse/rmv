@@ -126,6 +126,7 @@ ROUTES="
 /account/profile 302 302
 /roster/999999 404 404
 /no-such-page 404 404
+/admin/path 302 302
 "
 
 # The seeded roster page, which only exists locally.
