@@ -17,13 +17,15 @@
     <div class="bar"><h2>By game</h2></div>
 
     <section class="section grid">
+        @* The panel title already says the game, so a second heading repeating it
+           was saying nothing twice. What belongs here is what you can actually
+           open. *@
         <article class="panel">
             <p class="panel__title">Dark Age of Camelot</p>
-            <h3>Camelot</h3>
-            <p class="dim">
-                Chat log parsing, starting with the roll parser. Where the guild
-                started, so it gets its own shelf.
-            </p>
+            <div class="chips">
+                <a class="chip" href="/tools/daoc/roll-parser">Roll parser</a>
+                <a class="chip" href="/tools/daoc/spellcraft">Spellcraft calculator</a>
+            </div>
             <p><a class="btn" href="/tools/daoc">Open</a></p>
         </article>
 
