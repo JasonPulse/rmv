@@ -1,0 +1,303 @@
+@page "/tools/daoc/spellcraft"
+@model Rmv.Web.Pages.Tools.Daoc.SpellcraftModel
+@using Rmv.Web.Data
+@using Rmv.Web.Tools.Spellcraft
+@{
+    ViewData["Title"] = "Spellcraft calculator";
+    ViewData["Description"] = "Fill an item's gem slots and see the bonuses, the caps, the imbue points and the skill needed.";
+
+    string Amount(BonusKind bonus, int value) =>
+        bonus.Unit == BonusUnit.Percent ? $"+{value}%" : $"+{value}";
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>Spellcraft</h1></div>
+        <p>Fill the sockets. See what you get, what you waste, and what it takes to make.</p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    @if (!Model.Verified)
+    {
+        @* role="note", not role="alert". This is on the page every time it loads, and
+           alert makes a screen reader interrupt whatever it was saying to read it
+           again on every visit. The lead-in used to repeat the first words of
+           SourceNote back at the reader: "Unverified sample data. Sample data." *@
+        <p class="notice" role="note">
+            <strong>Not real numbers yet.</strong>
+            @Model.Tables.SourceNote
+            The gem list, bonus amounts, imbue costs, caps, skill requirements and
+            overcharge chances below are placeholders while the real tables are
+            being gathered. Nothing here is safe to craft from.
+        </p>
+    }
+
+    @{ var flash = new Rmv.Web.Pages.Shared.Flash(Model.Notice, Model.Error); }
+    <partial name="_Flash" model="flash" />
+
+    <section class="section grid grid--wide">
+        @* h2, not p. The page went h1 to h3 with nothing between, which is a
+           heading order a screen reader user navigates by. aria-labelledby makes
+           each panel a named region, so they can be jumped between. *@
+        <article class="panel" aria-labelledby="item-title">
+            <h2 class="panel__title" id="item-title">The item</h2>
+
+            <form method="post" asp-page-handler="Calculate" class="stack" style="--stack-gap:1.1rem">
+                <div asp-validation-summary="All" class="notice validation-summary"></div>
+
+                <div class="field">
+                    <label asp-for="Design.Realm">Realm</label>
+                    <select class="input" asp-for="Design.Realm">
+                        <option value="">Any realm</option>
+                        @foreach (var realm in Model.Tables.Realms)
+                        {
+                            <option value="@realm.Code">@realm.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Design.Slot">Item slot</label>
+                    <select class="input" asp-for="Design.Slot">
+                        <option value="">Pick a slot</option>
+                        @foreach (var slot in Model.Tables.SlotsFor(Model.Realm))
+                        {
+                            <option value="@slot.Code">@slot.Name (@slot.Sockets sockets)</option>
+                        }
+                    </select>
+                    <p class="hint">
+                        Changing the realm or the slot redraws the sockets when you
+                        work it out, so nothing here needs a script.
+                    </p>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Design.Level">Item level</label>
+                    <input class="input input--narrow" asp-for="Design.Level" type="number"
+                           min="@Model.Tables.MinItemLevel" max="@Model.Tables.MaxItemLevel" />
+                    <p class="hint">Sets the imbue capacity and every bonus cap.</p>
+                </div>
+
+                @if (Model.Slot is { } slot)
+                {
+                    <hr class="rule rule--fine" />
+
+                    @* One fieldset for the sockets. Without it a screen reader
+                       reads eight unrelated selects; with it they are announced as
+                       one group with a name. *@
+                    <fieldset class="fieldgroup stack" style="--stack-gap:1.1rem">
+                    <legend>Sockets</legend>
+                    @for (var i = 0; i < slot.Sockets; i++)
+                    {
+                        var chosen = i < Model.Design.Gems.Count ? Model.Design.Gems[i] : "";
+                        <div class="field">
+                            <label for="gem-@i">Socket @(i + 1)</label>
+                            <select class="input" id="gem-@i" name="Design.Gems[@i]">
+                                <option value="">Empty</option>
+                                @foreach (var group in Model.Choices.GroupBy(g => g.Quality))
+                                {
+                                    <optgroup label="@group.Key">
+                                        @foreach (var gem in group)
+                                        {
+                                            var bonus = Model.Tables.FindBonus(gem.BonusCode)!;
+                                            <option value="@gem.Code" selected="@(gem.Code == chosen)">
+                                                @gem.Name @Amount(bonus, gem.Amount), @gem.ImbuePoints imbue
+                                            </option>
+                                        }
+                                    </optgroup>
+                                }
+                            </select>
+                        </div>
+                    }
+                    </fieldset>
+                }
+
+                <p style="margin:0"><button class="btn" type="submit">Work it out</button></p>
+
+                @if (Model.CanSave)
+                {
+                    <hr class="rule rule--fine" />
+
+                    <div class="field">
+                        <label asp-for="Save.Name">Save as</label>
+                        <input class="input" asp-for="Save.Name" autocomplete="off"
+                               maxlength="@SpellcraftTemplate.MaxNameLength"
+                               placeholder="Crafted chest, resist set" />
+                    </div>
+
+                    @if (Model.AtCap || Model.MustOverwrite)
+                    {
+                        <div class="field">
+                            <label asp-for="Save.OverwriteId">Overwrite</label>
+                            <select class="input" asp-for="Save.OverwriteId">
+                                <option value="">Pick one to replace</option>
+                                @foreach (var t in Model.Templates)
+                                {
+                                    <option value="@t.Id">@t.Name</option>
+                                }
+                            </select>
+                            <p class="hint">
+                                You are at @SpellcraftTemplate.MaxPerMember saved templates,
+                                which is the limit. Replace one, or delete one first.
+                            </p>
+                        </div>
+                    }
+
+                    <p style="margin:0">
+                        <button class="btn btn--ghost" type="submit" asp-page-handler="Save">Save template</button>
+                    </p>
+                }
+            </form>
+        </article>
+
+        <article class="panel panel--inset" aria-labelledby="result-title">
+            <h2 class="panel__title" id="result-title">Result</h2>
+
+            @if (Model.Report is not { } report)
+            {
+                <h3>Nothing yet</h3>
+                <p class="dim">Pick a slot and fill a socket or two.</p>
+            }
+            else
+            {
+                <dl class="facts">
+                    <dt>Slot</dt>
+                    <dd>@report.Slot.Name, level @report.ItemLevel</dd>
+
+                    <dt>Gems</dt>
+                    <dd>@report.GemsUsed of @report.Slot.Sockets</dd>
+
+                    <dt>Imbue</dt>
+                    <dd>@report.ImbueUsed of @report.ImbueCapacity</dd>
+
+                    <dt>Skill</dt>
+                    <dd>@report.SkillRequired</dd>
+                </dl>
+
+                <hr class="rule rule--fine" />
+
+                @* The pills sit in one row rather than each being its own block
+                   paragraph. .pill is an inline chip, so a paragraph of it left a
+                   chip alone in a band of empty space, twice over when a design is
+                   both overcharged and over a cap. *@
+                <div class="chips">
+                    @if (report.Overcharge.Impossible)
+                    {
+                        <span class="pill pill--bad">
+                            @report.Overcharge.PointsOver over capacity, further than overcharging goes
+                        </span>
+                    }
+                    else if (report.Overcharge.IsOvercharged)
+                    {
+                        <span class="pill pill--warn">
+                            Overcharged @report.Overcharge.PointsOver, @report.Overcharge.SuccessPercent% to survive
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="pill pill--ok">Within capacity, @report.ImbueLeft imbue to spare</span>
+                    }
+
+                    @if (report.AnyOverCap)
+                    {
+                        <span class="pill pill--bad">Over a bonus cap, so some of it does nothing</span>
+                    }
+                </div>
+
+                @if (report.Bonuses.Count > 0)
+                {
+                    <hr class="rule rule--fine" />
+
+                    <table class="table table--tight">
+                        <caption class="visually-hidden">Bonuses on the finished item, against their caps</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Bonus</th>
+                                <th scope="col">Total</th>
+                                <th scope="col">Cap</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var b in report.Bonuses)
+                        {
+                            <tr>
+                                <td>
+                                    @b.Bonus.Name
+                                    @if (b.OverCap)
+                                    {
+                                        <span class="hint block-hint">@Amount(b.Bonus, b.Wasted) of this is wasted.</span>
+                                    }
+                                    else if (b.AtCap)
+                                    {
+                                        <span class="hint block-hint">Exactly at the cap.</span>
+                                    }
+                                </td>
+                                <td class="num">@Amount(b.Bonus, b.Total)</td>
+                                <td class="num">@Amount(b.Bonus, b.Cap)</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+
+                @if (report.Rejected.Count > 0)
+                {
+                    <hr class="rule rule--fine" />
+                    <h3 class="panel__title">Not counted</h3>
+                    <ul class="plainlist">
+                        @foreach (var s in report.Rejected)
+                        {
+                            <li>Socket @(s.Index + 1): @s.Problem</li>
+                        }
+                    </ul>
+                }
+            }
+        </article>
+    </section>
+
+    @if (Model.CanSave)
+    {
+        <div class="bar bar--quiet"><h2>Your templates</h2></div>
+
+        <section class="section">
+            <article class="panel panel--inset" aria-labelledby="templates-title">
+                <h3 class="panel__title" id="templates-title">
+                    @Model.Templates.Count of @SpellcraftTemplate.MaxPerMember
+                </h3>
+
+                @if (Model.Templates.Count == 0)
+                {
+                    <h3>Nothing saved</h3>
+                    <p class="dim">Work out an item, name it, and save it.</p>
+                }
+                else
+                {
+                    <table class="table table--tight">
+                        <caption class="visually-hidden">Templates you have saved</caption>
+                        <tbody>
+                        @foreach (var t in Model.Templates)
+                        {
+                            <tr>
+                                <td>@t.Name</td>
+                                <td class="dim">@t.SavedAt.ToString("yyyy-MM-dd")</td>
+                                <td>
+                                    <div class="charcard__actions">
+                                        <a class="linkish" href="?load=@t.Id">load</a>
+                                        <form method="post" asp-page-handler="Delete" asp-route-id="@t.Id"
+                                              onsubmit="return confirm('Delete @t.Name?')">
+                                            <button class="linkish linkish--danger" type="submit">delete</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+            </article>
+        </section>
+    }
+</div>

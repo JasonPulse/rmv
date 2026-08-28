@@ -117,6 +117,8 @@ ROUTES="
 /history 200 200
 /tools 200 200
 /tools/daoc/roll-parser 200 200
+/tools/daoc 200 200
+/tools/daoc/spellcraft 302 302
 /healthz/live 200 200
 /healthz/ready 200 200
 /admin/history 200 302
@@ -165,6 +167,29 @@ if [ -n "$ROSTER_ID" ]; then
     else
         printf '  ok   %-26s names by alias, not Discord\n' "/roster/$ROSTER_ID"
     fi
+fi
+
+# The calculator is approved members only, so an anonymous caller must see none of
+# it. Checking the body for absence is worth more than the status code alone: a
+# page that 302s but still renders its content in the response body would pass a
+# status check and leak everything.
+body=$(curl -s --max-time 25 "$BASE/tools/daoc/spellcraft" || true)
+for leak in "Item slot" "Pick a slot" "Save template" "Sockets"; do
+    if echo "$body" | grep -q "$leak"; then
+        printf '  FAIL %-26s leaks %s to an anonymous caller\n' "/tools/daoc/spellcraft" "$leak"
+        fails=$((fails + 1))
+    else
+        printf '  ok   %-26s no %s when signed out\n' "/tools/daoc/spellcraft" "$leak"
+    fi
+done
+
+# The shelf still has to say why Open will bounce them.
+shelf=$(curl -s --max-time 25 "$BASE/tools/daoc" || true)
+if echo "$shelf" | grep -qi "Approved members only"; then
+    printf '  ok   %-26s says the calculator is members only\n' "/tools/daoc"
+else
+    echo "  FAIL /tools/daoc does not say the calculator is members only"
+    fails=$((fails + 1))
 fi
 
 if [ "$LOCAL" = 1 ]; then

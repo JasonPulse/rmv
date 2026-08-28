@@ -6,6 +6,7 @@ Player utilities, grouped by game.
 /tools                     categories
 /tools/daoc                Dark Age of Camelot
 /tools/daoc/roll-parser    chat log -> /random results, highest first
+/tools/daoc/spellcraft     item slot + gems -> bonuses, caps, imbue, skill
 ```
 
 ## Roll parser
@@ -90,3 +91,43 @@ entries.
 - A file over 2MB is rejected by the request size limit before the handler runs,
   so the response is a plain 400 rather than the friendly message. The limit is
   stated on the form.
+
+## Spellcraft calculator
+
+Its own page, because the game data behind it is still being gathered and the
+shape of that ask is most of what there is to say. See `docs/spellcraft.md`.
+
+## Accessibility
+
+Every page is audited with axe-core against the running site, at WCAG 2.1 A and
+AA plus best practice, and every page reports zero violations. The audit is a
+browser driving the real page, not a static scan of the markup.
+
+Three things it caught that reading the CSS would not have:
+
+`--ink-faint` was `#5f5d57`, which measures 2.90:1 against a character card where
+13px text needs 4.5:1. Every use of that token is small text. It is `#828077` now,
+same hue and saturation, 4.8:1 or better on every background the site puts it on.
+It sits close to `--ink-dim` as a result, and that is the honest outcome: on a
+near-black page there is no room for a readable grey that is also fainter than dim.
+
+`.linkish--danger` was `#b8574c` at 3.91:1. Delete and remove are the two
+destructive actions on the site, which makes them the worst place for text a reader
+has to squint at.
+
+A stray `.tag { opacity: 0.7 }` was dimming every guild tag rather than only the
+ones on a game that is no longer active, which both broke contrast and muted a
+distinction that was supposed to be visible.
+
+Structural fixes: the history page had no `h2` between its `h1` and the `h3` of the
+first game name, so there is a visually hidden "Still going" heading to match the
+visible "No longer active" bar. Two admin tables had an empty `th` over their
+actions column.
+
+## Layout
+
+`.rule--fine` inherited `.rule`'s `margin-block: clamp(2rem, 5vw, 3.5rem)`. It is
+an in-panel separator, so every one of them was adding up to 3.5rem of empty space
+above and below, and a panel with three of them was mostly air. It has its own
+1rem margin now.
+

@@ -24,6 +24,8 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
 
     public DbSet<CharacterPortrait> CharacterPortraits => Set<CharacterPortrait>();
 
+    public DbSet<SpellcraftTemplate> SpellcraftTemplates => Set<SpellcraftTemplate>();
+
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
 
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -147,6 +149,29 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             e.HasOne(p => p.Character).WithOne(c => c.Portrait)
                 .HasForeignKey<CharacterPortrait>(p => p.CharacterId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<SpellcraftTemplate>(e =>
+        {
+            // The cap lives in the schema, not only in the handler. The unique
+            // index means a member cannot hold two templates at the same ordinal,
+            // and the check constraint means no ordinal exists outside 1 to the
+            // cap. Together they leave no arrangement of concurrent forged posts
+            // that ends in six rows.
+            e.ToTable("spellcraft_templates", t => t.HasCheckConstraint(
+                "ck_spellcraft_templates_ordinal",
+                $"\"Ordinal\" >= 1 AND \"Ordinal\" <= {SpellcraftTemplate.MaxPerMember}"));
+
+            e.Property(t => t.Name).HasMaxLength(SpellcraftTemplate.MaxNameLength).IsRequired();
+            e.Property(t => t.Design)
+                .HasMaxLength(Tools.Spellcraft.SpellcraftDesign.MaxEncodedLength)
+                .IsRequired();
+
+            e.HasOne(t => t.Member).WithMany()
+                .HasForeignKey(t => t.MemberId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(t => new { t.MemberId, t.Ordinal }).IsUnique();
         });
 
         b.Entity<RequestLog>(e =>

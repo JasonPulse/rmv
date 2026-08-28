@@ -56,7 +56,16 @@
 
   --ink:           #d7d4cc;
   --ink-dim:       #8b887f;
-  --ink-faint:     #5f5d57;
+  /* Lightened from #5f5d57, which measured 2.90:1 against the character card and
+     2.97:1 against a panel, where 13px text needs 4.5:1. Every use of this token
+     is small text: .hint, .table th, .wordmark small, the game period and the
+     labels in a game entry. Same hue and saturation, 4.8:1 or better on every
+     background the site puts it on.
+
+     It now sits close to --ink-dim, and that is the honest outcome rather than a
+     mistake: on a near-black page there is no room for a readable grey that is
+     also fainter than dim. */
+  --ink-faint:     #828077;
 
   /* Sampled from the guild logo, which is now the brand. The kit's structural
      art is greyscale stone and its backdrop is desaturated blue at hue 231, so
@@ -498,10 +507,42 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
   background: url("../img/ui/divider-ornate.png") center / auto 100% no-repeat;
 }
 
+/* The fine rule separates blocks inside a panel, so it must not inherit .rule's
+   page-level margin. It did, which put up to 3.5rem of empty space above and
+   below every one of them: three in a panel and most of that panel is air. */
 .rule--fine {
   height: 12px;
   background-image: url("../img/ui/divider-hairline.png");
   opacity: 0.7;
+  margin-block: 1rem;
+}
+
+/* A group of related fields, announced as one thing by a screen reader. Carries
+   none of a fieldset's default chrome. */
+.fieldgroup {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+/* A list that is not links. .linklist was being reused for plain text, which
+   named the wrong thing and carried its inline layout. */
+.plainlist {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+}
+
+.fieldgroup > legend {
+  padding: 0;
+  font: 600 0.7rem/1.6 var(--font-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
 
 /* --- Panels -------------------------------------------------------------- */
@@ -904,8 +945,6 @@ textarea.input {
    introducing a new one. */
 .bar--quiet { opacity: 0.7; }
 
-.tag { opacity: 0.7; }
-
 .tag {
   padding: 0.2rem 0.6rem;
   font: 600 0.78rem/1.5 var(--font-display);
@@ -981,7 +1020,11 @@ textarea.input {
   text-underline-offset: 0.2em;
 }
 .linkish:hover { color: var(--accent-warm); }
-.linkish--danger { color: #b8574c; }
+/* Lightened from #b8574c, which measured 3.91:1 against the lightest background it
+   appears on, where 13.6px text needs 4.5:1. Delete and remove are the two
+   destructive actions on the site, so they are the worst place for text a reader
+   has to squint at. */
+.linkish--danger { color: #c06a60; }
 .linkish--danger:hover { color: #d4736a; }
 
 .linklist {

@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Rmv.Web.Analytics;
 using Rmv.Web.Herald;
 using Rmv.Web.Tools;
+using Rmv.Web.Tools.Spellcraft;
 using Rmv.Web.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -70,6 +71,7 @@ if (databaseConfigured)
     builder.Services.AddScoped<IDeploymentStore, PostgresDeploymentStore>();
     builder.Services.AddScoped<MemberDirectory>();
     builder.Services.AddScoped<CurrentMember>();
+    builder.Services.AddScoped<SpellcraftTemplateStore>();
 
     // Keep the Data Protection key ring in Postgres. Without it every process
     // mints its own keys, so a sign-in cookie stops validating on redeploy and
@@ -203,6 +205,17 @@ builder.Services.AddScoped<IHeraldAdapter, HeraldXiAdapter>();
 builder.Services.AddScoped<IHeraldAdapter, LodestoneAdapter>();
 builder.Services.AddScoped<HeraldRegistry>();
 builder.Services.AddScoped<CharacterService>();
+
+// ---------------------------------------------------------------------------
+// Spellcraft
+//
+// The dataset is a singleton because it is immutable and validates itself on
+// construction, so a table with a gem pointing at a bonus that does not exist
+// fails the boot rather than somebody's page. This line is the whole seam:
+// replacing the unverified sample set with the real tables is a change here and
+// nowhere else.
+// ---------------------------------------------------------------------------
+builder.Services.AddSingleton(PlaceholderSpellcraftTables.Build());
 
 // ---------------------------------------------------------------------------
 // Rate limiting

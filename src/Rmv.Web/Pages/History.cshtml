@@ -38,6 +38,13 @@
            order, because within each grid the games were alphabetical. *@
         var shownPast = false;
 
+        @* A heading for the active run, hidden because the entries already carry a
+           "still going" pill and their own years. It exists so the page does not
+           jump from h1 straight to the h3 of the first game name, which is the
+           order a screen reader user navigates by. Its visible counterpart is the
+           "No longer active" bar below. *@
+        <h2 class="visually-hidden">Still going</h2>
+
         <div class="gamelist">
             @foreach (var g in Model.Games)
             {
