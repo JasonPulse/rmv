@@ -90,67 +90,62 @@
             </dl>
         </article>
 
-    </section>
+        @* In the grid beside You, in an inset panel, exactly as /characters lists
+           them. A full width section per character was a lot of empty space to the
+           right of a 132px portrait, and the profile has more panels coming, so
+           one column of them would only get longer to scroll. *@
+        <article class="panel panel--inset">
+            <p class="panel__title">Characters</p>
 
-    @* The same card as /characters and the public roster, via the shared partial.
-       A single line per character was asked for on the history page and is there,
-       as chips under each game. Here the panel is about your own characters, so it
-       shows what a herald actually knows about them. *@
-    @if (Model.Characters.Count > 0)
-    {
-        <div class="bar bar--quiet"><h2>Characters</h2></div>
-        <section class="section">
-            <div class="charlist">
-                @foreach (var c in Model.Characters)
-                {
-                    var card = new Rmv.Web.Pages.Shared.CharacterCard(c)
+            @if (Model.Characters.Count > 0)
+            {
+                <div class="charlist">
+                    @foreach (var c in Model.Characters)
                     {
-                        ShowGame = true,
-                        ShowKills = true,
-                    };
-                    <div class="charcard">
-                        <partial name="_CharacterBody" model="card" />
-                        @if (!c.IsManual && !string.IsNullOrWhiteSpace(c.LastError))
+                        var card = new Rmv.Web.Pages.Shared.CharacterCard(c)
                         {
-                            <p class="hint charcard__stale">Last refresh failed: @c.LastError</p>
-                        }
-                    </div>
-                }
-            </div>
-            <p class="center"><a class="btn" href="/characters">Add or edit</a></p>
-        </section>
-    }
-    else
-    {
-        <section class="section grid grid--wide">
-            <article class="panel panel--inset">
-                <p class="panel__title">Characters</p>
-                @if (Model.CanContribute)
-                {
-                    <h3>None yet</h3>
-                    <p class="dim">
-                        Tell us a character name and we look it up on that server's
-                        herald.
-                    </p>
-                    <p><a class="btn" href="/characters">Add a character</a></p>
-                }
-                else if (Model.Record is { Status: MemberStatus.Blocked })
-                {
-                    <h3>No access</h3>
-                    <p class="dim">Your account has been blocked. Speak to an officer.</p>
-                }
-                else
-                {
-                    <h3>Waiting on approval</h3>
-                    <p class="dim">
-                        An admin has to approve your account before you can add
-                        characters. Signing in is enough to get on the list; nudge an
-                        officer if it takes a while.
-                    </p>
-                }
-            </article>
-        </section>
-    }
+                            ShowGame = true,
+                            ShowKills = true,
+                        };
+                        <div class="charcard">
+                            <partial name="_CharacterBody" model="card" />
+                            @if (!c.IsManual && !string.IsNullOrWhiteSpace(c.LastError))
+                            {
+                                <p class="hint charcard__stale">Last refresh failed: @c.LastError</p>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <hr class="rule rule--fine" />
+
+                <p style="margin:0"><a class="btn" href="/characters">Add or edit</a></p>
+            }
+            else if (Model.CanContribute)
+            {
+                <h3>None yet</h3>
+                <p class="dim">
+                    Tell us a character name and we look it up on that server's
+                    herald.
+                </p>
+                <p><a class="btn" href="/characters">Add a character</a></p>
+            }
+            else if (Model.Record is { Status: MemberStatus.Blocked })
+            {
+                <h3>No access</h3>
+                <p class="dim">Your account has been blocked. Speak to an officer.</p>
+            }
+            else
+            {
+                <h3>Waiting on approval</h3>
+                <p class="dim">
+                    An admin has to approve your account before you can add
+                    characters. Signing in is enough to get on the list; nudge an
+                    officer if it takes a while.
+                </p>
+            }
+        </article>
+    </section>
 
     <p class="center">
         <form method="post" asp-page="/Account/Logout">

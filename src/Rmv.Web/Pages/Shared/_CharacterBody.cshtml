@@ -20,6 +20,15 @@
     <img class="charcard__portrait" src="@portrait" alt="@c.Name"
          loading="lazy" decoding="async" width="384" height="576" />
 }
+else
+{
+    @* The column is held open rather than collapsed. Not every herald renders a
+       picture and a hand-typed sheet never has one, so without this a list came out
+       with names and stat labels starting at two different left edges depending on
+       which. Empty, unframed, and hidden from a screen reader: it is alignment, not
+       content. *@
+    <div class="charcard__portrait charcard__portrait--empty" aria-hidden="true"></div>
+}
 
 <div class="charcard__body">
 <div class="charcard__head">
