@@ -47,6 +47,20 @@ teardown() {
     fi
 
     docker image rm -f rmv-web:local >/dev/null 2>&1 || true
+
+    # And the untagged builds behind it. Every rebuild takes the rmv-web:local tag
+    # off the previous image, which then sits as a 273MB <none> forever. Removing
+    # the tag does not remove those.
+    #
+    # Filtered on the label compose stamps into the image it builds, so this only
+    # ever matches images from this project. A bare `image prune` would take other
+    # people's dangling layers with it.
+    dangling=$(docker images -q --filter 'dangling=true' \
+        --filter 'label=com.docker.compose.project=rmv-dev' 2>/dev/null || true)
+    if [ -n "$dangling" ]; then
+        echo "  removing $(echo "$dangling" | wc -l | tr -d ' ') untagged build(s) of this project"
+        docker image rm -f $dangling >/dev/null 2>&1 || true
+    fi
 }
 
 # On the way out however we leave, including a failed route, so a broken run does

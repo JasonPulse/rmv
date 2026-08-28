@@ -160,6 +160,31 @@ a character error. A portrait is decoration; losing one should not make a
 character look stale, and a herald that has dropped its renderer should not blank
 everyone's picture.
 
+### Nothing needs pressing
+
+`HeraldRefreshService` runs the pass the original design promised and the first
+build skipped. Twenty seconds after startup it backfills every character that has
+a herald and no stored portrait, then repeats a full refresh every 24 hours.
+
+This exists because of a regression I shipped. The portraits migration cleared the
+old image URLs on purpose, and nothing filled them back in, so every character lost
+its picture and the only route back was opening `/characters` and pressing refresh
+once per character. From the outside that is indistinguishable from a broken
+feature.
+
+Politeness is the constraint, since these are other people's servers and one has
+already been hammered by a test suite of mine. Characters go one at a time with a
+two second pause, and an unchanged portrait downloads nothing because the version
+check short-circuits. Manual characters are skipped entirely: there is nothing to
+ask, and a pass that "refreshed" one would overwrite the owner's own text. Nothing
+throws; a herald being down records `LastError` and the next pass tries again.
+
+Two replicas would both run it, which is harmless: a refresh writes the same values
+and re-downloads no images.
+
+`HeraldRefreshServiceTests` drives the pass against a real Postgres and asserts the
+thing that was missing, so the regression cannot return quietly.
+
 ### Storage and serving
 
 `character_portraits` is its own table, one row per character, rather than a

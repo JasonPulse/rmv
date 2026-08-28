@@ -17,119 +17,40 @@ namespace Rmv.Web.Tests;
 ///
 /// Needs RMV_TEST_POSTGRES, so tagged Database and excluded from CI.
 /// </summary>
-[Trait("Category", "Database")]
-[Collection(NetworkCollection.Name)]
-public class CharacterServiceTests : IAsyncLifetime
+public class CharacterServiceTests : HeraldDatabaseTests
 {
-    private RmvDbContext _db = null!;
     private CharacterService _service = null!;
-    private FakeHeraldAdapter _herald = null!;
-    private StubImageHandler _images = null!;
-    private Member _member = null!;
-    private int _blackthornId;
+
+    /// <summary>
+    /// Only Sable has a picture, so the portrait path is opt-in and the other
+    /// tests are unaffected by it.
+    /// </summary>
+    protected override void ConfigureHerald(FakeHeraldAdapter herald) => herald
+        .WithCharacter("Enchantress")
+        .WithCharacter("Balder", b => b.Realm = "Midgard")
+        .WithCharacter("Fetva")
+        .WithCharacter("Teagan")
+        .WithCharacter("Sable", b => b.Portrait =
+            new HeraldPortrait("https://fake.test/portraits/1.png?v=aaa", "aaa"));
+
+    /// <summary>A second herald game, for the cross-game claim checks.</summary>
     private int _ffxiId;
-    private int _noHeraldId;
 
-    private static string? ConnectionString =>
-        Environment.GetEnvironmentVariable("RMV_TEST_POSTGRES");
-
-    public async Task InitializeAsync()
+    protected override async Task SeedAsync()
     {
-        // These are opt-in, so a missing connection string is a clear instruction
-        // rather than a silent pass that hides broken coverage.
-        if (ConnectionString is null)
-        {
-            throw new InvalidOperationException(
-                "Set RMV_TEST_POSTGRES to run the Network tests, e.g. "
-                + "Host=db;Port=5432;Database=rmv;Username=rmv;Password=...");
-        }
-
-        _db = new RmvDbContext(new DbContextOptionsBuilder<RmvDbContext>()
-            .UseNpgsql(ConnectionString)
-            .Options);
-
-        await _db.Database.MigrateAsync();
-
-        _herald = new FakeHeraldAdapter()
-            .WithCharacter("Enchantress")
-            .WithCharacter("Balder", b => b.Realm = "Midgard")
-            .WithCharacter("Fetva")
-            .WithCharacter("Teagan")
-            // The only one with a picture, so the portrait path is opt-in and the
-            // other tests are unaffected by it.
-            .WithCharacter("Sable", b => b.Portrait =
-                new HeraldPortrait("https://fake.test/portraits/1.png?v=aaa", "aaa"));
-
-        _images = new StubImageHandler();
+        _ffxiId = await NewGameAsync(withHerald: true);
 
         _service = new CharacterService(
-            _db,
-            new HeraldRegistry([_herald]),
-            new HeraldFetcher(new HttpClient(_images), NullLogger<HeraldFetcher>.Instance),
+            Db,
+            new HeraldRegistry([Herald]),
+            Fetcher,
             NullLogger<CharacterService>.Instance);
-
-        // A member and two games wired to real heralds.
-        _member = new Member
-        {
-            DiscordId = $"test-{Guid.NewGuid():N}"[..24],
-            DisplayName = "Test Member",
-            Status = MemberStatus.Approved,
-            FirstSeenAt = DateTimeOffset.UtcNow,
-            LastSeenAt = DateTimeOffset.UtcNow,
-        };
-        _db.Members.Add(_member);
-
-        var bt = new GamePresence
-        {
-            Game = $"BT test {Guid.NewGuid():N}"[..20],
-            Guilds = "RMV",
-            HeraldAdapterKey = "fake",
-            HeraldBaseUrl = "https://fake.test",
-        };
-        var xi = new GamePresence
-        {
-            Game = $"XI test {Guid.NewGuid():N}"[..20],
-            Guilds = "RMV",
-            HeraldAdapterKey = "fake",
-            HeraldBaseUrl = "https://fake.test",
-        };
-        // And one with no herald at all, which is most of the guild's history:
-        // servers that never ran one, or no longer do.
-        var manual = new GamePresence
-        {
-            Game = $"No herald {Guid.NewGuid():N}"[..20],
-            Guilds = "RMV",
-        };
-
-        _db.GamePresences.AddRange(bt, xi, manual);
-        await _db.SaveChangesAsync();
-
-        _blackthornId = bt.Id;
-        _ffxiId = xi.Id;
-        _noHeraldId = manual.Id;
-    }
-
-    public async Task DisposeAsync()
-    {
-        if (_db is null)
-        {
-            return;
-        }
-
-        // Cascades clear the characters.
-        _db.Members.Remove(_member);
-        _db.GamePresences.RemoveRange(
-            _db.GamePresences.Where(g => g.Id == _blackthornId
-                                         || g.Id == _ffxiId
-                                         || g.Id == _noHeraldId));
-        await _db.SaveChangesAsync();
-        await _db.DisposeAsync();
     }
 
     [Fact]
     public async Task Adds_a_character_with_the_stats_the_herald_gave()
     {
-        var outcome = await _service.AddAsync(_member, _blackthornId, "Enchantress", default);
+        var outcome = await _service.AddAsync(Member, HeraldGameId, "Enchantress", default);
 
         Assert.True(outcome.Ok, outcome.Error);
         var c = outcome.Character!;
@@ -145,7 +66,7 @@ public class CharacterServiceTests : IAsyncLifetime
     public async Task Stores_the_heralds_capitalisation_not_what_was_typed()
     {
         // Someone types "enchantress"; the character is called "Enchantress".
-        var outcome = await _service.AddAsync(_member, _blackthornId, "enchantress", default);
+        var outcome = await _service.AddAsync(Member, HeraldGameId, "enchantress", default);
 
         Assert.True(outcome.Ok, outcome.Error);
         Assert.Equal("Enchantress", outcome.Character!.Name);
@@ -154,13 +75,13 @@ public class CharacterServiceTests : IAsyncLifetime
     [Fact]
     public async Task A_herald_that_is_down_does_not_blank_existing_stats()
     {
-        var added = await _service.AddAsync(_member, _blackthornId, "Balder", default);
+        var added = await _service.AddAsync(Member, HeraldGameId, "Balder", default);
         Assert.True(added.Ok, added.Error);
         var c = added.Character!;
 
-        _herald.ForcedError = "Herald returned 503.";
+        Herald.ForcedError = "Herald returned 503.";
         var ok = await _service.RefreshAsync(c, default);
-        await _db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
 
         Assert.False(ok);
         // The stats from the good fetch survive; only the error is new.
@@ -172,23 +93,23 @@ public class CharacterServiceTests : IAsyncLifetime
     [Fact]
     public async Task A_name_the_herald_does_not_know_saves_nothing()
     {
-        var before = await _db.Characters.CountAsync();
+        var before = await Db.Characters.CountAsync();
 
-        var outcome = await _service.AddAsync(_member, _blackthornId, "Nobodyhere", default);
+        var outcome = await _service.AddAsync(Member, HeraldGameId, "Nobodyhere", default);
 
         Assert.False(outcome.Ok);
         Assert.Contains("no character", outcome.Error!, StringComparison.OrdinalIgnoreCase);
         // The point: a typo must not leave a junk row behind.
-        Assert.Equal(before, await _db.Characters.CountAsync());
+        Assert.Equal(before, await Db.Characters.CountAsync());
     }
 
     [Fact]
     public async Task The_same_character_cannot_be_added_twice()
     {
-        var first = await _service.AddAsync(_member, _blackthornId, "Balder", default);
+        var first = await _service.AddAsync(Member, HeraldGameId, "Balder", default);
         Assert.True(first.Ok, first.Error);
 
-        var second = await _service.AddAsync(_member, _blackthornId, "Balder", default);
+        var second = await _service.AddAsync(Member, HeraldGameId, "Balder", default);
 
         Assert.False(second.Ok);
         Assert.Contains("already", second.Error!, StringComparison.OrdinalIgnoreCase);
@@ -197,11 +118,11 @@ public class CharacterServiceTests : IAsyncLifetime
     [Fact]
     public async Task Claiming_is_case_insensitive()
     {
-        var first = await _service.AddAsync(_member, _blackthornId, "Fetva", default);
+        var first = await _service.AddAsync(Member, HeraldGameId, "Fetva", default);
         Assert.True(first.Ok, first.Error);
 
         // "fetva" is the same character as "Fetva".
-        var second = await _service.AddAsync(_member, _blackthornId, "fetva", default);
+        var second = await _service.AddAsync(Member, HeraldGameId, "fetva", default);
 
         Assert.False(second.Ok);
         Assert.Contains("already", second.Error!, StringComparison.OrdinalIgnoreCase);
@@ -210,16 +131,16 @@ public class CharacterServiceTests : IAsyncLifetime
     [Fact]
     public async Task Refresh_updates_the_stats_and_clears_the_error()
     {
-        var added = await _service.AddAsync(_member, _blackthornId, "Teagan", default);
+        var added = await _service.AddAsync(Member, HeraldGameId, "Teagan", default);
         Assert.True(added.Ok, added.Error);
 
         var c = added.Character!;
         c.LastError = "something stale";
         c.Level = 1;
-        await _db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
 
         var ok = await _service.RefreshAsync(c, default);
-        await _db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
 
         Assert.True(ok);
         Assert.Equal(50, c.Level);
@@ -232,7 +153,7 @@ public class CharacterServiceTests : IAsyncLifetime
     public async Task Records_a_hand_typed_sheet_for_a_game_with_no_herald()
     {
         var outcome = await _service.AddManualAsync(
-            _member, _noHeraldId, "Sigrun", "Warden", 44, default);
+            Member, NoHeraldGameId, "Sigrun", "Warden", 44, default);
 
         Assert.True(outcome.Ok, outcome.Error);
         var c = outcome.Character!;
@@ -245,7 +166,7 @@ public class CharacterServiceTests : IAsyncLifetime
         Assert.Null(c.LastFetchedAt);
         Assert.Null(c.LastError);
         // The name is kept as typed: there is no herald to correct it.
-        Assert.Equal(0, _herald.Calls);
+        Assert.Equal(0, Herald.Calls);
     }
 
     [Fact]
@@ -253,7 +174,7 @@ public class CharacterServiceTests : IAsyncLifetime
     {
         // Fifteen years on, plenty of these are a name and nothing else.
         var outcome = await _service.AddManualAsync(
-            _member, _noHeraldId, "Halvard", null, null, default);
+            Member, NoHeraldGameId, "Halvard", null, null, default);
 
         Assert.True(outcome.Ok, outcome.Error);
         Assert.Null(outcome.Character!.Class);
@@ -265,7 +186,7 @@ public class CharacterServiceTests : IAsyncLifetime
     {
         // Two ways to fill one row means the next refresh discards what was typed.
         var outcome = await _service.AddManualAsync(
-            _member, _blackthornId, "Enchantress", "Champion", 50, default);
+            Member, HeraldGameId, "Enchantress", "Champion", 50, default);
 
         Assert.False(outcome.Ok);
         Assert.Contains("looked up", outcome.Error);
@@ -274,7 +195,7 @@ public class CharacterServiceTests : IAsyncLifetime
     [Fact]
     public async Task Refusing_a_herald_lookup_for_a_game_that_has_none()
     {
-        var outcome = await _service.AddAsync(_member, _noHeraldId, "Sigrun", default);
+        var outcome = await _service.AddAsync(Member, NoHeraldGameId, "Sigrun", default);
 
         Assert.False(outcome.Ok);
         Assert.Contains("typed in by hand", outcome.Error);
@@ -286,7 +207,7 @@ public class CharacterServiceTests : IAsyncLifetime
         // The reported shape of this bug: a perfectly good sheet showing a "last
         // refresh failed" warning, because nothing was ever going to refresh it.
         var added = await _service.AddManualAsync(
-            _member, _noHeraldId, "Sigrun", "Warden", 44, default);
+            Member, NoHeraldGameId, "Sigrun", "Warden", 44, default);
         Assert.True(added.Ok, added.Error);
 
         var ok = await _service.RefreshAsync(added.Character!, default);
@@ -301,7 +222,7 @@ public class CharacterServiceTests : IAsyncLifetime
     public async Task Editing_a_sheet_corrects_it_in_place()
     {
         var added = await _service.AddManualAsync(
-            _member, _noHeraldId, "Sigrun", "Warden", 44, default);
+            Member, NoHeraldGameId, "Sigrun", "Warden", 44, default);
         Assert.True(added.Ok, added.Error);
         var id = added.Character!.Id;
 
@@ -311,7 +232,7 @@ public class CharacterServiceTests : IAsyncLifetime
         Assert.True(edited.Ok, edited.Error);
         Assert.Equal(id, edited.Character!.Id);
 
-        var reread = await _db.Characters.AsNoTracking().FirstAsync(c => c.Id == id);
+        var reread = await Db.Characters.AsNoTracking().FirstAsync(c => c.Id == id);
         Assert.Equal("Sigrunn", reread.Name);
         Assert.Equal("Druid", reread.Class);
         Assert.Equal(50, reread.Level);
@@ -323,7 +244,7 @@ public class CharacterServiceTests : IAsyncLifetime
         // The name check has to skip the row being edited, or saving a sheet
         // reports it as already claimed by its own owner.
         var added = await _service.AddManualAsync(
-            _member, _noHeraldId, "Sigrun", "Warden", 44, default);
+            Member, NoHeraldGameId, "Sigrun", "Warden", 44, default);
         Assert.True(added.Ok, added.Error);
 
         var edited = await _service.UpdateManualAsync(
@@ -336,8 +257,8 @@ public class CharacterServiceTests : IAsyncLifetime
     [Fact]
     public async Task A_sheet_cannot_be_renamed_over_someone_elses_character()
     {
-        var mine = await _service.AddManualAsync(_member, _noHeraldId, "Sigrun", null, null, default);
-        var theirs = await _service.AddManualAsync(_member, _noHeraldId, "Halvard", null, null, default);
+        var mine = await _service.AddManualAsync(Member, NoHeraldGameId, "Sigrun", null, null, default);
+        var theirs = await _service.AddManualAsync(Member, NoHeraldGameId, "Halvard", null, null, default);
         Assert.True(mine.Ok, mine.Error);
         Assert.True(theirs.Ok, theirs.Error);
 
@@ -350,7 +271,7 @@ public class CharacterServiceTests : IAsyncLifetime
     [Fact]
     public async Task A_herald_character_is_not_hand_editable()
     {
-        var added = await _service.AddAsync(_member, _blackthornId, "Fetva", default);
+        var added = await _service.AddAsync(Member, HeraldGameId, "Fetva", default);
         Assert.True(added.Ok, added.Error);
 
         var edited = await _service.UpdateManualAsync(added.Character!, "Fetva", "Wizard", 1, default);
@@ -364,12 +285,12 @@ public class CharacterServiceTests : IAsyncLifetime
     public async Task A_level_outside_the_range_is_refused()
     {
         Assert.False((await _service.AddManualAsync(
-            _member, _noHeraldId, "Sigrun", "Warden", 0, default)).Ok);
+            Member, NoHeraldGameId, "Sigrun", "Warden", 0, default)).Ok);
         Assert.False((await _service.AddManualAsync(
-            _member, _noHeraldId, "Sigrun", "Warden", 1000, default)).Ok);
+            Member, NoHeraldGameId, "Sigrun", "Warden", 1000, default)).Ok);
 
         // Nothing was written by either attempt.
-        Assert.False(await _db.Characters.AnyAsync(c => c.GamePresenceId == _noHeraldId));
+        Assert.False(await Db.Characters.AnyAsync(c => c.GamePresenceId == NoHeraldGameId));
     }
 
     [Fact]
@@ -377,7 +298,7 @@ public class CharacterServiceTests : IAsyncLifetime
     {
         // The migration backfills Source for rows added before it existed, and
         // Herald is the truthful value: every one of them was fetched.
-        var added = await _service.AddAsync(_member, _blackthornId, "Teagan", default);
+        var added = await _service.AddAsync(Member, HeraldGameId, "Teagan", default);
 
         Assert.True(added.Ok, added.Error);
         Assert.Equal(CharacterSource.Herald, added.Character!.Source);
@@ -399,7 +320,7 @@ public class CharacterServiceTests : IAsyncLifetime
     {
         // The FFXI herald is internal: a visitor's browser cannot reach it, so a
         // link would render a broken image for everyone.
-        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+        var added = await _service.AddAsync(Member, HeraldGameId, "Sable", default);
         Assert.True(added.Ok, added.Error);
 
         var c = added.Character!;
@@ -409,25 +330,25 @@ public class CharacterServiceTests : IAsyncLifetime
         Assert.Equal($"/characters/{c.Id}/portrait?v={Tag("aaa")}", c.PortraitPath);
         Assert.Equal(16, c.PortraitVersion!.Length);
 
-        var stored = await _db.CharacterPortraits.AsNoTracking()
+        var stored = await Db.CharacterPortraits.AsNoTracking()
             .FirstOrDefaultAsync(p => p.CharacterId == c.Id);
 
         Assert.NotNull(stored);
         Assert.Equal(StubImageHandler.Png, stored.Bytes);
         Assert.Equal("image/png", stored.ContentType);
         Assert.Equal(Tag("aaa"), stored.Version);
-        Assert.Equal(1, _images.Calls);
+        Assert.Equal(1, Images.Calls);
     }
 
     [Fact]
     public async Task A_character_with_no_portrait_has_no_path_and_costs_no_request()
     {
-        var added = await _service.AddAsync(_member, _blackthornId, "Enchantress", default);
+        var added = await _service.AddAsync(Member, HeraldGameId, "Enchantress", default);
 
         Assert.True(added.Ok, added.Error);
         Assert.Null(added.Character!.PortraitVersion);
         Assert.Null(added.Character.PortraitPath);
-        Assert.Equal(0, _images.Calls);
+        Assert.Equal(0, Images.Calls);
     }
 
     [Fact]
@@ -435,62 +356,62 @@ public class CharacterServiceTests : IAsyncLifetime
     {
         // The whole basis of the daily pass. Dozens of characters against someone
         // else's server, so an unchanged portrait has to cost nothing.
-        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+        var added = await _service.AddAsync(Member, HeraldGameId, "Sable", default);
         Assert.True(added.Ok, added.Error);
-        Assert.Equal(1, _images.Calls);
+        Assert.Equal(1, Images.Calls);
 
         Assert.True(await _service.RefreshAsync(added.Character!, default));
-        await _db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
 
-        Assert.Equal(1, _images.Calls);
+        Assert.Equal(1, Images.Calls);
     }
 
     [Fact]
     public async Task A_new_version_replaces_the_stored_picture()
     {
-        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+        var added = await _service.AddAsync(Member, HeraldGameId, "Sable", default);
         Assert.True(added.Ok, added.Error);
         var id = added.Character!.Id;
 
         // The character changed gear, so the herald re-rendered and the hash moved.
-        _herald.Known["Sable"] = _herald.Known["Sable"] with
+        Herald.Known["Sable"] = Herald.Known["Sable"] with
         {
             Portrait = new HeraldPortrait("https://fake.test/portraits/1.png?v=bbb", "bbb"),
         };
-        _images.Body = [.. StubImageHandler.Png, 0x00];
+        Images.Body = [.. StubImageHandler.Png, 0x00];
 
         Assert.True(await _service.RefreshAsync(added.Character!, default));
-        await _db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
 
-        Assert.Equal(2, _images.Calls);
+        Assert.Equal(2, Images.Calls);
 
-        var stored = await _db.CharacterPortraits.AsNoTracking().FirstAsync(p => p.CharacterId == id);
+        var stored = await Db.CharacterPortraits.AsNoTracking().FirstAsync(p => p.CharacterId == id);
         Assert.Equal(Tag("bbb"), stored.Version);
-        Assert.Equal(_images.Body, stored.Bytes);
+        Assert.Equal(Images.Body, stored.Bytes);
         // One row per character, not one per version.
-        Assert.Equal(1, await _db.CharacterPortraits.CountAsync(p => p.CharacterId == id));
+        Assert.Equal(1, await Db.CharacterPortraits.CountAsync(p => p.CharacterId == id));
     }
 
     [Fact]
     public async Task A_renderer_that_is_down_keeps_the_old_picture_and_is_not_an_error()
     {
-        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+        var added = await _service.AddAsync(Member, HeraldGameId, "Sable", default);
         Assert.True(added.Ok, added.Error);
         var id = added.Character!.Id;
 
-        _herald.Known["Sable"] = _herald.Known["Sable"] with
+        Herald.Known["Sable"] = Herald.Known["Sable"] with
         {
             Portrait = new HeraldPortrait("https://fake.test/portraits/1.png?v=ccc", "ccc"),
         };
-        _images.ForcedStatus = System.Net.HttpStatusCode.ServiceUnavailable;
+        Images.ForcedStatus = System.Net.HttpStatusCode.ServiceUnavailable;
 
         Assert.True(await _service.RefreshAsync(added.Character!, default));
-        await _db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
 
         // The version stays on what we actually hold, so the path keeps pointing at
         // bytes that exist.
         Assert.Equal(Tag("aaa"), added.Character.PortraitVersion);
-        var stored = await _db.CharacterPortraits.AsNoTracking().FirstAsync(p => p.CharacterId == id);
+        var stored = await Db.CharacterPortraits.AsNoTracking().FirstAsync(p => p.CharacterId == id);
         Assert.Equal(Tag("aaa"), stored.Version);
         Assert.Equal(StubImageHandler.Png, stored.Bytes);
 
@@ -504,21 +425,21 @@ public class CharacterServiceTests : IAsyncLifetime
     {
         // The endpoint echoes the stored content type, so text/html from a herald
         // would be stored cross-site scripting wearing an img tag.
-        _images.ContentType = "text/html";
+        Images.ContentType = "text/html";
 
-        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+        var added = await _service.AddAsync(Member, HeraldGameId, "Sable", default);
 
         Assert.True(added.Ok, added.Error);
         Assert.Null(added.Character!.PortraitVersion);
-        Assert.False(await _db.CharacterPortraits.AnyAsync(p => p.CharacterId == added.Character.Id));
+        Assert.False(await Db.CharacterPortraits.AnyAsync(p => p.CharacterId == added.Character.Id));
     }
 
     [Fact]
     public async Task A_portrait_larger_than_the_cap_is_refused()
     {
-        _images.Body = new byte[HeraldFetcher.MaxImageBytes + 1];
+        Images.Body = new byte[HeraldFetcher.MaxImageBytes + 1];
 
-        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+        var added = await _service.AddAsync(Member, HeraldGameId, "Sable", default);
 
         Assert.True(added.Ok, added.Error);
         Assert.Null(added.Character!.PortraitVersion);
@@ -527,15 +448,15 @@ public class CharacterServiceTests : IAsyncLifetime
     [Fact]
     public async Task Removing_a_character_removes_its_portrait()
     {
-        var added = await _service.AddAsync(_member, _blackthornId, "Sable", default);
+        var added = await _service.AddAsync(Member, HeraldGameId, "Sable", default);
         Assert.True(added.Ok, added.Error);
         var id = added.Character!.Id;
 
-        _db.Characters.Remove(added.Character);
-        await _db.SaveChangesAsync();
+        Db.Characters.Remove(added.Character);
+        await Db.SaveChangesAsync();
 
         // By cascade, not by remembering to do it in the handler.
-        Assert.False(await _db.CharacterPortraits.AnyAsync(p => p.CharacterId == id));
+        Assert.False(await Db.CharacterPortraits.AnyAsync(p => p.CharacterId == id));
     }
 
     [Fact]

@@ -83,6 +83,10 @@ if (databaseConfigured)
     // blocking startup. See DatabaseInitializer for why.
     builder.Services.AddHostedService<DatabaseInitializer>();
 
+    // Keeps stats and portraits current without anyone pressing refresh. Backfills
+    // missing portraits shortly after startup, then a daily pass.
+    builder.Services.AddHostedService<HeraldRefreshService>();
+
     // Buffers request records and flushes them in batches. Registered as a
     // singleton as well so the middleware can resolve the same instance.
     builder.Services.AddSingleton<RequestLogWriter>();
