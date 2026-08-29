@@ -8,7 +8,10 @@ using Rmv.Web.Data;
 namespace Rmv.Web.Pages.Account;
 
 [Authorize]
-public class ProfileModel(IServiceProvider services, IConfiguration config) : PageModel
+public class ProfileModel(
+    IServiceProvider services,
+    IConfiguration config,
+    IAuthorizationService authorization) : PageModel
 {
     public string DiscordName => DiscordUser.Name(User);
 
@@ -29,11 +32,18 @@ public class ProfileModel(IServiceProvider services, IConfiguration config) : Pa
 
     public string? Notice { get; private set; }
 
-    /// <summary>Root admins are not marked approved in the table, but they are.</summary>
-    // IsRoot is the config-only admin, who has no member row to ask. Everything
-    // else defers to Member, so this page cannot disagree with the policy that
-    // actually gates the action.
-    public bool CanContribute => IsRoot || Record is { CanContribute: true };
+    /// <summary>
+    /// Whether this page offers to add a character, from the policy that actually
+    /// gates adding one.
+    ///
+    /// Asked, not worked out. This used to be "IsRoot || Record.CanContribute",
+    /// which was a third implementation of the question: configuration folded
+    /// together with the row, by hand, in a page. That hand-folding is exactly what
+    /// went wrong elsewhere, and the "IsRoot ||" was the tell. The policy already
+    /// reads configuration first and the row second, so asking it gives one answer
+    /// with one implementation behind it.
+    /// </summary>
+    public bool CanContribute { get; private set; }
 
     /// <summary>What the site calls them: the alias if set, otherwise Discord.</summary>
     public string Handle => Record?.Handle ?? DiscordName;
@@ -79,7 +89,11 @@ public class ProfileModel(IServiceProvider services, IConfiguration config) : Pa
 
     private async Task LoadAsync(CancellationToken ct)
     {
+        // Still read from configuration, but only to label them as root on the page.
+        // It no longer decides anything.
         IsRoot = AdminPolicy.IsRootAdmin(config, DiscordId);
+
+        CanContribute = (await authorization.AuthorizeAsync(User, MemberPolicy.Approved)).Succeeded;
 
         var db = services.GetService<RmvDbContext>();
         if (db is null)

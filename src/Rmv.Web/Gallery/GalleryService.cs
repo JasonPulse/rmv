@@ -98,16 +98,27 @@ public sealed class GalleryService(RmvDbContext db, ILogger<GalleryService> log)
     }
 
     /// <summary>
-    /// Removes one, if this member may.
+    /// Removes one: their own, or anything when the caller says they administer.
     ///
-    /// Their own, or anything when they administer. Scoped in the query rather than
-    /// checked after loading, so an id belonging to someone else is not found at all
-    /// and there is no row in hand to accidentally act on.
+    /// Takes the answer rather than working it out. This used to read
+    /// Member.CanAdminister off the row, which made it a second implementation of a
+    /// question the authorization policy already answers, and the two could disagree:
+    /// a root admin gets their admin rights from configuration, so a row that had
+    /// not caught up said no while every policy said yes. One question, one place
+    /// that answers it, and this is not that place.
+    ///
+    /// Scoped in the query rather than checked after loading, so an id belonging to
+    /// someone else is not found at all and there is no row in hand to act on by
+    /// accident.
     /// </summary>
-    public async Task<bool> RemoveAsync(Member member, int id, CancellationToken ct)
+    /// <param name="mayRemoveAny">
+    /// From the caller's authorization check, never from the member row.
+    /// </param>
+    public async Task<bool> RemoveAsync(
+        Member member, int id, bool mayRemoveAny, CancellationToken ct)
     {
         var shot = await db.Screenshots
-            .Where(s => s.Id == id && (member.CanAdminister || s.MemberId == member.Id))
+            .Where(s => s.Id == id && (mayRemoveAny || s.MemberId == member.Id))
             .FirstOrDefaultAsync(ct);
 
         if (shot is null)

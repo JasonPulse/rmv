@@ -20,6 +20,41 @@ That is what stops you locking yourself out of your own site.
 `/admin/members`. A `Member` row is created the first time each person signs in,
 so the page lists real people rather than asking for snowflakes to be typed in.
 
+### One question, one place that answers it
+
+There are two authorities on access and both exist on purpose:
+
+1. `Admin:DiscordIds` in configuration, checked **first**, so a root admin works
+   when Postgres is unreachable.
+2. `Member.Status` and `Member.IsAdmin` in the database, which is what admins edit.
+
+The authorization policy folds both, in that order. **Nothing else may fold them.**
+Every page and service asks the policy through `IAuthorizationService` or an
+`[Authorize]` attribute, and `Member.CanContribute` and `Member.CanAdminister` are
+read by exactly two lines, both inside `AdminPolicy`, where they are the policy's own
+predicate.
+
+That rule is the fix for a real bug rather than tidiness. Three places used to fold
+the two authorities by hand:
+
+  The gallery read `Member.CanContribute` to decide whether to offer an upload, and
+  `Member.CanAdminister` to decide whether to offer removing someone else's
+  screenshot. Both ignore configuration.
+
+  `GalleryService.RemoveAsync` read `Member.CanAdminister` itself, so the service
+  was answering an authorization question rather than being told the answer.
+
+  The profile page wrote `IsRoot || Record.CanContribute`, folding configuration and
+  the row by hand. That `IsRoot ||` was the tell.
+
+A root admin's rights come from configuration, so a row that had not caught up made
+all three say no while every policy said yes: no upload button, no removing anyone
+else's screenshot, and `PENDING` next to `ROOT` in the members table.
+
+`GalleryService.RemoveAsync` now takes `mayRemoveAny` from the caller. The gallery
+and the profile ask the policy. Configuration is still read directly in exactly one
+place for display, to label somebody `ROOT`, where it decides nothing.
+
 ### A root admin's row matches the configuration
 
 Root admins come from `Admin:DiscordIds` and the policies check that list before

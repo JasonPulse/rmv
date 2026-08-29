@@ -172,7 +172,7 @@ public class GalleryServiceTests : HeraldDatabaseTests
         var outcome = await UploadAsync(Image("shot.png"));
         var id = outcome.Screenshot!.Id;
 
-        Assert.True(await _gallery.RemoveAsync(Member, id, default));
+        Assert.True(await _gallery.RemoveAsync(Member, id, mayRemoveAny: false, default));
 
         Assert.False(await Db.Screenshots.AnyAsync(s => s.Id == id));
         // By cascade, not by remembering to delete it in the handler.
@@ -182,44 +182,32 @@ public class GalleryServiceTests : HeraldDatabaseTests
     [Fact]
     public async Task One_member_cannot_remove_another_members_screenshot()
     {
+        // Also the blocked-admin case, now that the service takes the admin answer
+        // rather than reading the row: whatever the reason the caller was not
+        // granted it, what arrives here is false.
         var outcome = await UploadAsync(Image("shot.png"), who: _other);
         var id = outcome.Screenshot!.Id;
 
-        Assert.False(await _gallery.RemoveAsync(Member, id, default));
+        Assert.False(await _gallery.RemoveAsync(Member, id, mayRemoveAny: false, default));
         Assert.True(await Db.Screenshots.AnyAsync(s => s.Id == id));
     }
 
     [Fact]
     public async Task An_admin_can_remove_anyones()
     {
+        // The admin answer is handed in by the caller, which asks the authorization
+        // policy for it. The service does not look at the row, because that was a
+        // second implementation of a question the policy already answers.
         var outcome = await UploadAsync(Image("shot.png"), who: _other);
         var id = outcome.Screenshot!.Id;
 
-        Member.IsAdmin = true;
-        await Db.SaveChangesAsync();
-
-        Assert.True(await _gallery.RemoveAsync(Member, id, default));
+        Assert.True(await _gallery.RemoveAsync(Member, id, mayRemoveAny: true, default));
         Assert.False(await Db.Screenshots.AnyAsync(s => s.Id == id));
-    }
-
-    [Fact]
-    public async Task A_blocked_admin_cannot_remove_anyones()
-    {
-        // Blocked beats admin everywhere else on the site, so it beats it here.
-        var outcome = await UploadAsync(Image("shot.png"), who: _other);
-        var id = outcome.Screenshot!.Id;
-
-        Member.IsAdmin = true;
-        Member.Status = MemberStatus.Blocked;
-        await Db.SaveChangesAsync();
-
-        Assert.False(await _gallery.RemoveAsync(Member, id, default));
-        Assert.True(await Db.Screenshots.AnyAsync(s => s.Id == id));
     }
 
     [Fact]
     public async Task Removing_something_that_is_not_there_is_false_rather_than_a_throw()
     {
-        Assert.False(await _gallery.RemoveAsync(Member, 999_999, default));
+        Assert.False(await _gallery.RemoveAsync(Member, 999_999, mayRemoveAny: false, default));
     }
 }
