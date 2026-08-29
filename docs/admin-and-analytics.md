@@ -20,6 +20,29 @@ That is what stops you locking yourself out of your own site.
 `/admin/members`. A `Member` row is created the first time each person signs in,
 so the page lists real people rather than asking for snowflakes to be typed in.
 
+### A root admin's row matches the configuration
+
+Root admins come from `Admin:DiscordIds` and the policies check that list before
+they touch the database, which is what stops a bad grant or an outage locking you
+out. An earlier version reasoned from that: a backfilled row could stay `Pending`
+because it granted nothing anyway.
+
+That was only true of the policies. Half the site asks the **row**, not the policy.
+The gallery decides whether to offer an upload from `Member.CanContribute` and
+whether to offer removing someone else's screenshot from `Member.CanAdminister`, so
+a root admin with a `Pending` row was shown neither while passing every policy, and
+`/admin/members` read "PENDING" next to "ROOT".
+
+`MemberDirectory.EnsureAsync` now brings the row into line on every access, not only
+at creation, so a row that predates the fix corrects itself the next time its owner
+loads a page. It writes only when something is wrong.
+
+Blocking a root admin is not something this application can do, and the row says so
+rather than pretending otherwise: the configured ids are checked before the
+database, so a `Blocked` row was already ineffective. An approver recorded by a real
+admin at `/admin/members` is left alone; only a missing one is filled in with
+`Admin:DiscordIds`.
+
 ## Signing in is not membership
 
 A new sign-in lands on `Pending`. They get a seat and nothing else: they can look

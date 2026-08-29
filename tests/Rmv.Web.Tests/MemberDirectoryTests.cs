@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Rmv.Web.Data;
 
@@ -25,8 +26,16 @@ public class MemberDirectoryTests : IAsyncLifetime
 
         _db = new RmvDbContext(new DbContextOptionsBuilder<RmvDbContext>().UseNpgsql(cs).Options);
         await _db.Database.MigrateAsync();
-        _directory = new MemberDirectory(_db, NullLogger<MemberDirectory>.Instance);
+        _directory = Directory(rootIds: null);
     }
+
+    /// <summary>A directory whose configuration names the given root admin ids.</summary>
+    private MemberDirectory Directory(string? rootIds) =>
+        new(_db,
+            new ConfigurationBuilder()
+                .AddInMemoryCollection([new KeyValuePair<string, string?>("Admin:DiscordIds", rootIds)])
+                .Build(),
+            NullLogger<MemberDirectory>.Instance);
 
     public async Task DisposeAsync()
     {
@@ -162,5 +171,120 @@ public class MemberDirectoryTests : IAsyncLifetime
             new ClaimsIdentity([new Claim(ClaimTypes.Name, "No id")], "TestAuth"));
 
         Assert.Null(await _directory.EnsureAsync(anonymousish, default));
+    }
+
+    // --- root admins ---------------------------------------------------------
+
+    [Fact]
+    public async Task A_root_admin_is_created_approved_and_admin()
+    {
+        // Their access comes from configuration, so a row saying Pending would be a
+        // lie rather than a restriction.
+        var id = $"t{Guid.NewGuid():N}"[..20];
+
+        var member = await Directory(id).EnsureAsync(SignedIn(id, "Root"), default);
+
+        Assert.NotNull(member);
+        Assert.Equal(MemberStatus.Approved, member.Status);
+        Assert.True(member.IsAdmin);
+        Assert.True(member.CanContribute);
+        Assert.True(member.CanAdminister);
+        Assert.Equal("Admin:DiscordIds", member.ApprovedBy);
+        Assert.NotNull(member.ApprovedAt);
+    }
+
+    [Fact]
+    public async Task An_existing_pending_root_admin_is_corrected_on_the_next_access()
+    {
+        // The reported state: root by configuration, Pending in the table, which
+        // meant no upload button on the gallery and no removing anyone else's
+        // screenshot, because those read the row while the policies read the config.
+        var id = $"t{Guid.NewGuid():N}"[..20];
+        var principal = SignedIn(id, "Root");
+
+        var before = await _directory.EnsureAsync(principal, default);
+        Assert.Equal(MemberStatus.Pending, before!.Status);
+        Assert.False(before.IsAdmin);
+
+        var after = await Directory(id).EnsureAsync(principal, default);
+
+        Assert.Equal(MemberStatus.Approved, after!.Status);
+        Assert.True(after.IsAdmin);
+
+        // Written, not just returned.
+        var reread = await _db.Members.AsNoTracking().FirstAsync(m => m.DiscordId == id);
+        Assert.Equal(MemberStatus.Approved, reread.Status);
+        Assert.True(reread.IsAdmin);
+    }
+
+    [Fact]
+    public async Task A_blocked_root_admin_is_corrected_too()
+    {
+        // Blocking one is not something this application can do: the policies read
+        // the configured ids before the database, so the block was already
+        // ineffective and the row was only misleading.
+        var id = $"t{Guid.NewGuid():N}"[..20];
+        var principal = SignedIn(id, "Root");
+
+        var member = await _directory.EnsureAsync(principal, default);
+        member!.Status = MemberStatus.Blocked;
+        await _db.SaveChangesAsync();
+
+        var after = await Directory(id).EnsureAsync(principal, default);
+
+        Assert.Equal(MemberStatus.Approved, after!.Status);
+        Assert.True(after.IsAdmin);
+    }
+
+    [Fact]
+    public async Task An_ordinary_member_is_still_pending_and_stays_that_way()
+    {
+        // The approval gate is the point. Naming somebody else as root must not
+        // promote this one.
+        var id = $"t{Guid.NewGuid():N}"[..20];
+        var principal = SignedIn(id, "Ordinary");
+
+        var member = await Directory("999888777666555444").EnsureAsync(principal, default);
+
+        Assert.Equal(MemberStatus.Pending, member!.Status);
+        Assert.False(member.IsAdmin);
+        Assert.False(member.CanContribute);
+    }
+
+    [Fact]
+    public async Task A_root_admin_who_was_already_right_is_not_written_again()
+    {
+        var id = $"t{Guid.NewGuid():N}"[..20];
+        var principal = SignedIn(id, "Root");
+        var directory = Directory(id);
+
+        var first = await directory.EnsureAsync(principal, default);
+        var approvedAt = first!.ApprovedAt;
+
+        var second = await directory.EnsureAsync(principal, default);
+
+        // Same timestamp, so the second access did not rewrite the row.
+        Assert.Equal(approvedAt, second!.ApprovedAt);
+    }
+
+    [Fact]
+    public async Task An_admin_promoted_in_the_table_keeps_their_own_approver()
+    {
+        // Someone an admin promoted at /admin/members, who then also gets named in
+        // configuration. The audit trail of who approved them is not overwritten.
+        var id = $"t{Guid.NewGuid():N}"[..20];
+        var principal = SignedIn(id, "Promoted");
+
+        var member = await _directory.EnsureAsync(principal, default);
+        member!.Status = MemberStatus.Approved;
+        member.ApprovedBy = "SomeAdmin";
+        member.ApprovedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        await _db.SaveChangesAsync();
+
+        var after = await Directory(id).EnsureAsync(principal, default);
+
+        Assert.True(after!.IsAdmin);
+        Assert.Equal("SomeAdmin", after.ApprovedBy);
+        Assert.Equal(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero), after.ApprovedAt);
     }
 }

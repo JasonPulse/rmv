@@ -43,6 +43,10 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ConnectionStrings__Postgres: >-
         Host=db;Port=5432;Database=${POSTGRES_DB:-rmv};Username=${POSTGRES_USER:-rmv};Password=${POSTGRES_PASSWORD}
+      # Root admins, comma separated. They cannot be revoked from inside the app and
+      # they work when the database is unreachable, which is what stops a bad grant
+      # or an outage locking you out. Matches the deployment.
+      Admin__DiscordIds: ${ADMIN_DISCORD_IDS:-}
       Discord__ClientId: ${DISCORD_CLIENT_ID:-}
       Discord__ClientSecret: ${DISCORD_CLIENT_SECRET:-}
       # Operator level, not admin level. The FFXI herald resolves to an RFC1918
