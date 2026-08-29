@@ -29,6 +29,13 @@ public class MemberDirectoryTests : IAsyncLifetime
         _directory = Directory(rootIds: null);
     }
 
+    /// <summary>
+    /// A fresh CurrentMember over the same directory. Fresh matters: it caches for
+    /// the life of one request, which is what makes the site give one answer.
+    /// </summary>
+    private CurrentMember Me() =>
+        new(new ConfigurationBuilder().Build(), NullLogger<CurrentMember>.Instance, _directory);
+
     /// <summary>A directory whose configuration names the given root admin ids.</summary>
     private MemberDirectory Directory(string? rootIds) =>
         new(_db,
@@ -109,7 +116,7 @@ public class MemberDirectoryTests : IAsyncLifetime
         // The site names people by Handle, never by whatever Discord returned.
         var id = $"t{Guid.NewGuid():N}"[..20];
         var principal = SignedIn(id, "networkgnome_x9");
-        var me = new CurrentMember(_directory);
+        var me = Me();
 
         Assert.Equal("networkgnome_x9", await me.HandleAsync(principal));
 
@@ -118,7 +125,7 @@ public class MemberDirectoryTests : IAsyncLifetime
         await _db.SaveChangesAsync();
 
         // A fresh CurrentMember, because it caches for the life of one request.
-        Assert.Equal("NetworkGnome", await new CurrentMember(_directory).HandleAsync(principal));
+        Assert.Equal("NetworkGnome", await Me().HandleAsync(principal));
     }
 
     [Fact]
@@ -129,13 +136,13 @@ public class MemberDirectoryTests : IAsyncLifetime
         var id = $"t{Guid.NewGuid():N}"[..20];
         var principal = SignedIn(id, "networkgnome_x9");
 
-        Assert.Equal("NE", await new CurrentMember(_directory).InitialsAsync(principal));
+        Assert.Equal("NE", await Me().InitialsAsync(principal));
 
         var member = await _directory.EnsureAsync(principal, default);
         member!.Alias = "Property";
         await _db.SaveChangesAsync();
 
-        var me = new CurrentMember(_directory);
+        var me = Me();
         Assert.Equal("Property", await me.HandleAsync(principal));
         // The two must agree, which is the whole point of deriving one from the
         // other rather than reading the claim for one and the row for the other.
@@ -152,13 +159,13 @@ public class MemberDirectoryTests : IAsyncLifetime
         member!.Alias = "   ";   // The alias form posts whitespace if you clear it.
         await _db.SaveChangesAsync();
 
-        Assert.Equal("someone_1234", await new CurrentMember(_directory).HandleAsync(principal));
+        Assert.Equal("someone_1234", await Me().HandleAsync(principal));
     }
 
     [Fact]
     public async Task An_anonymous_caller_gets_no_member_and_no_lookup()
     {
-        var me = new CurrentMember(_directory);
+        var me = Me();
         var anonymous = new ClaimsPrincipal(new ClaimsIdentity());
 
         Assert.Null(await me.GetAsync(anonymous));
@@ -187,8 +194,6 @@ public class MemberDirectoryTests : IAsyncLifetime
         Assert.NotNull(member);
         Assert.Equal(MemberStatus.Approved, member.Status);
         Assert.True(member.IsAdmin);
-        Assert.True(member.CanContribute);
-        Assert.True(member.CanAdminister);
         Assert.Equal("Admin:DiscordIds", member.ApprovedBy);
         Assert.NotNull(member.ApprovedAt);
     }
@@ -248,7 +253,6 @@ public class MemberDirectoryTests : IAsyncLifetime
 
         Assert.Equal(MemberStatus.Pending, member!.Status);
         Assert.False(member.IsAdmin);
-        Assert.False(member.CanContribute);
     }
 
     [Fact]

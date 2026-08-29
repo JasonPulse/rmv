@@ -65,25 +65,10 @@ public class Member
     /// <summary>Display name of the admin who approved them, for the audit trail.</summary>
     public string? ApprovedBy { get; set; }
 
-    /// <summary>
-    /// May edit the site. Blocked beats admin, deliberately: revoking someone
-    /// should not depend on remembering to clear the admin flag too.
-    /// </summary>
-    public bool CanAdminister => IsAdmin && Status != MemberStatus.Blocked;
-
-    /// <summary>
-    /// May add and claim characters.
-    ///
-    /// Admins count, because an admin who can edit the site but not add a
-    /// character is nonsense, and /admin/members already approves on promotion.
-    ///
-    /// This was written out three separate times and the three disagreed. The
-    /// authorization handler included admins, Member.CanContribute did not, and
-    /// the profile page counted only root admins, so a database admin still marked
-    /// Pending passed the policy while their own profile told them they could not
-    /// contribute. One property, one answer.
-    /// </summary>
-    public bool CanContribute => Status == MemberStatus.Approved || CanAdminister;
+    // Whether this member may contribute or administer is deliberately not a
+    // property here. The row is one of two inputs to that question and answering it
+    // from the row alone is what broke: see Access.Of, which is the only place the
+    // two are folded together.
 
     /// <summary>The name to show. Never the Discord id.</summary>
     public string Handle => string.IsNullOrWhiteSpace(Alias) ? DisplayName : Alias;

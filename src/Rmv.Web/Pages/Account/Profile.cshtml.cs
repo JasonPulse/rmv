@@ -8,10 +8,7 @@ using Rmv.Web.Data;
 namespace Rmv.Web.Pages.Account;
 
 [Authorize]
-public class ProfileModel(
-    IServiceProvider services,
-    IConfiguration config,
-    IAuthorizationService authorization) : PageModel
+public class ProfileModel(IServiceProvider services, CurrentMember me) : PageModel
 {
     public string DiscordName => DiscordUser.Name(User);
 
@@ -33,17 +30,20 @@ public class ProfileModel(
     public string? Notice { get; private set; }
 
     /// <summary>
-    /// Whether this page offers to add a character, from the policy that actually
-    /// gates adding one.
+    /// Whether this page offers to add a character.
     ///
-    /// Asked, not worked out. This used to be "IsRoot || Record.CanContribute",
-    /// which was a third implementation of the question: configuration folded
-    /// together with the row, by hand, in a page. That hand-folding is exactly what
-    /// went wrong elsewhere, and the "IsRoot ||" was the tell. The policy already
-    /// reads configuration first and the row second, so asking it gives one answer
-    /// with one implementation behind it.
+    /// Read off the one access answer, not worked out here. This used to be
+    /// "IsRoot || Record.CanContribute": configuration folded together with the row,
+    /// by hand, in a page. That is the shape that broke the site, and the "IsRoot ||"
+    /// was the tell.
     /// </summary>
     public bool CanContribute { get; private set; }
+
+    /// <summary>
+    /// Blocked, from the same answer. A root admin cannot be blocked, so this is
+    /// not the row's status read on its own.
+    /// </summary>
+    public bool Blocked { get; private set; }
 
     /// <summary>What the site calls them: the alias if set, otherwise Discord.</summary>
     public string Handle => Record?.Handle ?? DiscordName;
@@ -89,11 +89,15 @@ public class ProfileModel(
 
     private async Task LoadAsync(CancellationToken ct)
     {
-        // Still read from configuration, but only to label them as root on the page.
-        // It no longer decides anything.
-        IsRoot = AdminPolicy.IsRootAdmin(config, DiscordId);
+        // One question, one call, three facts. The row, the root label and whether
+        // this page offers to add a character all come from the same answer, so the
+        // panel cannot contradict the policy that gates the button it draws.
+        var access = await me.AccessAsync(User, ct);
 
-        CanContribute = (await authorization.AuthorizeAsync(User, MemberPolicy.Approved)).Succeeded;
+        Record = access.Member;
+        IsRoot = access.IsRoot;
+        CanContribute = access.CanContribute;
+        Blocked = access.Blocked;
 
         var db = services.GetService<RmvDbContext>();
         if (db is null)
@@ -103,12 +107,6 @@ public class ProfileModel(
 
         try
         {
-            // Through CurrentMember, the one place the signed-in member is
-            // resolved. It ensures rather than looks up, so the profile is never
-            // the page that tells you your account does not exist while you are
-            // signed in.
-            Record = await services.GetRequiredService<CurrentMember>().GetAsync(User, ct);
-
             if (Record is not null)
             {
                 Characters = await db.Characters

@@ -1,6 +1,4 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
 
 namespace Rmv.Web.Data;
 
@@ -10,20 +8,11 @@ public sealed class AdminRequirement : IAuthorizationRequirement;
 public sealed class ApprovedMemberRequirement : IAuthorizationRequirement;
 
 /// <summary>
-/// Authorisation, as distinct from authentication.
+/// Where the root ids are read, and nothing else.
 ///
 /// Discord sign-in proves someone has a Discord account, which is not a
-/// qualification for editing the site. Admin comes from one of two places:
-///
-///   1. Admin:DiscordIds in configuration. These are root admins. They cannot be
-///      revoked from inside the app, and they still work when the database is
-///      unreachable, which is what stops a bad grant or an outage locking you
-///      out of your own site.
-///   2. Member.IsAdmin in the database, granted by an existing admin at
-///      /admin/members.
-///
-/// It fails closed: no config ids and no database admin means nobody is an
-/// admin, rather than everybody.
+/// qualification for editing the site. What the ids mean, and how they combine with
+/// the member row, is <see cref="Access"/>. This is only the parsing.
 /// </summary>
 public static class AdminPolicy
 {
@@ -36,6 +25,11 @@ public static class AdminPolicy
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
+    /// <summary>
+    /// Named in Admin:DiscordIds. Not an access decision by itself: it is one of the
+    /// two inputs <see cref="Access.Of"/> folds. A caller reaching for this to decide
+    /// something is the mistake this file used to encourage.
+    /// </summary>
     public static bool IsRootAdmin(IConfiguration config, string? discordId) =>
         discordId is not null
         && Parse(config["Admin:DiscordIds"]).Contains(discordId, StringComparer.Ordinal);
@@ -48,99 +42,45 @@ public static class MemberPolicy
 }
 
 /// <summary>
-/// The shape both member policies share: read the Discord id off the principal,
-/// let root admins through without touching the database, then look the member up
-/// and ask the requirement's own question.
+/// The shape both member policies share: get the one access answer, then ask the
+/// requirement's own question of it.
 ///
-/// The two handlers were copies of each other differing only in that question,
-/// and the copies had drifted: one expressed "blocked beats admin" as a SQL
-/// predicate, the other as a pattern match, and they did not agree. Security code
-/// is the worst place to keep two versions of a rule.
+/// This used to resolve the DbContext and work out the answer here. That made the
+/// policies a second implementation of a question the rest of the site was also
+/// answering off the member row, and the two disagreed for exactly the person who
+/// most needed them not to. Now the handler decides nothing. If this class and a
+/// page ever disagree again, one of them is not calling AccessAsync.
 ///
-/// Fails closed throughout. No id, no database, or a database that throws all end
-/// without calling Succeed, so the answer is no.
+/// Fails closed: <see cref="CurrentMember.AccessAsync"/> answers no for an
+/// anonymous caller, no database, or a database that throws.
 /// </summary>
-public abstract class MemberRequirementHandler<TRequirement>(
-    IServiceProvider services,
-    IConfiguration config,
-    ILogger log) : AuthorizationHandler<TRequirement>
+public abstract class MemberRequirementHandler<TRequirement>(CurrentMember me)
+    : AuthorizationHandler<TRequirement>
     where TRequirement : IAuthorizationRequirement
 {
-    /// <summary>What this requirement asks of a member. Both answers live on Member.</summary>
-    protected abstract bool Qualifies(Member member);
-
-    /// <summary>For the log line, so a denial can be traced to a requirement.</summary>
-    protected abstract string What { get; }
+    /// <summary>Which of the two answers this requirement wants.</summary>
+    protected abstract bool Qualifies(Access access);
 
     protected sealed override async Task HandleRequirementAsync(
         AuthorizationHandlerContext context, TRequirement requirement)
     {
-        var id = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(id))
-        {
-            return;
-        }
-
-        // Checked first and without touching the database, so a root admin can
-        // always get in to fix things.
-        if (AdminPolicy.IsRootAdmin(config, id))
+        if (Qualifies(await me.AccessAsync(context.User)))
         {
             context.Succeed(requirement);
-            return;
-        }
-
-        var db = services.GetService<RmvDbContext>();
-        if (db is null)
-        {
-            return;
-        }
-
-        try
-        {
-            // The whole row rather than a SQL predicate, so the rule can be one
-            // property on Member instead of an expression tree per handler. One
-            // indexed read on an authorised request.
-            var member = await db.Members
-                .AsNoTracking()
-                .FirstOrDefaultAsync(m => m.DiscordId == id);
-
-            if (member is not null && Qualifies(member))
-            {
-                context.Succeed(requirement);
-            }
-        }
-        catch (Exception ex)
-        {
-            // Database down. Root admins already succeeded above; everyone else
-            // is denied rather than allowed.
-            log.LogWarning(ex, "Could not check {What} for {Id}.", What, id);
         }
     }
 }
 
-/// <summary>Approved members, and admins. Scoped so it can resolve the DbContext.</summary>
-public sealed class ApprovedMemberAuthorizationHandler(
-    IServiceProvider services,
-    IConfiguration config,
-    ILogger<ApprovedMemberAuthorizationHandler> log)
-    : MemberRequirementHandler<ApprovedMemberRequirement>(services, config, log)
+/// <summary>Approved members, and admins. Scoped, because the answer is per request.</summary>
+public sealed class ApprovedMemberAuthorizationHandler(CurrentMember me)
+    : MemberRequirementHandler<ApprovedMemberRequirement>(me)
 {
-    protected override string What => "contributor status";
-
-    protected override bool Qualifies(Member member) => member.CanContribute;
+    protected override bool Qualifies(Access access) => access.CanContribute;
 }
 
-/// <summary>
-/// Scoped, so it can resolve the scoped DbContext. Registered even when no
-/// database exists, in which case only config admins pass.
-/// </summary>
-public sealed class AdminAuthorizationHandler(
-    IServiceProvider services,
-    IConfiguration config,
-    ILogger<AdminAuthorizationHandler> log)
-    : MemberRequirementHandler<AdminRequirement>(services, config, log)
+/// <summary>Admins, from configuration or from the member row.</summary>
+public sealed class AdminAuthorizationHandler(CurrentMember me)
+    : MemberRequirementHandler<AdminRequirement>(me)
 {
-    protected override string What => "admin status";
-
-    protected override bool Qualifies(Member member) => member.CanAdminister;
+    protected override bool Qualifies(Access access) => access.CanAdminister;
 }

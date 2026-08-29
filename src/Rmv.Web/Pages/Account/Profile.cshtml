@@ -130,7 +130,7 @@
                 </p>
                 <p><a class="btn" href="/characters">Add a character</a></p>
             }
-            else if (Model.Record is { Status: MemberStatus.Blocked })
+            else if (Model.Blocked)
             {
                 <h3>No access</h3>
                 <p class="dim">Your account has been blocked. Speak to an officer.</p>

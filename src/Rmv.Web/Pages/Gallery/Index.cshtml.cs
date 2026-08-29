@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -18,19 +17,16 @@ namespace Rmv.Web.Pages.Gallery;
 /// caller can make the server do work proportional to what they send, and the bytes
 /// land in Postgres.
 ///
-/// Every access question here goes through the authorization policy, the same way
-/// the masthead and the spellcraft page ask it. This page used to read
-/// Member.CanContribute and Member.CanAdminister off the row instead, which was a
-/// second implementation of a question the policy already answers. The two could
-/// disagree, and did: a root admin's rights come from configuration, so a row that
-/// had not caught up hid the upload button from someone who passed every policy on
-/// the site. Asking one way is what stops that recurring, rather than keeping two
-/// answers reconciled.
+/// Both access questions on this page come from one call to CurrentMember.AccessAsync,
+/// which is the only thing in the application that decides them. This page used to
+/// read Member.CanContribute and Member.CanAdminister off the row, which was a second
+/// implementation of a question the policies were also answering, and the two
+/// disagreed: a root admin's rights come from configuration, so a row that had not
+/// caught up hid the upload button from someone who passed every policy on the site.
 /// </summary>
 public class IndexModel(
     IServiceProvider services,
     GalleryService gallery,
-    IAuthorizationService authorization,
     CurrentMember me) : PageModel
 {
     public IReadOnlyList<Screenshot> Shots { get; private set; } = [];
@@ -65,14 +61,15 @@ public class IndexModel(
     /// </summary>
     public async Task<IActionResult> OnPostRemoveAsync(int id, CancellationToken ct)
     {
-        var member = await me.GetAsync(User, ct);
-        if (member is null)
+        var access = await me.AccessAsync(User, ct);
+        if (access.Member is null)
         {
             return Forbid();
         }
 
-        // The admin answer comes from the policy, not from the row.
-        var removed = await gallery.RemoveAsync(member, id, await AllowedAsync(AdminPolicy.Name), ct);
+        // Handed the answer. The service does not get to work it out for itself.
+        var removed = await gallery.RemoveAsync(
+            access.Member, id, access.CanAdminister, ct);
 
         return RedirectToPage(removed ? new { removed = true } : null);
     }
@@ -82,10 +79,14 @@ public class IndexModel(
         Notice = this.Flash("uploaded") is not null ? "Up it goes."
             : this.Flash("removed") is not null ? "Gone." : null;
 
-        var member = await SafeMemberAsync(ct);
+        // Asked once. Who they are and both things they may do arrive together, so
+        // the buttons this page draws and the checks the handlers run cannot differ.
+        var access = await me.AccessAsync(User, ct);
+        var member = access.Member;
+
         MemberId = member?.Id;
-        CanUpload = await AllowedAsync(MemberPolicy.Approved);
-        CanRemoveAny = await AllowedAsync(AdminPolicy.Name);
+        CanUpload = access.CanContribute;
+        CanRemoveAny = access.CanAdminister;
 
         DatabaseUnavailable = !await this.TryLoadAsync(services, async db =>
         {
@@ -112,42 +113,5 @@ public class IndexModel(
                 Mine = await db.Screenshots.CountAsync(s => s.MemberId == member.Id, ct);
             }
         });
-    }
-
-    /// <summary>
-    /// One policy, asked once. Anonymous callers are answered without troubling the
-    /// handlers, and a policy that throws is a no rather than a broken public page.
-    /// </summary>
-    private async Task<bool> AllowedAsync(string policy)
-    {
-        if (User.Identity?.IsAuthenticated != true)
-        {
-            return false;
-        }
-
-        try
-        {
-            return (await authorization.AuthorizeAsync(User, policy)).Succeeded;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// The signed-in member, or null, without letting a database problem stop a
-    /// public page rendering. CurrentMember.GetAsync propagates on purpose.
-    /// </summary>
-    private async Task<Member?> SafeMemberAsync(CancellationToken ct)
-    {
-        try
-        {
-            return await me.GetAsync(User, ct);
-        }
-        catch
-        {
-            return null;
-        }
     }
 }

@@ -68,11 +68,13 @@ public class SpellcraftPageTests : SpellcraftDatabaseTests
 
     private SpellcraftModel PageFor(ClaimsPrincipal user)
     {
-        var services = Services();
+        // A scope per page, because a request is a scope. CurrentMember caches the
+        // access answer for its lifetime, so sharing one across pages would let one
+        // test's answer stand in for the next one's.
+        var services = Services().CreateScope().ServiceProvider;
         var http = new DefaultHttpContext { User = user, RequestServices = services };
 
-        return new SpellcraftModel(
-            Tables, services.GetRequiredService<IAuthorizationService>(), services)
+        return new SpellcraftModel(Tables, services)
         {
             PageContext = new PageContext(new ActionContext(
                 http, new RouteData(), new PageActionDescriptor(), new ModelStateDictionary())),

@@ -70,7 +70,6 @@ if (databaseConfigured)
 
     builder.Services.AddScoped<IDeploymentStore, PostgresDeploymentStore>();
     builder.Services.AddScoped<MemberDirectory>();
-    builder.Services.AddScoped<CurrentMember>();
     builder.Services.AddScoped<SpellcraftTemplateStore>();
 
     // Keep the Data Protection key ring in Postgres. Without it every process
@@ -168,10 +167,17 @@ if (discordEnabled)
     });
 }
 
-// Discord sign-in only proves someone has a Discord account. Admin is either a
-// root id from configuration or a Member row flagged in the database; see
-// AdminPolicy. Scoped, because the handler resolves the DbContext.
+// Discord sign-in only proves someone has a Discord account. What anyone may do
+// is decided in exactly one place, CurrentMember.AccessAsync, which folds the root
+// ids from configuration together with the member row; see Access. The handlers
+// below are adapters over that answer, and so is every page.
+//
+// Registered outside the database block on purpose. With no connection string
+// MemberDirectory is absent, CurrentMember resolves with none, and access is
+// whatever configuration alone allows. That is the same path a database outage
+// takes, so it is one branch rather than a null check in every caller.
 var adminIds = AdminPolicy.Parse(builder.Configuration["Admin:DiscordIds"]);
+builder.Services.AddScoped<CurrentMember>();
 builder.Services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, ApprovedMemberAuthorizationHandler>();
 builder.Services.AddAuthorizationBuilder()

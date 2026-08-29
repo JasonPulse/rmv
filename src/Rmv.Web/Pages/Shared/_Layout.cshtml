@@ -1,6 +1,5 @@
 @inject SiteOptions Site
 @inject IConfiguration Config
-@inject IAuthorizationService Auth
 @inject CurrentMember Me
 <!DOCTYPE html>
 <html lang="en">
@@ -53,6 +52,7 @@
                 @if (User.Identity?.IsAuthenticated == true)
                 {
                     var avatar = DiscordUser.AvatarUrl(User);
+                    var access = await Me.AccessAsync(User);
                     <button class="account__toggle" type="button"
                             aria-haspopup="true" aria-expanded="false"
                             aria-controls="account-menu" data-account-toggle>
@@ -74,11 +74,14 @@
 
                     <div class="menu" id="account-menu" role="menu" hidden data-account-menu>
                         <a class="menu__item" role="menuitem" href="/Account/Profile">Profile</a>
-                        @if ((await Auth.AuthorizeAsync(User, MemberPolicy.Approved)).Succeeded)
+                        @* One access answer, the same one the pages behind these links
+                           are gated by, so the menu cannot offer a link that then
+                           refuses you. *@
+                        @if (access.CanContribute)
                         {
                             <a class="menu__item" role="menuitem" href="/characters">My characters</a>
                         }
-                        @if ((await Auth.AuthorizeAsync(User, AdminPolicy.Name)).Succeeded)
+                        @if (access.CanAdminister)
                         {
                             <a class="menu__item" role="menuitem" href="/admin/history">Edit history</a>
                             <a class="menu__item" role="menuitem" href="/admin/members">Members</a>

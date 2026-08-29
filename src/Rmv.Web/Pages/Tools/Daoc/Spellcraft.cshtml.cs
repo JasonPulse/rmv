@@ -20,14 +20,12 @@ namespace Rmv.Web.Pages.Tools.Daoc;
 /// is actually checked.
 ///
 /// The store and CurrentMember are resolved from the container rather than
-/// injected, because both are registered only when a connection string exists.
-/// Injecting them would mean this page could not render at all without a
-/// database, and the calculator does not need one.
+/// injected, so the calculator still renders where neither exists. The arithmetic
+/// does not need a database; only saving a template does.
 /// </summary>
 [Authorize(Policy = MemberPolicy.Approved)]
 public class SpellcraftModel(
     SpellcraftTables tables,
-    IAuthorizationService authorization,
     IServiceProvider services) : PageModel
 {
     public SpellcraftTables Tables => tables;
@@ -212,18 +210,17 @@ public class SpellcraftModel(
             return (null, Challenge());
         }
 
-        var allowed = await authorization.AuthorizeAsync(User, MemberPolicy.Approved);
-        if (!allowed.Succeeded)
+        var me = services.GetService<CurrentMember>();
+        var access = me is null ? Access.None : await me.AccessAsync(User, ct);
+
+        if (!access.CanContribute)
         {
             return (null, Forbid());
         }
 
-        var me = services.GetService<CurrentMember>();
-        var member = me is null ? null : await me.GetAsync(User, ct);
-
-        // Only reachable when the policy passed on a root admin id with no member
-        // row, or when the database went away between the two calls.
-        return member is null ? (null, Forbid()) : (member, null);
+        // Reachable for a root admin whose row could not be read, since their access
+        // does not depend on one. A template has to belong to a member row.
+        return access.Member is null ? (null, Forbid()) : (access.Member, null);
     }
 
     private Task<SpellcraftTemplate?> MyTemplateAsync(int id, CancellationToken ct)
@@ -253,9 +250,10 @@ public class SpellcraftModel(
 
         if (store is not null && me is not null && User.Identity?.IsAuthenticated == true)
         {
-            CanSave = (await authorization.AuthorizeAsync(User, MemberPolicy.Approved)).Succeeded;
+            var access = await me.AccessAsync(User, ct);
+            CanSave = access.CanContribute;
 
-            if (CanSave && await me.GetAsync(User, ct) is { } member)
+            if (CanSave && access.Member is { } member)
             {
                 MemberId = member.Id;
                 Templates = await store.ListAsync(member.Id, ct);
