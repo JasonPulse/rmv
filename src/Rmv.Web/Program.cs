@@ -89,6 +89,10 @@ if (databaseConfigured)
     // missing portraits shortly after startup, then a daily pass.
     builder.Services.AddHostedService<HeraldRefreshService>();
 
+    // Whether the servers we currently play on are answering. In memory, so the
+    // home page can show it and still read no database.
+    builder.Services.AddHostedService<ServerStatusMonitor>();
+
     // Buffers request records and flushes them in batches. Registered as a
     // singleton as well so the middleware can resolve the same instance.
     builder.Services.AddSingleton<RequestLogWriter>();
@@ -200,6 +204,14 @@ builder.Services.AddHttpClient<HeraldFetcher>(http =>
     // internal address. The FFXI herald is internal, so it needs listing here.
     HeraldHttpHandler.ParseAllowedPrivateHosts(
         builder.Configuration["Herald:AllowedPrivateHosts"])));
+// Reads markdown out of content/news at request time. No database, so the news
+// section renders whether or not Postgres is up.
+builder.Services.AddSingleton<Rmv.Web.Content.NewsLibrary>();
+
+// Written by ServerStatusMonitor, read by the home page. Registered unconditionally
+// so the page can read an empty list when there is no database to check against.
+builder.Services.AddSingleton<ServerStatusState>();
+
 builder.Services.AddScoped<IHeraldAdapter, BlackthornHeraldAdapter>();
 builder.Services.AddScoped<IHeraldAdapter, HeraldXiAdapter>();
 builder.Services.AddScoped<IHeraldAdapter, LodestoneAdapter>();

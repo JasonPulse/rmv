@@ -138,6 +138,46 @@ public sealed class HeraldFetcher(HttpClient client, ILogger<HeraldFetcher> log)
         }
     }
 
+    /// <summary>
+    /// Asks whether a server is answering, and how fast, without reading its body.
+    ///
+    /// A status check runs on a timer against someone else's server, so downloading
+    /// a page every time to learn one bit would be rude and pointless. This opens
+    /// the response, takes the status line and the elapsed time, and drops the rest.
+    /// </summary>
+    public async Task<(bool Ok, int Ms, string? Error)> PingAsync(string url, CancellationToken ct)
+    {
+        if (!Data.ExternalUrl.TryParse(url, out var safe))
+        {
+            return (false, 0, "Not an absolute http or https URL.");
+        }
+
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+
+        try
+        {
+            using var response = await client.GetAsync(
+                safe, HttpCompletionOption.ResponseHeadersRead, ct);
+
+            var ms = (int)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+
+            // Any answer at all means the server is up. A 403 or a 404 on the front
+            // page is a configuration question, not an outage.
+            return response.StatusCode < System.Net.HttpStatusCode.InternalServerError
+                ? (true, ms, null)
+                : (false, ms, $"Answered {(int)response.StatusCode}.");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            var ms = (int)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            return (false, ms, ex.GetBaseException().Message);
+        }
+    }
+
     public async Task<FetchResult> GetAsync(string url, CancellationToken ct)
     {
         if (!Data.ExternalUrl.TryParse(url, out var safe))

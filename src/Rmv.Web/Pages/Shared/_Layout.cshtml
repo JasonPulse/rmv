@@ -39,6 +39,10 @@
         <nav class="nav" aria-label="Main">
             <a href="/" aria-current="@Current("/Index")">Hall</a>
             <a href="/history" aria-current="@Current("/History")">History</a>
+            @* Section, not Current: the nav stays lit on an individual post as
+               well as on the listing. *@
+            <a href="/news" aria-current="@Section("/News")">News</a>
+            <a href="/leaderboards" aria-current="@Section("/Leaderboards")">Ranks</a>
             <a href="/tools" aria-current="@Section("/Tools")">Tools</a>
         </nav>
 

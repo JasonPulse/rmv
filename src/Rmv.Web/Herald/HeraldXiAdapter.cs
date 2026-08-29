@@ -20,6 +20,12 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
 
     public string DefaultBaseUrl => "https://heraldxi.network-gnomes.com";
 
+    /// <summary>
+    /// Total job levels. FFXI has no realm points, and this is the measure of
+    /// progress the herald's own leaderboards use.
+    /// </summary>
+    public LeaderboardMetric Metric => new(RankBy.Score, "Total job levels");
+
     private static readonly JsonSerializerOptions Json = new()
     {
         PropertyNameCaseInsensitive = true,

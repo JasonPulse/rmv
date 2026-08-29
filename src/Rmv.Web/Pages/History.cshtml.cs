@@ -14,18 +14,8 @@ public class HistoryModel(IServiceProvider services) : PageModel
 
     public bool DatabaseUnavailable { get; private set; }
 
-    public async Task OnGetAsync(CancellationToken ct)
-    {
-        // Resolved lazily rather than injected, so this page still renders when
-        // no database is configured. Every public page has to survive that.
-        var db = services.GetService<RmvDbContext>();
-        if (db is null)
-        {
-            DatabaseUnavailable = true;
-            return;
-        }
-
-        try
+    public async Task OnGetAsync(CancellationToken ct) =>
+        DatabaseUnavailable = !await this.TryLoadAsync(services, async db =>
         {
             var all = await db.GamePresences
                 .Include(g => g.Links.OrderBy(l => l.SortOrder).ThenBy(l => l.Label))
@@ -47,10 +37,5 @@ public class HistoryModel(IServiceProvider services) : PageModel
             // Ordered here rather than in SQL: the key comes from parsing Period,
             // which Postgres cannot do for us and which nine rows do not need it to.
             Games = all.OrderBy(g => g.NewestFirst).ToList();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            DatabaseUnavailable = true;
-        }
-    }
+        });
 }

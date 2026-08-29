@@ -1,0 +1,31 @@
+@page "/news/{slug}"
+@model Rmv.Web.Pages.News.PostModel
+@{
+    var post = Model.Post!;
+    ViewData["Title"] = post.Title;
+    ViewData["Description"] = post.Excerpt;
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>@post.Title</h1></div>
+        <p>
+            <time datetime="@post.Date.ToString("yyyy-MM-dd")">@post.Date.ToString("d MMMM yyyy")</time>@if (post.Author is { } author)
+            {<text>, @author</text>}
+        </p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    <section class="section">
+        <article class="panel prose">
+            @* Rendered by Markdig with raw HTML disabled, so the only markup in
+               here is what the renderer itself emits. See NewsLibrary. *@
+            @Html.Raw(post.Html)
+        </article>
+    </section>
+
+    <p class="center"><a class="btn" href="/news">All posts</a></p>
+</div>

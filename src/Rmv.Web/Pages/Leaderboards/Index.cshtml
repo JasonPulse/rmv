@@ -1,0 +1,76 @@
+@page "/leaderboards"
+@model Rmv.Web.Pages.Leaderboards.IndexModel
+@{
+    ViewData["Title"] = "Leaderboards";
+    ViewData["Description"] = "Who is ahead, per game, from each server's own herald.";
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>Leaderboards</h1></div>
+        <p>Straight from each server's herald, refreshed daily.</p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    @if (Model.DatabaseUnavailable)
+    {
+        <p class="notice">This page is briefly unavailable. Try again shortly.</p>
+    }
+    else if (Model.Boards.Count == 0)
+    {
+        <p class="center dim">
+            Nothing to rank yet. A game needs a herald and at least one character
+            on it.
+        </p>
+    }
+    else
+    {
+        @foreach (var board in Model.Boards)
+        {
+            <div class="bar">
+                <h2>
+                    @board.Game.Game
+                    @if (!board.Game.IsActive)
+                    {
+                        <span class="dim">, no longer active</span>
+                    }
+                </h2>
+            </div>
+
+            <section class="section">
+                <article class="panel panel--inset">
+                    <table class="table table--tight">
+                        <caption class="visually-hidden">
+                            @board.Game.Game, ranked by @board.Metric.Label
+                        </caption>
+                        <thead>
+                            <tr>
+                                <th scope="col" class="ranks__place">#</th>
+                                <th scope="col">Character</th>
+                                <th scope="col" class="ranks__value">@board.Metric.Label</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var row in board.Rows)
+                        {
+                            <tr>
+                                <td class="ranks__place">@row.Position</td>
+                                <td>
+                                    <a href="/roster/@row.Character.MemberId?c=@row.Character.Id">@row.Character.Name</a>
+                                    <span class="dim block-hint">
+                                        @row.Character.Member!.Handle@(string.IsNullOrWhiteSpace(row.Character.Class) ? "" : $", {row.Character.Class}")
+                                    </span>
+                                </td>
+                                <td class="ranks__value">@row.Value.ToString("N0")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </article>
+            </section>
+        }
+    }
+</div>

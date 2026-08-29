@@ -20,6 +20,9 @@ public sealed class BlackthornHeraldAdapter(HeraldFetcher fetcher) : IHeraldAdap
 
     public string DefaultBaseUrl => "https://herald.blackthorn-daoc.com";
 
+    /// <summary>Realm points, which is what the herald's own leaderboards rank on.</summary>
+    public LeaderboardMetric Metric => new(RankBy.Score, "Realm points");
+
     public async Task<HeraldResult> FetchCharacterAsync(
         string baseUrl, string characterName, CancellationToken ct)
     {

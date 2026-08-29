@@ -1,5 +1,6 @@
 @page
 @model IndexModel
+@inject Rmv.Web.Herald.ServerStatusState Servers
 @{
     ViewData["Title"] = "Hall";
     ViewData["Description"] = "Results May Vary, a gaming guild that started in Dark Age of Camelot and never quite stopped.";
@@ -36,6 +37,38 @@
                 once, the guild tag has not.
             </p>
         </article>
+
+        @* Read from memory, not the database, so the home page keeps its promise of
+           rendering whatever Postgres is doing. Absent until the first check has
+           run, which is a panel that is not there rather than one full of unknowns. *@
+        @if (Servers.All.Count > 0)
+        {
+            <article class="panel panel--inset">
+                <p class="panel__title">Servers</p>
+                <dl class="facts">
+                    @foreach (var server in Servers.All)
+                    {
+                        <dt>@server.Game</dt>
+                        <dd>
+                            @if (server.Ok)
+                            {
+                                <span class="pill pill--ok">up</span>
+                                <span class="dim">@server.Ms ms</span>
+                            }
+                            else
+                            {
+                                <span class="pill pill--bad">not answering</span>
+                            }
+                        </dd>
+                    }
+                </dl>
+                <p class="hint">
+                    Checked from the site every ten minutes. It says whether the
+                    server answers us, which is not quite the same as whether you
+                    can log in.
+                </p>
+            </article>
+        }
 
         <article class="panel">
             <p class="panel__title">Tools</p>

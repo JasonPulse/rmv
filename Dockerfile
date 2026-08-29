@@ -35,6 +35,14 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app .
 
+# Posts ship with the image so the news section works on a deployment with no
+# volume. A read-only mount at /app/content replaces this directory, which is what
+# makes posting a file copy rather than a rebuild. See content/README.md.
+#
+# A COPY, not a RUN: the runtime stage stays free of anything needing QEMU for the
+# non-native architecture.
+COPY content/ ./content/
+
 # Stamped at build time so the running site can report which commit it is.
 ARG BUILD_VERSION=local
 ENV Build__Version=$BUILD_VERSION \

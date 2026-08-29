@@ -20,6 +20,9 @@ public sealed class FakeHeraldAdapter : IHeraldAdapter
 
     public string DefaultBaseUrl => "https://fake.test";
 
+    /// <summary>Score, matching the two real heralds that publish a cumulative measure.</summary>
+    public LeaderboardMetric Metric { get; set; } = new(RankBy.Score, "Realm points");
+
     /// <summary>Names this herald knows, case-insensitively.</summary>
     public Dictionary<string, HeraldCharacter> Known { get; } = new(StringComparer.OrdinalIgnoreCase);
 

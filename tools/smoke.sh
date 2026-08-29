@@ -119,6 +119,10 @@ ROUTES="
 /tools/daoc/roll-parser 200 200
 /tools/daoc 200 200
 /tools/daoc/spellcraft 302 302
+/news 200 200
+/news/the-site-has-news-now 200 200
+/news/no-such-post 404 404
+/leaderboards 200 200
 /healthz/live 200 200
 /healthz/ready 200 200
 /admin/history 200 302

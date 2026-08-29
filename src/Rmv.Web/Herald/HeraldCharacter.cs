@@ -90,8 +90,32 @@ public sealed record HeraldResult(bool Ok, HeraldCharacter? Character, string? E
 /// One private server's herald. Code per server rather than configuration,
 /// because no two of them are laid out the same way and some are not HTML at all.
 /// </summary>
+/// <summary>What a herald's characters are ranked by on the leaderboards.</summary>
+public enum RankBy
+{
+    /// <summary>Character.Score: realm points on DAoC, total job levels on FFXI.</summary>
+    Score,
+
+    /// <summary>Character.Level, for a herald that publishes no cumulative measure.</summary>
+    Level,
+}
+
+/// <summary>
+/// The measure a herald's characters are ranked by, and what to call it on screen.
+///
+/// Owned by the adapter for the same reason DefaultBaseUrl is: an adapter is code
+/// written against one server, so it knows what that server measures. Asking an
+/// admin to choose would be one more field to get wrong, and the wrong answer here
+/// is a leaderboard that ranks on a column the herald never fills in.
+/// </summary>
+/// <param name="Label">Column heading, e.g. "Realm points".</param>
+public sealed record LeaderboardMetric(RankBy By, string Label);
+
 public interface IHeraldAdapter
 {
+    /// <summary>How this server's characters compare. See LeaderboardMetric.</summary>
+    LeaderboardMetric Metric { get; }
+
     /// <summary>Stored against the Game row, so an admin picks the adapter.</summary>
     string Key { get; }
 

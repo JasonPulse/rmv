@@ -26,6 +26,12 @@ public sealed class LodestoneAdapter(HeraldFetcher fetcher) : IHeraldAdapter
 
     public string DefaultBaseUrl => "https://na.finalfantasyxiv.com";
 
+    /// <summary>
+    /// The active job's level. The Lodestone publishes no cumulative number, so
+    /// there is nothing to put in Score and nothing else to rank on.
+    /// </summary>
+    public LeaderboardMetric Metric => new(RankBy.Level, "Level");
+
     public async Task<HeraldResult> FetchCharacterAsync(
         string baseUrl, string characterName, CancellationToken ct)
     {

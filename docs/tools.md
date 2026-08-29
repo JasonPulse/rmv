@@ -131,3 +131,52 @@ an in-panel separator, so every one of them was adding up to 3.5rem of empty spa
 above and below, and a panel with three of them was mostly air. It has its own
 1rem margin now.
 
+## News
+
+`content/news/YYYY-MM-DD-slug.md`, read at request time, exactly as
+`content/README.md` had specified since the site was scaffolded. The slug half of
+the filename is the URL; the date comes from front matter so a typo in a filename
+cannot quietly reorder the listing.
+
+Posts ship inside the image so the section works on a deployment with no volume,
+and a read-only mount at `/app/content` replaces that directory, which is what
+makes posting a file copy rather than a rebuild. Rendered by Markdig with **raw
+HTML disabled**: the files arrive by volume mount, and one call rules out a script
+tag reaching a reader. A post with no title or an unreadable date is skipped rather
+than guessed at.
+
+A slug never reaches the filesystem. `Find` looks it up in the listing, so
+`../../etc/passwd` is a slug that matches nothing rather than a path.
+
+## Leaderboards
+
+Ranked from the herald data the daily pass already collects. Only games with a
+herald appear: a hand-typed sheet is what its owner remembered, and putting a
+position next to it would be ranking a recollection against a fact.
+
+The measure per game comes from its **adapter**, not from a column an admin fills
+in, for the same reason `DefaultBaseUrl` does. Blackthorn ranks on realm points,
+HeraldXI on total job levels, the Lodestone on level because it publishes no
+cumulative number at all.
+
+Ties share a position and the next value takes the place it would have had, so two
+firsts are followed by a third. A value of zero is absent rather than last: it means
+the herald has not answered yet, not that someone scored nothing.
+
+Grouped by `GamePresenceId`, not by the `Game` navigation. `AsNoTracking` does no
+identity resolution, so every row carries its own `GamePresence` instance and
+grouping on the object compared them by reference. That rendered one board per
+character, each titled the same game, and only running the page showed it.
+
+## Server status
+
+`ServerStatusMonitor` pings the active games' heralds every ten minutes and writes
+the result to a singleton. In memory rather than Postgres on purpose: "is it up
+right now" is worth nothing after a restart, and keeping it out of the database is
+what lets the home page show it while still reading no database at all.
+
+`PingAsync` opens the response and drops the body, so a check on a timer against
+someone else's front page costs one request rather than a download. Anything short
+of a 500 counts as up, because a 403 on a front page is a configuration question
+and not an outage.
+

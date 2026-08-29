@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Rmv.Web.Data;
 
 namespace Rmv.Web.Pages;
 
@@ -8,6 +9,41 @@ namespace Rmv.Web.Pages;
 /// </summary>
 public static class PageHelpers
 {
+    /// <summary>
+    /// Runs a load that needs the database, from a page that has to render without
+    /// one.
+    ///
+    /// Every public page must survive a database that is absent or down: the site
+    /// comes up before Postgres does, and a home page that 500s because of it is
+    /// worse than one missing a panel. The DbContext is resolved rather than
+    /// injected because it is only registered when a connection string exists, so
+    /// injecting it would stop the page being constructed at all.
+    ///
+    /// Returns false when there was no database or the load threw, which is the
+    /// caller's cue to render its unavailable state. Nothing is logged here on
+    /// purpose: /healthz/ready and the status page are what report an outage, and a
+    /// warning per public request during one would bury them.
+    /// </summary>
+    public static async Task<bool> TryLoadAsync(
+        this PageModel page, IServiceProvider services, Func<RmvDbContext, Task> load)
+    {
+        var db = services.GetService<RmvDbContext>();
+        if (db is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            await load(db);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// Reads a one-shot value a redirect put in the query string, or null.
     ///
