@@ -180,3 +180,61 @@ someone else's front page costs one request rather than a download. Anything sho
 of a 500 counts as up, because a 403 on a front page is a configuration question
 and not an outage.
 
+## Gallery
+
+Public to look at, approved members to add to. The point of keeping it here rather
+than in a Discord channel is that a channel scrolls and an attachment ends up behind
+a login, and twenty years of DAoC and FFXI screenshots is the content this guild
+actually has.
+
+### Nothing about an upload is trusted except its bytes
+
+`ImageProbe` reads the format out of the file header and accepts four:
+PNG, JPEG, GIF, WebP. The name, the extension and the declared content type are all
+attacker-controlled on an upload, and the content type is the one that matters
+because the endpoint echoes it. A file announcing `image/png` while containing HTML
+would be stored cross-site scripting served from our own origin.
+
+SVG is refused on purpose even though browsers render it: it is a document that can
+carry script, so serving one from our origin is the same hole by another route.
+
+The probe also reads the dimensions from the same headers, which is not a security
+control. It is what lets the grid reserve the right box before an image loads, so a
+row of screenshots does not shove the page about as it arrives. A header claiming
+zero or more than 12000 pixels is refused.
+
+The fixtures are real files made by real encoders, and `file` reports the same
+dimensions the tests assert. Hand-written headers would only prove the probe agrees
+with my reading of the specifications.
+
+### Caps
+
+The declared length is checked first because it avoids starting a pointless read,
+and then ignored: the read itself is capped at 8MB as it goes. `MaxPerMember` is a
+runaway guard rather than a product rule, because the bytes live in Postgres and an
+unbounded gallery is an unbounded database. Raise it freely.
+
+### Where the bytes live
+
+`screenshot_images`, its own table, for the same reason character portraits have
+one: a bytea column would be loaded by every query that lists the gallery, so a page
+of twenty captions would pull twenty full images out of Postgres.
+
+Served by `ScreenshotEndpoint` with the stored type, an ETag, and a year of
+immutable caching, since an id maps to one image for as long as it exists. A blocked
+member's screenshots 404 along with the rest of their presence.
+
+### Uploading is its own page
+
+`/gallery/add` carries `[Authorize]` and `[EnableRateLimiting]` at class level.
+Razor Pages ignores both on a handler method, and the compiler now refuses to let
+one be written, so a handler-level attribute would have looked like a guard and been
+nothing. Putting them on the gallery itself would gate and throttle looking at it,
+which is the part that should be public and free.
+
+### Not done: thumbnails
+
+The grid serves full images, sized by CSS and lazily loaded, 24 to a page. Real
+thumbnails need an image library, and the obvious one has a licence worth reading
+before adopting, so that is a decision to make rather than a default to take.
+

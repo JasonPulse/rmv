@@ -39,6 +39,7 @@ public abstract class HeraldDatabaseTests : IAsyncLifetime
     protected HeraldFetcher Fetcher { get; private set; } = null!;
 
     private readonly List<int> _gameIds = [];
+    private readonly List<int> _memberIds = [];
 
     protected static string ConnectionString =>
         Environment.GetEnvironmentVariable("RMV_TEST_POSTGRES")
@@ -76,6 +77,7 @@ public abstract class HeraldDatabaseTests : IAsyncLifetime
         };
         Db.Members.Add(Member);
         await Db.SaveChangesAsync();
+        _memberIds.Add(Member.Id);
 
         HeraldGameId = await NewGameAsync(withHerald: true);
         NoHeraldGameId = await NewGameAsync(withHerald: false);
@@ -104,6 +106,31 @@ public abstract class HeraldDatabaseTests : IAsyncLifetime
         return game.Id;
     }
 
+    /// <summary>
+    /// A second member, registered for cleanup.
+    ///
+    /// For a test about one member not being able to touch another's rows, which is
+    /// the check worth having on anything member-owned.
+    /// </summary>
+    protected async Task<Member> NewMemberAsync(
+        string name = "Someone Else", MemberStatus status = MemberStatus.Approved)
+    {
+        var member = new Member
+        {
+            DiscordId = $"test-{Guid.NewGuid():N}"[..24],
+            DisplayName = name,
+            Status = status,
+            FirstSeenAt = DateTimeOffset.UtcNow,
+            LastSeenAt = DateTimeOffset.UtcNow,
+        };
+
+        Db.Members.Add(member);
+        await Db.SaveChangesAsync();
+        _memberIds.Add(member.Id);
+
+        return member;
+    }
+
     public async Task DisposeAsync()
     {
         if (Db is null)
@@ -111,13 +138,15 @@ public abstract class HeraldDatabaseTests : IAsyncLifetime
             return;
         }
 
-        // Cascades clear the characters and their portraits.
-        Db.Members.Remove(Member);
+        // Before the context goes, not after. A hook that runs once the DbContext is
+        // disposed cannot clean up any row, which is a trap rather than a hook.
+        await DisposeExtraAsync();
+
+        // Cascades clear the characters, portraits and screenshots.
+        Db.Members.RemoveRange(Db.Members.Where(m => _memberIds.Contains(m.Id)));
         Db.GamePresences.RemoveRange(Db.GamePresences.Where(g => _gameIds.Contains(g.Id)));
         await Db.SaveChangesAsync();
         await Db.DisposeAsync();
-
-        await DisposeExtraAsync();
     }
 
     protected virtual ValueTask DisposeExtraAsync() => ValueTask.CompletedTask;

@@ -1,0 +1,63 @@
+@page "/gallery/add"
+@model Rmv.Web.Pages.Gallery.AddModel
+@using Rmv.Web.Gallery
+@{
+    ViewData["Title"] = "Add a screenshot";
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>Add a screenshot</h1></div>
+        <p>You have @Model.Mine of @GalleryLimits.MaxPerMember up.</p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    @{ var flash = new Rmv.Web.Pages.Shared.Flash(null, Model.Error); }
+    <partial name="_Flash" model="flash" />
+
+    <section class="section grid grid--wide">
+        <article class="panel" aria-labelledby="add-title">
+            <h2 class="panel__title" id="add-title">The file</h2>
+
+            <form method="post" enctype="multipart/form-data" class="stack" style="--stack-gap:1rem">
+                <div asp-validation-summary="All" class="notice validation-summary"></div>
+
+                <div class="field">
+                    <label asp-for="Input.File">Screenshot</label>
+                    <input class="input" asp-for="Input.File" type="file"
+                           accept="image/png,image/jpeg,image/gif,image/webp" />
+                    <p class="hint">
+                        PNG, JPEG, GIF or WebP, up to @(ImageProbe.MaxBytes / 1024 / 1024)MB.
+                        What the file is called does not matter and neither does the
+                        type it claims: we read the file itself.
+                    </p>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Input.Caption">Caption</label>
+                    <input class="input" asp-for="Input.Caption" autocomplete="off"
+                           maxlength="@GalleryLimits.MaxCaption"
+                           placeholder="Emain, about three seconds before it went wrong" />
+                </div>
+
+                <div class="field">
+                    <label asp-for="Input.GamePresenceId">Game</label>
+                    <select class="input" asp-for="Input.GamePresenceId">
+                        <option value="">Not saying</option>
+                        @foreach (var game in Model.Games)
+                        {
+                            <option value="@game.Id">@game.Game</option>
+                        }
+                    </select>
+                </div>
+
+                <p style="margin:0"><button class="btn" type="submit">Upload</button></p>
+            </form>
+        </article>
+    </section>
+
+    <p class="center"><a class="btn" href="/gallery">Back to the gallery</a></p>
+</div>

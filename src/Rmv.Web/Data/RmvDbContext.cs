@@ -24,6 +24,10 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
 
     public DbSet<CharacterPortrait> CharacterPortraits => Set<CharacterPortrait>();
 
+    public DbSet<Screenshot> Screenshots => Set<Screenshot>();
+
+    public DbSet<ScreenshotImage> ScreenshotImages => Set<ScreenshotImage>();
+
     public DbSet<SpellcraftTemplate> SpellcraftTemplates => Set<SpellcraftTemplate>();
 
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
@@ -172,6 +176,37 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
                 .OnDelete(DeleteBehavior.Cascade);
 
             e.HasIndex(t => new { t.MemberId, t.Ordinal }).IsUnique();
+        });
+
+        b.Entity<Screenshot>(e =>
+        {
+            e.ToTable("screenshots");
+            e.Property(x => x.Caption).HasMaxLength(Gallery.GalleryLimits.MaxCaption).IsRequired();
+            e.Property(x => x.ContentType).HasMaxLength(40).IsRequired();
+
+            e.HasOne(x => x.Member).WithMany()
+                .HasForeignKey(x => x.MemberId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // A game being removed from the history must not take the screenshots
+            // with it, so the link is dropped rather than the row.
+            e.HasOne(x => x.Game).WithMany()
+                .HasForeignKey(x => x.GamePresenceId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // The gallery reads newest first, and a member's own page reads theirs.
+            e.HasIndex(x => x.UploadedAt);
+            e.HasIndex(x => new { x.MemberId, x.UploadedAt });
+        });
+
+        b.Entity<ScreenshotImage>(e =>
+        {
+            e.ToTable("screenshot_images");
+            e.HasKey(x => x.ScreenshotId);
+
+            e.HasOne(x => x.Screenshot).WithOne(s => s.Image)
+                .HasForeignKey<ScreenshotImage>(x => x.ScreenshotId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<RequestLog>(e =>

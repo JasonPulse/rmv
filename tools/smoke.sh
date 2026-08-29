@@ -123,6 +123,9 @@ ROUTES="
 /news/the-site-has-news-now 200 200
 /news/no-such-post 404 404
 /leaderboards 200 200
+/gallery 200 200
+/gallery/add 302 302
+/gallery/999999/image 404 404
 /healthz/live 200 200
 /healthz/ready 200 200
 /admin/history 200 302

@@ -1,0 +1,95 @@
+@page "/gallery"
+@model Rmv.Web.Pages.Gallery.IndexModel
+@using Rmv.Web.Gallery
+@{
+    ViewData["Title"] = "Gallery";
+    ViewData["Description"] = "Screenshots from twenty-odd years of Results May Vary.";
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>Gallery</h1></div>
+        <p>Screenshots, oldest games included. Newest first.</p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    @{ var flash = new Rmv.Web.Pages.Shared.Flash(Model.Notice, Model.Error); }
+    <partial name="_Flash" model="flash" />
+
+    @if (Model.DatabaseUnavailable)
+    {
+        <p class="notice">This page is briefly unavailable. Try again shortly.</p>
+    }
+    else
+    {
+        @if (Model.CanUpload)
+        {
+            <p class="center">
+                <a class="btn" href="/gallery/add">Add a screenshot</a>
+                <span class="hint">@Model.Mine of @GalleryLimits.MaxPerMember up</span>
+            </p>
+        }
+
+        @if (Model.Shots.Count == 0)
+        {
+            <p class="center dim">Nothing up yet.</p>
+        }
+        else
+        {
+            <h2 class="visually-hidden">Screenshots</h2>
+
+            <section class="section">
+                <ul class="shots">
+                    @foreach (var shot in Model.Shots)
+                    {
+                        <li class="shot">
+                            @* width and height are read from the file's own header,
+                               so the browser reserves the right box and the grid
+                               does not jump about as images arrive. *@
+                            <a class="shot__link" href="@shot.Path" target="_blank"
+                               rel="noopener" title="Open full size">
+                                <img class="shot__img" src="@shot.Path"
+                                     alt="@(shot.Caption.Length > 0 ? shot.Caption : "Screenshot")"
+                                     width="@shot.Width" height="@shot.Height"
+                                     loading="lazy" decoding="async" />
+                            </a>
+
+                            <div class="shot__meta">
+                                @if (shot.Caption.Length > 0)
+                                {
+                                    <p class="shot__caption">@shot.Caption</p>
+                                }
+                                <p class="hint">
+                                    @shot.Member!.Handle@(shot.Game is null ? "" : $", {shot.Game.Game}")
+                                    <span class="block-hint">@shot.UploadedAt.ToString("yyyy-MM-dd")</span>
+                                </p>
+
+                                @if (Model.CanRemoveAny || shot.MemberId == Model.MemberId)
+                                {
+                                    <form method="post" asp-page-handler="Remove" asp-route-id="@shot.Id">
+                                        <button class="linkish linkish--danger" type="submit">remove</button>
+                                    </form>
+                                }
+                            </div>
+                        </li>
+                    }
+                </ul>
+            </section>
+
+            @if (Model.Pages > 1)
+            {
+                <nav class="chips center" aria-label="Gallery pages">
+                    @for (var n = 1; n <= Model.Pages; n++)
+                    {
+                        <a class="chip @(n == Model.PageNumber ? "chip--on" : "")"
+                           href="/gallery?page=@n"
+                           aria-current="@(n == Model.PageNumber ? "page" : null)">@n</a>
+                    }
+                </nav>
+            }
+        }
+    }
+</div>

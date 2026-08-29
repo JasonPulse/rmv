@@ -217,6 +217,7 @@ builder.Services.AddScoped<IHeraldAdapter, HeraldXiAdapter>();
 builder.Services.AddScoped<IHeraldAdapter, LodestoneAdapter>();
 builder.Services.AddScoped<HeraldRegistry>();
 builder.Services.AddScoped<CharacterService>();
+builder.Services.AddScoped<Rmv.Web.Gallery.GalleryService>();
 
 // ---------------------------------------------------------------------------
 // Spellcraft
@@ -334,6 +335,7 @@ app.MapRazorPages();
 if (databaseConfigured)
 {
     app.MapPortraits();
+    app.MapScreenshots();
 }
 
 app.MapHealthChecks("/healthz/live", new() { Predicate = _ => false });
