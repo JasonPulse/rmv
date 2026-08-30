@@ -221,6 +221,7 @@ builder.Services.AddSingleton<ServerStatusState>();
 builder.Services.AddScoped<IHeraldAdapter, BlackthornHeraldAdapter>();
 builder.Services.AddScoped<IHeraldAdapter, HeraldXiAdapter>();
 builder.Services.AddScoped<IHeraldAdapter, LodestoneAdapter>();
+builder.Services.AddScoped<IHeraldAdapter, WowArmoryAdapter>();
 builder.Services.AddScoped<HeraldRegistry>();
 builder.Services.AddScoped<CharacterService>();
 builder.Services.AddScoped<Rmv.Web.Gallery.GalleryService>();

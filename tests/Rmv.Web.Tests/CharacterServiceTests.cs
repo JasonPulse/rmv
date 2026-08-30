@@ -47,6 +47,102 @@ public class CharacterServiceTests : HeraldDatabaseTests
             NullLogger<CharacterService>.Instance);
     }
 
+    // --- which path an add takes ---------------------------------------------
+    //
+    // One method decides, from the game, its adapter and what the member chose, in
+    // that order. The characters page used to decide it in an expression, which was
+    // fine while it was the only caller.
+    //
+    // The Armory is why the member's choice exists at all: it lists characters on a
+    // subscribed account only, and answers a lapsed one exactly as it answers a
+    // misspelling, so "look it up" cannot be the only way to record a WoW character.
+
+    private Task<AddOutcome> RequestAsync(
+        int gameId, string name, bool useHerald, string? job = null, int? level = null) =>
+        _service.AddAsync(Member, new CharacterRequest(gameId, name, job, level, useHerald), default);
+
+    [Fact]
+    public async Task A_herald_game_is_looked_up_when_the_member_wants_it()
+    {
+        var outcome = await RequestAsync(HeraldGameId, "Enchantress", useHerald: true);
+
+        Assert.True(outcome.Ok, outcome.Error);
+        Assert.Equal(CharacterSource.Herald, outcome.Character!.Source);
+        Assert.Equal("Champion", outcome.Character.Class);
+    }
+
+    [Fact]
+    public async Task A_herald_that_lists_everyone_is_not_optional()
+    {
+        // The rule that was there before and still is: the game decides. Choosing
+        // to type a sheet in against a herald that works is choosing worse data.
+        Assert.Null(((IHeraldAdapter)Herald).CoverageNote);
+
+        var outcome = await RequestAsync(HeraldGameId, "Enchantress", useHerald: false, job: "Typed");
+
+        Assert.False(outcome.Ok);
+        Assert.Contains("looked up rather than typed", outcome.Error!);
+        Assert.False(await Db.Characters.AnyAsync(c => c.Name == "Enchantress"));
+    }
+
+    [Fact]
+    public async Task A_herald_that_admits_it_misses_people_can_be_skipped()
+    {
+        // Standing in for the Armory.
+        Herald.CoverageNote = "Only lists subscribed accounts.";
+
+        var outcome = await RequestAsync(
+            HeraldGameId, "Unsubscribed", useHerald: false, job: "Frost Death Knight", level: 80);
+
+        Assert.True(outcome.Ok, outcome.Error);
+        Assert.Equal(CharacterSource.Manual, outcome.Character!.Source);
+        Assert.Equal("Frost Death Knight", outcome.Character.Class);
+        Assert.Equal(80, outcome.Character.Level);
+        // The herald was never asked, which is the point: it does not have them.
+        Assert.Equal(0, Herald.Calls);
+    }
+
+    [Fact]
+    public async Task A_typed_sheet_on_a_herald_game_is_never_overwritten()
+    {
+        // The reason typing one used to be refused outright. It is safe because the
+        // row says where it came from: RefreshAsync leaves a manual character alone
+        // and the daily pass filters to FromHerald.
+        Herald.CoverageNote = "Only lists subscribed accounts.";
+
+        var added = await RequestAsync(HeraldGameId, "Enchantress", useHerald: false, job: "Typed", level: 42);
+        Assert.True(added.Ok, added.Error);
+
+        var refreshed = await _service.RefreshAsync(added.Character!, default);
+
+        Assert.False(refreshed);
+        Assert.Equal("Typed", added.Character!.Class);
+        Assert.Equal(42, added.Character.Level);
+        // Not an error either: a hand-typed sheet is not stale because nothing
+        // fetched it.
+        Assert.Null(added.Character.LastError);
+    }
+
+    [Fact]
+    public async Task A_game_with_no_herald_is_typed_in_whatever_was_ticked()
+    {
+        // There is nothing to look up, so the checkbox cannot ask for one.
+        var outcome = await RequestAsync(NoHeraldGameId, "Sigrun", useHerald: true, job: "Skald", level: 44);
+
+        Assert.True(outcome.Ok, outcome.Error);
+        Assert.Equal(CharacterSource.Manual, outcome.Character!.Source);
+        Assert.Equal("Skald", outcome.Character.Class);
+    }
+
+    [Fact]
+    public async Task A_game_that_does_not_exist_is_refused_once()
+    {
+        var outcome = await RequestAsync(999_999, "Nobody", useHerald: true);
+
+        Assert.False(outcome.Ok);
+        Assert.Contains("does not exist", outcome.Error!);
+    }
+
     [Fact]
     public async Task Adds_a_character_with_the_stats_the_herald_gave()
     {
@@ -184,9 +280,11 @@ public class CharacterServiceTests : HeraldDatabaseTests
     [Fact]
     public async Task Refusing_a_sheet_for_a_game_that_has_a_herald()
     {
-        // Two ways to fill one row means the next refresh discards what was typed.
-        var outcome = await _service.AddManualAsync(
-            Member, HeraldGameId, "Enchantress", "Champion", 50, default);
+        // Still refused, one layer up. AddManualAsync records what it is given;
+        // whether a herald game may be typed in at all is AddAsync's decision,
+        // because that is the only place that knows what the member was offered.
+        // Asserted here through the same call the page makes.
+        var outcome = await RequestAsync(HeraldGameId, "Enchantress", useHerald: false, job: "Champion");
 
         Assert.False(outcome.Ok);
         Assert.Contains("looked up", outcome.Error);

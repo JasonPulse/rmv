@@ -29,6 +29,12 @@ public sealed class FakeHeraldAdapter : IHeraldAdapter
     /// <summary>Set to make every fetch fail, standing in for a herald being down.</summary>
     public string? ForcedError { get; set; }
 
+    /// <summary>
+    /// Set to stand in for the Armory, the one herald that admits it does not list
+    /// every character. Null by default, which is every other herald.
+    /// </summary>
+    public string? CoverageNote { get; set; }
+
     public int Calls { get; private set; }
 
     public FakeHeraldAdapter WithCharacter(string name, Action<HeraldCharacterBuilder>? configure = null)

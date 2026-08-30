@@ -54,6 +54,76 @@ public class HeraldLiveTests
     }
 
     [Fact]
+    public async Task The_armory_returns_a_real_character()
+    {
+        // The character whose page prompted this adapter. Nothing is mocked: the
+        // real page is fetched and the JSON it carries is parsed.
+        var adapter = new WowArmoryAdapter(Fetcher());
+
+        var result = await adapter.FetchCharacterAsync(
+            adapter.DefaultBaseUrl, "Syfr-Quel'Thalas", CancellationToken.None);
+
+        Assert.True(result.Ok, result.Error);
+
+        var c = result.Character!;
+        Assert.Equal("Syfr", c.Name);
+        Assert.Equal("Quel'Thalas (Alliance)", c.Realm);
+        Assert.Contains("Death Knight", c.Class!);
+        Assert.True(c.Level is >= 1 and <= 90, $"level {c.Level}");
+        Assert.NotNull(c.Portrait);
+    }
+
+    [Fact]
+    public async Task The_armory_pasted_as_an_address_finds_the_same_character()
+    {
+        var adapter = new WowArmoryAdapter(Fetcher());
+
+        var result = await adapter.FetchCharacterAsync(
+            adapter.DefaultBaseUrl,
+            "https://worldofwarcraft.blizzard.com/en-us/worldsoul/us/armory/character/quelthalas/syfr",
+            CancellationToken.None);
+
+        Assert.True(result.Ok, result.Error);
+        Assert.Equal("Syfr", result.Character!.Name);
+    }
+
+    [Fact]
+    public async Task The_armory_says_why_it_might_not_have_a_character()
+    {
+        // The live shape that matters: the Armory answers 500 rather than 404 for a
+        // character it will not show, and a lapsed subscription looks identical to a
+        // misspelling. Both explanations have to reach the member.
+        var adapter = new WowArmoryAdapter(Fetcher());
+
+        var result = await adapter.FetchCharacterAsync(
+            adapter.DefaultBaseUrl, "Zzqxwvunlikelyname-Quel'Thalas", CancellationToken.None);
+
+        Assert.False(result.Ok);
+        Assert.Contains("no character", result.Error!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("subscription", result.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task The_armory_portrait_is_fetchable()
+    {
+        // The render is on a different host from the Armory itself, so this is the
+        // check that the portrait pipeline reaches it at all.
+        var fetcher = Fetcher();
+        var adapter = new WowArmoryAdapter(fetcher);
+
+        var result = await adapter.FetchCharacterAsync(
+            adapter.DefaultBaseUrl, "Syfr-Quel'Thalas", CancellationToken.None);
+
+        Assert.True(result.Ok, result.Error);
+
+        var image = await fetcher.GetImageAsync(result.Character!.Portrait!.Url, CancellationToken.None);
+
+        Assert.True(image.Ok, image.Error);
+        Assert.StartsWith("image/", image.ContentType!);
+        Assert.True(image.Bytes!.Length > 1000, $"{image.Bytes.Length} bytes");
+    }
+
+    [Fact]
     public async Task HeraldXi_returns_a_real_character_when_allowlisted()
     {
         var adapter = new HeraldXiAdapter(Fetcher("heraldxi.network-gnomes.com"));

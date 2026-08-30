@@ -36,7 +36,22 @@ public class IndexModel(
     /// </summary>
     public HashSet<int> HeraldGameIds { get; private set; } = [];
 
+    /// <summary>
+    /// Games whose herald admits it does not list everyone, and what it says about
+    /// that. Only these offer the choice of typing the sheet in instead.
+    ///
+    /// The Armory is the case: it shows characters on a subscribed account only,
+    /// and answers a lapsed one exactly as it answers a misspelling. Both the note
+    /// and the offer come from IHeraldAdapter.CoverageNote, so the form cannot
+    /// promise a choice the server then refuses.
+    /// </summary>
+    public IReadOnlyDictionary<int, string> HeraldNotes { get; private set; } =
+        new Dictionary<int, string>();
+
     public bool HasHerald(GamePresence game) => HeraldGameIds.Contains(game.Id);
+
+    public string? NoteFor(GamePresence game) =>
+        HeraldNotes.TryGetValue(game.Id, out var note) ? note : null;
 
     public string? Error { get; private set; }
 
@@ -90,6 +105,14 @@ public class IndexModel(
         public int GamePresenceId { get; set; }
 
         /// <summary>
+        /// Ticked by default: most members are subscribed and a looked-up sheet is
+        /// better than a typed one. Only consulted for a game whose herald has a
+        /// CoverageNote; see CharacterService.AddAsync.
+        /// </summary>
+        [Display(Name = "Look this character up")]
+        public bool UseHerald { get; set; } = true;
+
+        /// <summary>
         /// Longer than a name allows, because some heralds take a pasted character
         /// URL instead. The adapter decides what its own server accepts.
         /// </summary>
@@ -136,17 +159,14 @@ public class IndexModel(
             return await RedisplayAsync(ct);
         }
 
-        // The game decides which path this is, not a radio button. A game either
-        // has a herald to ask or it does not, and letting the member choose would
-        // only let them choose wrong.
-        var game = await db.GamePresences
-            .AsNoTracking()
-            .FirstOrDefaultAsync(g => g.Id == Input.GamePresenceId, ct);
-
-        var outcome = heralds.Find(game?.HeraldAdapterKey) is not null
-            ? await characters.AddAsync(member, Input.GamePresenceId, Input.Name, ct)
-            : await characters.AddManualAsync(
-                member, Input.GamePresenceId, Input.Name, Input.Class, Input.Level, ct);
+        // The page passes on what was asked for and does not decide anything. Which
+        // path this takes is CharacterService.AddAsync's decision, from the game,
+        // its adapter and the member's choice, in that order.
+        var outcome = await characters.AddAsync(
+            member,
+            new CharacterRequest(
+                Input.GamePresenceId, Input.Name, Input.Class, Input.Level, Input.UseHerald),
+            ct);
 
         if (!outcome.Ok)
         {
@@ -256,10 +276,16 @@ public class IndexModel(
             .AsNoTracking()
             .ToListAsync(ct);
 
-        HeraldGameIds = Games
-            .Where(g => heralds.Find(g.HeraldAdapterKey) is not null)
-            .Select(g => g.Id)
-            .ToHashSet();
+        var adapters = Games
+            .Select(g => (Game: g, Adapter: heralds.Find(g.HeraldAdapterKey)))
+            .Where(x => x.Adapter is not null)
+            .ToList();
+
+        HeraldGameIds = adapters.Select(x => x.Game.Id).ToHashSet();
+
+        HeraldNotes = adapters
+            .Where(x => x.Adapter!.CoverageNote is not null)
+            .ToDictionary(x => x.Game.Id, x => x.Adapter!.CoverageNote!);
 
         if (this.Flash("added") is { } a) Notice = $"Added {a}.";
         if (this.Flash("removed") is { } r) Notice = $"Removed {r}.";

@@ -43,7 +43,9 @@
                             <option value="">Pick a game</option>
                             @foreach (var g in Model.Games)
                             {
-                                <option value="@g.Id" data-herald="@(Model.HasHerald(g) ? "true" : "false")">@g.Game</option>
+                                <option value="@g.Id"
+                                        data-herald="@(Model.HasHerald(g) ? "true" : "false")"
+                                        data-optional="@(Model.NoteFor(g) is not null ? "true" : "false")">@g.Game</option>
                             }
                         </select>
                     </div>
@@ -54,10 +56,31 @@
                                placeholder="Exactly as it appears in game" />
                         <p class="hint" data-when="herald" hidden>
                             Spelling has to match. We ask the herald, and it is
-                            fussier than we are. For the Lodestone you can paste
-                            your character's page address instead of the name.
+                            fussier than we are. For the Lodestone and the Armory you
+                            can paste your character's page address instead. The
+                            Armory also needs the realm, so
+                            <span class="mono">Syfr-Quel'Thalas</span> works too.
                         </p>
                     </div>
+
+                    @* Only for a herald that admits it does not list everyone, which
+                       today is the Armory: it shows characters on a subscribed
+                       account and answers a lapsed one exactly as it answers a
+                       misspelling. Visible without the script, like the manual
+                       fields, so the form still works when it is blocked. *@
+                    @if (Model.HeraldNotes.Count > 0)
+                    {
+                        <div class="field" data-when="choice">
+                            <label class="check">
+                                <input asp-for="Input.UseHerald" type="checkbox" data-heraldtoggle />
+                                <span>Look this character up</span>
+                            </label>
+                            @foreach (var (id, note) in Model.HeraldNotes)
+                            {
+                                <p class="hint" data-note-for="@id">@note</p>
+                            }
+                        </div>
+                    }
 
                     @* Shown unless the picked game has a herald, which means shown
                        by default, so this works with the script blocked. *@

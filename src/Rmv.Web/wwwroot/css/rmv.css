@@ -99,6 +99,16 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* The hidden attribute beats any component's own display rule.
+
+   Without this it does not. A browser's own [hidden] rule is a user agent style,
+   so any author rule setting display wins over it: .field is display:grid, so a
+   <div class="field" hidden> stays on the page. That had already been patched once
+   for one component, .menu[hidden], which is the tell that it wanted fixing here
+   instead. Everything the character form and the account menu hide with the
+   attribute depends on this line. */
+[hidden] { display: none !important; }
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {
@@ -367,7 +377,7 @@ p { margin: 0 0 1.1em; max-width: var(--measure); }
   border-image: url("../img/ui/panel-frame-card.png")
     var(--slice-panel-frame-card) / 26px / 0 stretch;
 }
-.menu[hidden] { display: none; }
+/* Hiding is [hidden] above, which now beats every component's display rule. */
 
 /* Rows are plain, with the kit's hairline rule between them and a diamond
    marker on hover. The plaque art was tried here and abandoned: it is a wide

@@ -9,12 +9,71 @@ public sealed record AddOutcome(bool Ok, Character? Character, string? Error)
     public static AddOutcome Added(Character c) => new(true, c, null);
 }
 
+/// <summary>
+/// What a member asked for when adding a character.
+/// </summary>
+/// <param name="UseHerald">
+/// What the member chose, and only consulted for a herald that admits it does not
+/// list everyone; see IHeraldAdapter.CoverageNote. For every other game the game
+/// decides, because a member choosing "type it in" against a working herald would
+/// only be choosing worse data.
+/// </param>
+public sealed record CharacterRequest(
+    int GameId, string Name, string? Class = null, int? Level = null, bool UseHerald = true);
+
 public sealed class CharacterService(
     RmvDbContext db,
     HeraldRegistry registry,
     HeraldFetcher fetcher,
     ILogger<CharacterService> log)
 {
+    /// <summary>
+    /// Adds a character, looked up or typed in, and decides which of those it is.
+    ///
+    /// The decision lives here and nowhere else. It used to be an expression on the
+    /// characters page, which was fine while that page was the only caller and
+    /// exactly the shape that goes wrong when it stops being.
+    ///
+    /// Three inputs: whether the game has an adapter registered, whether that
+    /// adapter admits it does not list every character, and what the member chose.
+    /// A game with no herald is always typed in. A game whose herald lists
+    /// everybody is always looked up. Only in between does the member's choice
+    /// count.
+    /// </summary>
+    public async Task<AddOutcome> AddAsync(
+        Member member, CharacterRequest request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var game = await db.GamePresences.FirstOrDefaultAsync(g => g.Id == request.GameId, ct);
+        if (game is null)
+        {
+            return AddOutcome.Fail("That game does not exist.");
+        }
+
+        var adapter = registry.Find(game.HeraldAdapterKey);
+
+        if (adapter is null)
+        {
+            return await AddManualAsync(
+                member, request.GameId, request.Name, request.Class, request.Level, ct);
+        }
+
+        if (request.UseHerald)
+        {
+            return await AddAsync(member, request.GameId, request.Name, ct);
+        }
+
+        if (adapter.CoverageNote is null)
+        {
+            return AddOutcome.Fail(
+                $"{game.Game} has a herald, so its characters are looked up rather than typed.");
+        }
+
+        return await AddManualAsync(
+            member, request.GameId, request.Name, request.Class, request.Level, ct);
+    }
+
     /// <summary>
     /// Looks a character up on the game's herald and records it against the
     /// member. Nothing is saved unless the herald confirms the character exists,
@@ -96,12 +155,11 @@ public sealed class CharacterService(
             return AddOutcome.Fail(Claimed(existing, member.Id));
         }
 
-        // Refused rather than allowed as an override. Two ways to fill the same
-        // row means the herald's next refresh silently discards what was typed.
-        if (registry.Find(game.HeraldAdapterKey) is not null)
-        {
-            return AddOutcome.Fail($"{game.Game} has a herald, so its characters are looked up rather than typed.");
-        }
+        // Whether a herald game may be typed in at all is decided by the AddAsync
+        // above, which is the only place that knows what the member was offered.
+        // Nothing here overwrites a typed sheet: a manual character has
+        // Source = Manual, RefreshAsync leaves those alone, and the daily pass
+        // filters to FromHerald.
 
         if (!TryTidy(jobClass, level, out var tidyClass, out var tidyLevel, out var error))
         {

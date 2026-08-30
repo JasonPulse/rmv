@@ -116,6 +116,22 @@ public interface IHeraldAdapter
     /// <summary>How this server's characters compare. See LeaderboardMetric.</summary>
     LeaderboardMetric Metric { get; }
 
+    /// <summary>
+    /// Who this herald leaves out, in words a member reads, or null when it lists
+    /// every character on its server.
+    ///
+    /// One property, because it answers two questions that must not disagree:
+    /// whether the add form offers to skip the lookup and type the sheet in
+    /// instead, and what it says beside that offer. The Armory is the reason it
+    /// exists. It only shows characters on a subscribed account, and it answers a
+    /// lapsed one exactly as it answers a misspelling, so "look it up" cannot be
+    /// the only way to record a WoW character.
+    ///
+    /// Null is the normal case and keeps the normal rule: the game decides how its
+    /// characters are recorded, not the member. See CharacterService.AddAsync.
+    /// </summary>
+    string? CoverageNote => null;
+
     /// <summary>Stored against the Game row, so an admin picks the adapter.</summary>
     string Key { get; }
 
