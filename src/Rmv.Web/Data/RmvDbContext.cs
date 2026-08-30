@@ -109,10 +109,10 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
         b.Entity<Character>(e =>
         {
             e.ToTable("characters");
-            e.Property(c => c.Name).HasMaxLength(32).IsRequired();
+            e.Property(c => c.Name).HasMaxLength(CharacterLimits.MaxName).IsRequired();
             e.Property(c => c.Guild).HasMaxLength(80);
             e.Property(c => c.Realm).HasMaxLength(40);
-            e.Property(c => c.Class).HasMaxLength(60);
+            e.Property(c => c.Class).HasMaxLength(CharacterLimits.MaxClass);
             e.Property(c => c.Race).HasMaxLength(40);
             e.Property(c => c.RealmRank).HasMaxLength(40);
             e.Property(c => c.LastOnline).HasMaxLength(40);
@@ -212,13 +212,14 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
         b.Entity<RequestLog>(e =>
         {
             e.ToTable("request_logs");
-            e.Property(r => r.Path).HasMaxLength(400).IsRequired();
+            e.Property(r => r.Path)
+                .HasMaxLength(Analytics.RequestLogMiddleware.MaxTextLength).IsRequired();
             e.Property(r => r.Method).HasMaxLength(10).IsRequired();
-            e.Property(r => r.Referrer).HasMaxLength(400);
+            e.Property(r => r.Referrer).HasMaxLength(Analytics.RequestLogMiddleware.MaxTextLength);
             e.Property(r => r.ReferrerHost).HasMaxLength(Analytics.RequestLogMiddleware.MaxHostLength);
             // The panel that answers "which site is sending these" groups on it.
             e.HasIndex(r => r.ReferrerHost);
-            e.Property(r => r.UserAgent).HasMaxLength(400);
+            e.Property(r => r.UserAgent).HasMaxLength(Analytics.RequestLogMiddleware.MaxTextLength);
             e.Property(r => r.Country).HasMaxLength(2);
             // Every query is either recent-first or grouped by path over a window.
             e.HasIndex(r => r.At).IsDescending();

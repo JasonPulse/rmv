@@ -53,7 +53,9 @@ public class PathModel(RmvDbContext db) : PageModel
         // stores it and because "?chars=property" is the interesting part.
         Path = (p ?? "").Trim();
 
-        if (Path.Length is 0 or > 400)
+        // Longer than the column is a path the log cannot contain, so there is
+        // nothing to look up.
+        if (Path.Length is 0 || Path.Length > RequestLogMiddleware.MaxTextLength)
         {
             return RedirectToPage("/Admin/Analytics");
         }

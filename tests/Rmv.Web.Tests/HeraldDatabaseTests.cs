@@ -131,6 +131,24 @@ public abstract class HeraldDatabaseTests : IAsyncLifetime
         return member;
     }
 
+    /// <summary>
+    /// A screenshot row with bytes, owned by whoever is given.
+    ///
+    /// Here rather than in each test class for the reason this base class exists at
+    /// all: two of them had grown their own copy and the copies were drifting.
+    /// </summary>
+    protected static Screenshot NewScreenshot(int memberId, string caption) => new()
+    {
+        MemberId = memberId,
+        Caption = caption,
+        ContentType = "image/png",
+        Width = 1,
+        Height = 1,
+        Bytes = 1,
+        UploadedAt = DateTimeOffset.UtcNow,
+        Image = new ScreenshotImage { Bytes = [1] },
+    };
+
     public async Task DisposeAsync()
     {
         if (Db is null)

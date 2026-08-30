@@ -27,42 +27,51 @@ public class MemberModel(IServiceProvider services) : PageModel
 
     public record GameGroup(GamePresence Game, IReadOnlyList<Character> Characters);
 
+    /// <summary>
+    /// Loaded through TryLoadAsync, like every other public page.
+    ///
+    /// This used to resolve the DbContext and query it directly, which is the same
+    /// three lines with the try left off. A page linked from the history page then
+    /// answered 500 during a Postgres restart while the page linking to it rendered
+    /// fine. The rule is "no public page fails because of the database", and the
+    /// way to keep a rule is to call the one thing that implements it.
+    /// </summary>
     public async Task<IActionResult> OnGetAsync(int id, int? c, CancellationToken ct)
     {
-        var db = services.GetService<RmvDbContext>();
-        if (db is null)
-        {
-            return NotFound();
-        }
-
-        Owner = await db.Members.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id, ct);
-
-        // A blocked member is not shown at all: they are not on the roster.
-        if (Owner is null || Owner.Status == MemberStatus.Blocked)
-        {
-            return NotFound();
-        }
-
-        var characters = await db.Characters
-            .Include(x => x.Game)
-            .Where(x => x.MemberId == id)
-            .AsNoTracking()
-            .ToListAsync(ct);
-
-        Games = characters
-            .Where(x => x.Game is not null)
-            .GroupBy(x => x.Game!)
-            .OrderByDescending(g => g.Key.IsActive)
-            .ThenBy(g => g.Key.SortOrder)
-            .ThenBy(g => g.Key.Game)
-            .Select(g => new GameGroup(
-                g.Key,
-                g.OrderBy(x => x.Name).ToList()))
-            .ToList();
-
         HighlightId = c;
-        Highlighted = characters.FirstOrDefault(x => x.Id == c);
 
-        return Page();
+        var loaded = await this.TryLoadAsync(services, async db =>
+        {
+            Owner = await db.Members.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id, ct);
+
+            if (!RosterVisibility.Shows(Owner))
+            {
+                Owner = null;
+                return;
+            }
+
+            var characters = await db.Characters
+                .Include(x => x.Game)
+                .Where(x => x.MemberId == id)
+                .AsNoTracking()
+                .ToListAsync(ct);
+
+            Games = characters
+                .Where(x => x.Game is not null)
+                .GroupBy(x => x.Game!)
+                .OrderByDescending(g => g.Key.IsActive)
+                .ThenBy(g => g.Key.SortOrder)
+                .ThenBy(g => g.Key.Game)
+                .Select(g => new GameGroup(
+                    g.Key,
+                    g.OrderBy(x => x.Name).ToList()))
+                .ToList();
+
+            Highlighted = characters.FirstOrDefault(x => x.Id == c);
+        });
+
+        // No database, an outage, or nobody by that id: all three are "no such
+        // roster page" to a visitor, and none of them is a 500.
+        return loaded && Owner is not null ? Page() : NotFound();
     }
 }

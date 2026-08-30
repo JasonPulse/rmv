@@ -115,3 +115,24 @@ public class GamePresence
         return (start, end);
     }
 }
+
+/// <summary>
+/// The order games are listed in.
+///
+/// Two orders, and both live here. The history page and the leaderboards read
+/// twenty years newest first, out of Period; everything that offers games as a
+/// list, including both add forms and the admin editor, reads them in the order an
+/// admin arranged them.
+///
+/// This was four orderings across five files, and two of them ignored SortOrder
+/// entirely, so arranging the admin list did nothing to the dropdown a member picks
+/// a game from.
+/// </summary>
+public static class GameOrder
+{
+    /// <summary>Active first, then as an admin arranged them, then by name.</summary>
+    public static IOrderedQueryable<GamePresence> Listed(this IQueryable<GamePresence> games) =>
+        games.OrderByDescending(g => g.IsActive)
+            .ThenBy(g => g.SortOrder)
+            .ThenBy(g => g.Game);
+}

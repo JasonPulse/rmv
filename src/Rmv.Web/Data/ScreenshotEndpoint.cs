@@ -16,9 +16,17 @@ namespace Rmv.Web.Data;
 /// </summary>
 public static class ScreenshotEndpoint
 {
+    /// <summary>
+    /// The route, and the path a page points an img at. Both here so a change to
+    /// one is a change to the other in view; ImageRouteTests holds them together.
+    /// </summary>
+    public const string Route = "/gallery/{id:int}/image";
+
+    public static string PathFor(int id) => $"/gallery/{id}/image";
+
     public static void MapScreenshots(this WebApplication app)
     {
-        app.MapGet("/gallery/{id:int}/image", async (
+        app.MapGet(Route, async (
             int id,
             RmvDbContext db,
             HttpContext http,
@@ -28,26 +36,23 @@ public static class ScreenshotEndpoint
             // not load it out of Postgres to find that out.
             var meta = await db.Screenshots
                 .Where(s => s.Id == id)
-                .Select(s => new
-                {
-                    s.ContentType,
-                    s.UploadedAt,
-                    Blocked = s.Member != null && s.Member.Status == MemberStatus.Blocked,
-                })
+                // Off the roster is off the site: not found, rather than found and
+                // then refused. One rule, in RosterVisibility.
+                .OnRoster()
+                .Select(s => new { s.ContentType, s.UploadedAt })
                 .FirstOrDefaultAsync(ct);
 
-            // A blocked member is off the roster and their characters go with them,
-            // so their screenshots do too.
-            if (meta is null || meta.Blocked)
+            if (meta is null)
             {
                 return Results.NotFound();
             }
 
             // The bytes never change once stored, so the upload time is a complete
             // version: a different picture is a different id.
-            var etag = $"\"{meta.UploadedAt.ToUnixTimeMilliseconds()}\"";
+            var etag = StoredImage.ETagFor(
+                meta.UploadedAt.ToUnixTimeMilliseconds().ToString());
 
-            if (http.Request.Headers.IfNoneMatch.Any(v => v == etag))
+            if (StoredImage.AlreadyHas(http, etag))
             {
                 return Results.StatusCode(StatusCodes.Status304NotModified);
             }
@@ -57,15 +62,7 @@ public static class ScreenshotEndpoint
                 .Select(i => i.Bytes)
                 .FirstOrDefaultAsync(ct);
 
-            if (bytes is null || bytes.Length == 0)
-            {
-                return Results.NotFound();
-            }
-
-            // A year: an id maps to one immutable image for as long as it exists.
-            http.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
-
-            return Results.Bytes(bytes, meta.ContentType, entityTag: new(etag));
+            return StoredImage.Bytes(http, bytes, meta.ContentType, etag);
         })
         .WithName("Screenshot")
         .AllowAnonymous();

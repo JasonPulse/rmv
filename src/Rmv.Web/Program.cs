@@ -162,7 +162,7 @@ if (discordEnabled)
 
             // Record the member, so /admin/members lists people who have actually
             // signed in rather than asking for Discord ids to be typed in.
-            return UpsertMemberAsync(context);
+            return RecordSignInAsync(context);
         };
     });
 }
@@ -350,14 +350,26 @@ app.MapHealthChecks("/healthz/ready", new() { Predicate = c => c.Tags.Contains("
 app.Run();
 
 /// <summary>
-/// Upserts the signed-in member. Failures are swallowed on purpose: not being
-/// able to record the visit must not stop the sign-in itself.
+/// Hands the sign-in to MemberDirectory, which is the only thing that writes a
+/// member row.
+///
+/// This used to upsert the row itself, and its rules differed from the directory's:
+/// it set IsAdmin false and left Status at its default, so a root admin's first row
+/// said Pending while configuration said they ran the site. Two writers of one row
+/// is the same mistake as two answers to one question, and this is the reading half
+/// only: pull the three facts out of the OAuth payload and pass them on.
+///
+/// Failures are swallowed on purpose. Not being able to record the visit must not
+/// stop the sign-in itself.
 /// </summary>
-static async Task UpsertMemberAsync(OAuthCreatingTicketContext context)
+static async Task RecordSignInAsync(OAuthCreatingTicketContext context)
 {
     var services = context.HttpContext.RequestServices;
-    var db = services.GetService<RmvDbContext>();
-    if (db is null)
+
+    // Absent when there is no connection string, in which case there is nothing to
+    // record and sign-in still works.
+    var directory = services.GetService<MemberDirectory>();
+    if (directory is null)
     {
         return;
     }
@@ -374,39 +386,15 @@ static async Task UpsertMemberAsync(OAuthCreatingTicketContext context)
                ?? id;
 
     var avatar = user.TryGetProperty("avatar", out var a) ? a.GetString() : null;
-    var now = DateTimeOffset.UtcNow;
 
     try
     {
-        var member = await db.Members.FirstOrDefaultAsync(m => m.DiscordId == id);
-        if (member is null)
-        {
-            db.Members.Add(new Member
-            {
-                DiscordId = id,
-                DisplayName = name,
-                AvatarHash = avatar,
-                FirstSeenAt = now,
-                LastSeenAt = now,
-                // Root admins are admins by configuration; the flag is not set
-                // here, so revoking config access genuinely revokes it.
-                IsAdmin = false,
-            });
-        }
-        else
-        {
-            member.DisplayName = name;
-            member.AvatarHash = avatar;
-            member.LastSeenAt = now;
-        }
-
-        await db.SaveChangesAsync();
+        await directory.RecordSignInAsync(new DiscordIdentity(id, name, avatar), default);
     }
     catch (Exception ex)
     {
-        context.HttpContext.RequestServices
-            .GetRequiredService<ILoggerFactory>()
-            .CreateLogger("MemberUpsert")
+        services.GetRequiredService<ILoggerFactory>()
+            .CreateLogger("MemberSignIn")
             .LogWarning(ex, "Could not record member {Id}.", id);
     }
 }

@@ -25,11 +25,12 @@ public class HistoryModel(IServiceProvider services) : PageModel
                 .AsNoTracking()
                 .ToListAsync(ct);
 
-            // A blocked member is off the roster, so their characters go with them.
+            // Filtered in memory rather than in the query, because the characters
+            // arrive as part of the games. The rule itself is RosterVisibility's.
             foreach (var game in all)
             {
                 game.Characters = game.Characters
-                    .Where(c => c.Member is not null && c.Member.Status != MemberStatus.Blocked)
+                    .Where(c => RosterVisibility.Shows(c.Member))
                     .OrderBy(c => c.Name)
                     .ToList();
             }

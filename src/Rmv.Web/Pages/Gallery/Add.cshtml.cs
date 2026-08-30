@@ -89,7 +89,7 @@ public class AddModel(RmvDbContext db, GalleryService gallery, CurrentMember me)
     private async Task LoadAsync(CancellationToken ct)
     {
         Games = await db.GamePresences
-            .OrderByDescending(g => g.IsActive).ThenBy(g => g.Game)
+            .Listed()
             .AsNoTracking()
             .ToListAsync(ct);
 

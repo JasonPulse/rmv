@@ -100,30 +100,24 @@ public class HistoryModel(RmvDbContext db, HeraldRegistry heralds) : PageModel
             return Page();
         }
 
-        if (LinkInput.Id is { } id)
+        // Find or create, then one mapping. Add and edit each had their own copy of
+        // these five assignments, so a field added to the form reached the database
+        // on one path and was silently dropped on the other.
+        var row = LinkInput.Id is { } id ? await db.GameLinks.FindAsync([id], ct) : new GameLink();
+        if (row is null)
         {
-            var row = await db.GameLinks.FindAsync([id], ct);
-            if (row is null)
-            {
-                return NotFound();
-            }
-
-            row.GamePresenceId = LinkInput.GamePresenceId;
-            row.Kind = LinkInput.Kind;
-            row.Label = LinkInput.Label.Trim();
-            row.Url = url!;
-            row.SortOrder = LinkInput.SortOrder;
+            return NotFound();
         }
-        else
+
+        row.GamePresenceId = LinkInput.GamePresenceId;
+        row.Kind = LinkInput.Kind;
+        row.Label = LinkInput.Label.Trim();
+        row.Url = url!;
+        row.SortOrder = LinkInput.SortOrder;
+
+        if (LinkInput.Id is null)
         {
-            db.GameLinks.Add(new GameLink
-            {
-                GamePresenceId = LinkInput.GamePresenceId,
-                Kind = LinkInput.Kind,
-                Label = LinkInput.Label.Trim(),
-                Url = url!,
-                SortOrder = LinkInput.SortOrder,
-            });
+            db.GameLinks.Add(row);
         }
 
         await db.SaveChangesAsync(ct);
@@ -169,35 +163,28 @@ public class HistoryModel(RmvDbContext db, HeraldRegistry heralds) : PageModel
             return Page();
         }
 
-        if (Input.Id is { } id)
-        {
-            var row = await db.GamePresences.FindAsync([id], ct);
-            if (row is null)
-            {
-                return NotFound();
-            }
+        // Find or create, then one mapping, for the reason the link form has one.
+        var row = Input.Id is { } id
+            ? await db.GamePresences.FindAsync([id], ct)
+            : new GamePresence();
 
-            row.Game = Input.Game.Trim();
-            row.Guilds = Input.Guilds.Trim();
-            row.Period = string.IsNullOrWhiteSpace(Input.Period) ? null : Input.Period.Trim();
-            row.IsActive = Input.IsActive;
-            row.SortOrder = Input.SortOrder;
-            row.HeraldAdapterKey = adapterKey;
-            // An override without an adapter is meaningless, so it goes with it.
-            row.HeraldBaseUrl = adapterKey is null ? null : heraldUrl;
-        }
-        else
+        if (row is null)
         {
-            db.GamePresences.Add(new GamePresence
-            {
-                Game = Input.Game.Trim(),
-                Guilds = Input.Guilds.Trim(),
-                Period = string.IsNullOrWhiteSpace(Input.Period) ? null : Input.Period.Trim(),
-                IsActive = Input.IsActive,
-                SortOrder = Input.SortOrder,
-                HeraldAdapterKey = adapterKey,
-                HeraldBaseUrl = adapterKey is null ? null : heraldUrl,
-            });
+            return NotFound();
+        }
+
+        row.Game = Input.Game.Trim();
+        row.Guilds = Input.Guilds.Trim();
+        row.Period = string.IsNullOrWhiteSpace(Input.Period) ? null : Input.Period.Trim();
+        row.IsActive = Input.IsActive;
+        row.SortOrder = Input.SortOrder;
+        row.HeraldAdapterKey = adapterKey;
+        // An override without an adapter is meaningless, so it goes with it.
+        row.HeraldBaseUrl = adapterKey is null ? null : heraldUrl;
+
+        if (Input.Id is null)
+        {
+            db.GamePresences.Add(row);
         }
 
         await db.SaveChangesAsync(ct);
@@ -222,7 +209,7 @@ public class HistoryModel(RmvDbContext db, HeraldRegistry heralds) : PageModel
     {
         Rows = await db.GamePresences
             .Include(g => g.Links.OrderBy(l => l.SortOrder).ThenBy(l => l.Label))
-            .OrderByDescending(g => g.IsActive).ThenBy(g => g.SortOrder).ThenBy(g => g.Game)
+            .Listed()
             .AsNoTracking()
             .ToListAsync(ct);
 

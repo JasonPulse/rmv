@@ -39,7 +39,7 @@ public class Screenshot
     public ScreenshotImage? Image { get; set; }
 
     /// <summary>Where a page points an img. See ScreenshotEndpoint.</summary>
-    public string Path => $"/gallery/{Id}/image";
+    public string Path => ScreenshotEndpoint.PathFor(Id);
 }
 
 /// <summary>

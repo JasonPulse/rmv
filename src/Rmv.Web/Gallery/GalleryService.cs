@@ -39,13 +39,8 @@ public sealed class GalleryService(RmvDbContext db, ILogger<GalleryService> log)
                 $"You have {count} screenshots up, which is the limit. Remove one first.");
         }
 
-        byte[] bytes;
-
-        try
-        {
-            bytes = await ReadCappedAsync(content, ct);
-        }
-        catch (TooLargeException)
+        // The declared length above is a claim. This is the check that holds.
+        if (await CappedRead.AllAsync(content, ImageProbe.MaxBytes, ct) is not { } bytes)
         {
             return UploadOutcome.Fail(TooBig(ImageProbe.MaxBytes + 1));
         }
@@ -146,32 +141,4 @@ public sealed class GalleryService(RmvDbContext db, ILogger<GalleryService> log)
     private static string TooBig(long length) =>
         $"That is {length / 1024 / 1024}MB. The limit is {ImageProbe.MaxBytes / 1024 / 1024}MB.";
 
-    private sealed class TooLargeException : Exception;
-
-    /// <summary>
-    /// Reads to a hard cap, checked as it goes.
-    ///
-    /// A declared length is checked first because it avoids starting a pointless
-    /// read, but it is not trusted: this is the check that actually holds.
-    /// </summary>
-    private static async Task<byte[]> ReadCappedAsync(Stream content, CancellationToken ct)
-    {
-        var buffer = new byte[64 * 1024];
-        var into = new MemoryStream();
-        var total = 0;
-        int read;
-
-        while ((read = await content.ReadAsync(buffer, ct)) > 0)
-        {
-            total += read;
-            if (total > ImageProbe.MaxBytes)
-            {
-                throw new TooLargeException();
-            }
-
-            into.Write(buffer, 0, read);
-        }
-
-        return into.ToArray();
-    }
 }

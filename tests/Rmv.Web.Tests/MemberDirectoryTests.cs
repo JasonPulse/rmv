@@ -180,6 +180,104 @@ public class MemberDirectoryTests : IAsyncLifetime
         Assert.Null(await _directory.EnsureAsync(anonymousish, default));
     }
 
+    // --- the sign-in hook ----------------------------------------------------
+    //
+    // Program.cs used to upsert the row itself, with different rules from this
+    // class: IsAdmin false, Status left at its default. So a root admin's first
+    // ever row said Pending while configuration said they ran the site, which is
+    // the row the admin table printed "PENDING" next to "ROOT". One writer now, and
+    // these are the cases that used to differ between the two.
+
+    /// <summary>The identity, registered for cleanup, as the OAuth hook builds it.</summary>
+    private DiscordIdentity Identity(string id, string name = "Someone", string? avatar = null)
+    {
+        _created.Add(id);
+        return new DiscordIdentity(id, name, avatar);
+    }
+
+    [Fact]
+    public async Task A_sign_in_records_the_member()
+    {
+        var id = $"t{Guid.NewGuid():N}"[..20];
+
+        var member = await _directory.RecordSignInAsync(Identity(id, "NetworkGnome", "abc"), default);
+
+        Assert.NotNull(member);
+        Assert.Equal("NetworkGnome", member.DisplayName);
+        Assert.Equal("abc", member.AvatarHash);
+        Assert.Equal(MemberStatus.Pending, member.Status);
+        Assert.False(member.IsAdmin);
+    }
+
+    [Fact]
+    public async Task A_root_admins_first_sign_in_is_already_approved_and_admin()
+    {
+        // This is the one that was wrong. The hook created the row, so a root admin
+        // was Pending until some later page load happened to reconcile it.
+        var id = $"t{Guid.NewGuid():N}"[..20];
+
+        var member = await Directory(id).RecordSignInAsync(Identity(id, "Root"), default);
+
+        Assert.NotNull(member);
+        Assert.Equal(MemberStatus.Approved, member.Status);
+        Assert.True(member.IsAdmin);
+        Assert.Equal("Admin:DiscordIds", member.ApprovedBy);
+
+        // Written, not just returned.
+        var stored = await _db.Members.AsNoTracking().FirstAsync(m => m.DiscordId == id);
+        Assert.Equal(MemberStatus.Approved, stored.Status);
+        Assert.True(stored.IsAdmin);
+    }
+
+    [Fact]
+    public async Task A_later_sign_in_refreshes_what_discord_says()
+    {
+        var id = $"t{Guid.NewGuid():N}"[..20];
+
+        var first = await _directory.RecordSignInAsync(Identity(id, "old_name", "oldhash"), default);
+        var firstSeen = first!.FirstSeenAt;
+
+        var again = await _directory.RecordSignInAsync(Identity(id, "new_name", "newhash"), default);
+
+        Assert.Equal("new_name", again!.DisplayName);
+        Assert.Equal("newhash", again.AvatarHash);
+        // First seen is when they first signed in, and stays that way.
+        Assert.Equal(firstSeen, again.FirstSeenAt);
+        Assert.Equal(1, await _db.Members.CountAsync(m => m.DiscordId == id));
+    }
+
+    [Fact]
+    public async Task An_alias_survives_a_sign_in()
+    {
+        // The name a member chose here is theirs, not Discord's. A sign-in refreshes
+        // the Discord name beside it and must not touch the alias.
+        var id = $"t{Guid.NewGuid():N}"[..20];
+
+        var member = await _directory.RecordSignInAsync(Identity(id, "discord_handle"), default);
+        member!.Alias = "Property";
+        await _db.SaveChangesAsync();
+
+        var again = await _directory.RecordSignInAsync(Identity(id, "discord_handle_2"), default);
+
+        Assert.Equal("Property", again!.Alias);
+        Assert.Equal("Property", again.Handle);
+    }
+
+    [Fact]
+    public async Task An_ordinary_page_view_does_not_rewrite_the_name()
+    {
+        // EnsureAsync runs on every request. Copying the claims back over the row
+        // each time would be a write per page view, and the claims came off this row
+        // at sign-in anyway.
+        var id = $"t{Guid.NewGuid():N}"[..20];
+
+        await _directory.RecordSignInAsync(Identity(id, "at_sign_in"), default);
+
+        var seen = await _directory.EnsureAsync(SignedIn(id, "something_else"), default);
+
+        Assert.Equal("at_sign_in", seen!.DisplayName);
+    }
+
     // --- root admins ---------------------------------------------------------
 
     [Fact]

@@ -76,14 +76,6 @@ public class AnalyticsModel(RmvDbContext db) : PageModel
         // excluding them here hid the answer to "who is still requesting this".
         TopReferrerHosts = await RequestLogQueries.TopAsync(
             all.Where(r => r.ReferrerHost != null), r => r.ReferrerHost!, 20, ct);
-        var unusedTail = (await scoped
-                .Where(r => r.Country != null)
-                .GroupBy(r => r.Country!)
-                .Select(g => new { Key = g.Key, Total = g.Count() })
-                .OrderByDescending(x => x.Total).Take(15)
-                .ToListAsync(ct))
-            .Select(x => new Count(x.Key, x.Total)).ToList();
-
         Statuses = await RequestLogQueries.StatusesAsync(scoped, ct);
 
         PerDay = (await scoped

@@ -90,9 +90,7 @@ public class IndexModel(
 
         DatabaseUnavailable = !await this.TryLoadAsync(services, async db =>
         {
-            // A blocked member is off the roster, so their screenshots go with them.
-            var all = db.Screenshots
-                .Where(s => s.Member != null && s.Member.Status != MemberStatus.Blocked);
+            var all = db.Screenshots.OnRoster();
 
             var total = await all.CountAsync(ct);
             Pages = Math.Max(1, (int)Math.Ceiling(total / (double)GalleryLimits.PageSize));

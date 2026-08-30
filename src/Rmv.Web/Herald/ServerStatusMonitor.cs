@@ -66,7 +66,7 @@ public sealed class ServerStatusMonitor(
 
             var games = await db.GamePresences
                 .Where(g => g.IsActive && g.HeraldAdapterKey != null)
-                .OrderBy(g => g.SortOrder).ThenBy(g => g.Game)
+                .Listed()
                 .AsNoTracking()
                 .ToListAsync(ct);
 
@@ -79,11 +79,10 @@ public sealed class ServerStatusMonitor(
                     continue;
                 }
 
-                var url = string.IsNullOrWhiteSpace(game.HeraldBaseUrl)
-                    ? adapter.DefaultBaseUrl
-                    : game.HeraldBaseUrl!;
-
-                var (ok, ms, error) = await fetcher.PingAsync(url, ct);
+                // The same address the character fetches use, because it is the
+                // same method. See HeraldAddress.
+                var (ok, ms, error) = await fetcher.PingAsync(
+                    HeraldAddress.For(game, adapter), ct);
                 results.Add(new ServerStatus(game.Game, ok, ms, DateTimeOffset.UtcNow, error));
             }
 

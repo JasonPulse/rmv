@@ -143,17 +143,7 @@ public class GalleryServiceTests : HeraldDatabaseTests
     {
         for (var i = 0; i < GalleryLimits.MaxPerMember; i++)
         {
-            Db.Screenshots.Add(new Screenshot
-            {
-                MemberId = Member.Id,
-                Caption = $"filler {i}",
-                ContentType = "image/png",
-                Width = 1,
-                Height = 1,
-                Bytes = 1,
-                UploadedAt = DateTimeOffset.UtcNow,
-                Image = new ScreenshotImage { Bytes = [1] },
-            });
+            Db.Screenshots.Add(NewScreenshot(Member.Id, $"filler {i}"));
         }
 
         await Db.SaveChangesAsync();

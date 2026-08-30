@@ -57,7 +57,7 @@ public class IndexModel(
     {
         // The stored name, so this is the column's own limit rather than the add
         // form's allowance for a pasted URL.
-        [StringLength(32, MinimumLength = 2)]
+        [StringLength(CharacterLimits.MaxName, MinimumLength = CharacterLimits.MinName)]
         public string Name { get; set; } = "";
     }
 
@@ -70,16 +70,16 @@ public class IndexModel(
     /// are a name and nothing else.
     ///
     /// A base class rather than a copy in each model. The add form and the per-card
-    /// edit form take the same two fields with the same limits, and the limits have
-    /// to match what CharacterService enforces.
+    /// edit form take the same two fields, and both read their limits from
+    /// CharacterLimits, which is what CharacterService enforces.
     /// </summary>
     public abstract class SheetInput
     {
-        [StringLength(60)]
+        [StringLength(CharacterLimits.MaxClass)]
         [Display(Name = "Job or class")]
         public string? Class { get; set; }
 
-        [Range(1, 999)]
+        [Range(CharacterLimits.MinLevel, CharacterLimits.MaxLevel)]
         public int? Level { get; set; }
     }
 
@@ -94,7 +94,7 @@ public class IndexModel(
         /// URL instead. The adapter decides what its own server accepts.
         /// </summary>
         [Required(ErrorMessage = "Enter the character's name.")]
-        [StringLength(200, MinimumLength = 2)]
+        [StringLength(CharacterLimits.MaxTyped, MinimumLength = CharacterLimits.MinName)]
         public string Name { get; set; } = "";
     }
 
@@ -252,7 +252,7 @@ public class IndexModel(
         // characters are the whole point of the list; a game with no herald takes
         // a sheet the member types instead.
         Games = await db.GamePresences
-            .OrderByDescending(g => g.IsActive).ThenBy(g => g.Game)
+            .Listed()
             .AsNoTracking()
             .ToListAsync(ct);
 

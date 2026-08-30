@@ -58,7 +58,8 @@ public sealed class RequestLogMiddleware(RequestDelegate next, RequestLogWriter 
         finally
         {
             var ua = context.Request.Headers.UserAgent.ToString();
-            var referrer = Truncate(NullIfEmpty(context.Request.Headers.Referer.ToString()), 400);
+            var referrer = Truncate(
+                NullIfEmpty(context.Request.Headers.Referer.ToString()), MaxTextLength);
 
             writer.Enqueue(new RequestLog
             {
@@ -67,12 +68,12 @@ public sealed class RequestLogMiddleware(RequestDelegate next, RequestLogWriter 
                 // Query included: "what were they trying to hit" is the question.
                 // Non-null by construction; Truncate's nullable return is for the
                 // optional headers below.
-                Path = Truncate(path + context.Request.QueryString.Value, 400)!,
+                Path = Truncate(path + context.Request.QueryString.Value, MaxTextLength)!,
                 Status = context.Response.StatusCode,
                 DurationMs = (int)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
                 Referrer = referrer,
                 ReferrerHost = HostOf(referrer),
-                UserAgent = Truncate(NullIfEmpty(ua), 400),
+                UserAgent = Truncate(NullIfEmpty(ua), MaxTextLength),
                 // Cloudflare adds this at the edge; null when not behind it.
                 Country = NullIfEmpty(context.Request.Headers["CF-IPCountry"].ToString()) is { } c
                           && c.Length == 2 ? c.ToUpperInvariant() : null,
@@ -80,6 +81,16 @@ public sealed class RequestLogMiddleware(RequestDelegate next, RequestLogWriter 
             });
         }
     }
+
+    /// <summary>
+    /// How wide the text columns are, and therefore where a value is cut.
+    ///
+    /// Written out eight times before this: three column widths, four truncations
+    /// here, and a length check on the drill-down page. All 400, and nothing made
+    /// them 400. Narrowing the column without the truncation is a write that throws
+    /// on a request path that is meant never to throw.
+    /// </summary>
+    public const int MaxTextLength = 400;
 
     /// <summary>
     /// A DNS name cannot exceed this, so the column is this wide and nothing real

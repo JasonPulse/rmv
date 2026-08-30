@@ -108,10 +108,7 @@ public sealed class HeraldRefreshService(
             await using var scope = scopes.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<RmvDbContext>();
 
-            var query = db.Characters
-                .Where(c => c.Source == CharacterSource.Herald
-                            && c.Game != null
-                            && c.Game.HeraldAdapterKey != null);
+            var query = db.Characters.FromHerald();
 
             if (missingPortraitsOnly)
             {

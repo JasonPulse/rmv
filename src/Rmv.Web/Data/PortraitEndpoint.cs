@@ -20,9 +20,21 @@ namespace Rmv.Web.Data;
 /// </summary>
 public static class PortraitEndpoint
 {
+    /// <summary>
+    /// The route, and the path a page points an img at. Both here so a change to
+    /// one is a change to the other in view; ImageRouteTests holds them together.
+    ///
+    /// The version is in the query so the browser refetches when the picture
+    /// changes and never otherwise.
+    /// </summary>
+    public const string Route = "/characters/{id:int}/portrait";
+
+    public static string PathFor(int id, string version) =>
+        $"/characters/{id}/portrait?v={Uri.EscapeDataString(version)}";
+
     public static void MapPortraits(this WebApplication app)
     {
-        app.MapGet("/characters/{id:int}/portrait", async (
+        app.MapGet(Route, async (
             int id,
             RmvDbContext db,
             HttpContext http,
@@ -32,24 +44,22 @@ public static class PortraitEndpoint
             // conditional request that will not send them.
             var meta = await db.Characters
                 .Where(c => c.Id == id)
-                .Select(c => new
-                {
-                    c.PortraitVersion,
-                    Blocked = c.Member != null && c.Member.Status == MemberStatus.Blocked,
-                })
+                // Off the roster is off the site. One rule, in RosterVisibility.
+                .OnRoster()
+                .Select(c => new { c.PortraitVersion })
                 .FirstOrDefaultAsync(ct);
 
-            if (meta is null || meta.Blocked || meta.PortraitVersion is null)
+            if (meta?.PortraitVersion is null)
             {
                 return Results.NotFound();
             }
 
-            var etag = $"\"{meta.PortraitVersion}\"";
+            var etag = StoredImage.ETagFor(meta.PortraitVersion);
 
             // The version changes only when the picture does, so a match means the
             // browser's copy is still correct. Answering 304 here is most of the
             // point of keying the URL on the version.
-            if (http.Request.Headers.IfNoneMatch.Any(v => v == etag))
+            if (StoredImage.AlreadyHas(http, etag))
             {
                 return Results.StatusCode(StatusCodes.Status304NotModified);
             }
@@ -59,20 +69,7 @@ public static class PortraitEndpoint
                 .Select(p => new { p.Bytes, p.ContentType })
                 .FirstOrDefaultAsync(ct);
 
-            if (portrait is null || portrait.Bytes.Length == 0)
-            {
-                // A version with no bytes means a refresh was interrupted between
-                // the two writes. Reporting it as absent is honest, and the next
-                // refresh will fill it in.
-                return Results.NotFound();
-            }
-
-            // A year, because the URL carries the version: a different picture is a
-            // different URL, so this response can never be the wrong one. Private
-            // is wrong here, this is public art on a public page.
-            http.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
-
-            return Results.Bytes(portrait.Bytes, portrait.ContentType, entityTag: new(etag));
+            return StoredImage.Bytes(http, portrait?.Bytes, portrait?.ContentType ?? "image/png", etag);
         })
         .WithName("CharacterPortrait")
         .AllowAnonymous();

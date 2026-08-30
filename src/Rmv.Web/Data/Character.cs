@@ -80,7 +80,7 @@ public class Character
     /// </summary>
     public string? PortraitPath => PortraitVersion is null
         ? null
-        : $"/characters/{Id}/portrait?v={Uri.EscapeDataString(PortraitVersion)}";
+        : PortraitEndpoint.PathFor(Id, PortraitVersion);
 
     // --- bookkeeping ---------------------------------------------------------
 

@@ -107,25 +107,15 @@ public sealed class HeraldFetcher(HttpClient client, ILogger<HeraldFetcher> log)
             // Capped while reading as well: a declared length is a hint, not a
             // promise, and this one comes from someone else's server.
             await using var stream = await response.Content.ReadAsStreamAsync(ct);
-            var body = new MemoryStream();
-            var buffer = new byte[16 * 1024];
-            var total = 0;
-            int read;
 
-            while ((read = await stream.ReadAsync(buffer, ct)) > 0)
+            if (await CappedRead.AllAsync(stream, MaxImageBytes, ct) is not { } body)
             {
-                total += read;
-                if (total > MaxImageBytes)
-                {
-                    return ImageResult.Fail("Portrait is too large.");
-                }
-
-                body.Write(buffer, 0, read);
+                return ImageResult.Fail("Portrait is too large.");
             }
 
-            return total == 0
+            return body.Length == 0
                 ? ImageResult.Fail("Portrait was empty.")
-                : new ImageResult(true, body.ToArray(), type.ToLowerInvariant(), null);
+                : new ImageResult(true, body, type.ToLowerInvariant(), null);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -204,26 +194,16 @@ public sealed class HeraldFetcher(HttpClient client, ILogger<HeraldFetcher> log)
             }
 
             await using var stream = await response.Content.ReadAsStreamAsync(ct);
-            var buffer = new byte[8192];
-            var read = 0;
-            var total = 0;
-            var body = new MemoryStream();
 
-            while ((read = await stream.ReadAsync(buffer, ct)) > 0)
+            if (await CappedRead.AllAsync(stream, MaxBytes, ct) is not { } body)
             {
-                total += read;
-                if (total > MaxBytes)
-                {
-                    return FetchResult.Fail("Herald response is too large.");
-                }
-
-                body.Write(buffer, 0, read);
+                return FetchResult.Fail("Herald response is too large.");
             }
 
             // Heralds are frequently not valid UTF-8; replacement characters are
             // preferable to throwing on a stray byte.
             return FetchResult.Success(
-                new UTF8Encoding(false, throwOnInvalidBytes: false).GetString(body.ToArray()));
+                new UTF8Encoding(false, throwOnInvalidBytes: false).GetString(body));
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

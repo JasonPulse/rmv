@@ -37,15 +37,14 @@ public sealed class CharacterService(
             return AddOutcome.Fail($"{game.Game} has no herald, so its characters are typed in by hand.");
         }
 
-        // A loose bound only, because what a member types is not always a name.
-        // Some heralds are keyed by id and accept a pasted character URL, which is
-        // longer than any name. The adapter decides what its own server accepts.
-        if (typed.Length is < 2 or > 200)
+        // A loose bound only, because what a member types is not always a name:
+        // see CharacterLimits.MaxTyped.
+        if (typed.Length is < CharacterLimits.MinName or > CharacterLimits.MaxTyped)
         {
             return AddOutcome.Fail("That does not look like a character name.");
         }
 
-        var result = await adapter.FetchCharacterAsync(BaseUrlFor(game, adapter), typed, ct);
+        var result = await adapter.FetchCharacterAsync(HeraldAddress.For(game, adapter), typed, ct);
         if (!result.Ok || result.Character is null)
         {
             return AddOutcome.Fail(result.Error ?? "The herald did not recognise that name.");
@@ -177,8 +176,8 @@ public sealed class CharacterService(
             : $"{existing.Name} is already claimed by {existing.Member?.Handle ?? "another member"}. "
               + "If that is wrong, ask an admin.";
 
-    /// <summary>32 is the column, and no game the guild has played allows longer.</summary>
-    private static bool IsPlausibleName(string name) => name.Length is >= 2 and <= 32;
+    private static bool IsPlausibleName(string name) =>
+        name.Length is >= CharacterLimits.MinName and <= CharacterLimits.MaxName;
 
     private static Character NewCharacter(Member member, int gameId, CharacterSource source)
     {
@@ -204,17 +203,16 @@ public sealed class CharacterService(
         tidyLevel = level;
         error = null;
 
-        if (tidyClass is { Length: > 60 })
+        if (tidyClass is { Length: > CharacterLimits.MaxClass })
         {
             error = "That job or class name is too long.";
             return false;
         }
 
-        // Wide on purpose. DAoC stops at 50, FFXI at 99, FFXIV at 100, and the
-        // next server the guild lands on will pick its own number.
-        if (level is < 1 or > 999)
+        if (level is < CharacterLimits.MinLevel or > CharacterLimits.MaxLevel)
         {
-            error = "Level has to be between 1 and 999.";
+            error = $"Level has to be between {CharacterLimits.MinLevel} "
+                    + $"and {CharacterLimits.MaxLevel}.";
             return false;
         }
 
@@ -261,7 +259,7 @@ public sealed class CharacterService(
             return false;
         }
 
-        var result = await adapter.FetchCharacterAsync(BaseUrlFor(game, adapter), character.Name, ct);
+        var result = await adapter.FetchCharacterAsync(HeraldAddress.For(game, adapter), character.Name, ct);
         character.LastFetchedAt = DateTimeOffset.UtcNow;
 
         if (!result.Ok || result.Character is null)
@@ -276,13 +274,6 @@ public sealed class CharacterService(
         await SyncPortraitAsync(character, result.Character.Portrait, ct);
         return true;
     }
-
-    /// <summary>
-    /// The adapter's own address unless a game overrides it. The override exists
-    /// for a server moving domain, not as a thing to fill in.
-    /// </summary>
-    private static string BaseUrlFor(GamePresence game, IHeraldAdapter adapter) =>
-        string.IsNullOrWhiteSpace(game.HeraldBaseUrl) ? adapter.DefaultBaseUrl : game.HeraldBaseUrl!;
 
     /// <summary>
     /// Brings the stored portrait into line with what the herald offers.

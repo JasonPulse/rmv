@@ -71,7 +71,7 @@
                         <div class="field">
                             <label asp-for="Input.Level">Level</label>
                             <input class="input input--narrow" asp-for="Input.Level" type="number"
-                                   min="1" max="999" placeholder="50" />
+                                   min="@CharacterLimits.MinLevel" max="@CharacterLimits.MaxLevel" placeholder="50" />
                             <p class="hint">
                                 This game has no herald, so nothing updates the sheet
                                 for you. Leave a field blank if you do not remember.
@@ -156,7 +156,7 @@
                                         <div class="field">
                                             <label for="edit-level-@c.Id">Level</label>
                                             <input class="input input--narrow" id="edit-level-@c.Id"
-                                                   name="Edit.Level" type="number" min="1" max="999"
+                                                   name="Edit.Level" type="number" min="@CharacterLimits.MinLevel" max="@CharacterLimits.MaxLevel"
                                                    value="@c.Level" />
                                         </div>
                                         <p style="margin:0"><button class="btn" type="submit">Save sheet</button></p>

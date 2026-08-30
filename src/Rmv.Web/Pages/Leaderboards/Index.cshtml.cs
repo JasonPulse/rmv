@@ -31,13 +31,8 @@ public class IndexModel(IServiceProvider services, HeraldRegistry heralds) : Pag
             var characters = await db.Characters
                 .Include(c => c.Game)
                 .Include(c => c.Member)
-                .Where(c => c.Source == CharacterSource.Herald
-                            && c.Game != null
-                            && c.Game.HeraldAdapterKey != null
-                            // A blocked member is off the roster, so they are off
-                            // the leaderboards with it.
-                            && c.Member != null
-                            && c.Member.Status != MemberStatus.Blocked)
+                .FromHerald()
+                .OnRoster()
                 .AsNoTracking()
                 .ToListAsync(ct);
 
