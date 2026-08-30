@@ -100,7 +100,7 @@ public class HeraldXiAdapterTests
         "https://heraldxi.network-gnomes.com/api/v1/characters/Dengra")]
     public void Builds_the_api_url(string baseUrl, string name, string expected)
     {
-        Assert.True(HeraldXiAdapter.TryBuildUrl(baseUrl, name, out var url));
+        Assert.True(HeraldXiAdapter.TryApiUrl(baseUrl, name, out var url));
         Assert.Equal(expected, url);
     }
 
@@ -115,20 +115,23 @@ public class HeraldXiAdapterTests
     public void Refuses_a_name_that_is_not_a_name(string name)
     {
         Assert.False(HeraldXiAdapter.IsPlausibleCharacterName(name));
-        Assert.False(HeraldXiAdapter.TryBuildUrl("https://heraldxi.network-gnomes.com", name, out _));
+        Assert.False(HeraldXiAdapter.TryApiUrl("https://heraldxi.network-gnomes.com", name, out _));
     }
 
     [Fact]
     public void Maps_the_portrait_to_the_herald_route_and_the_appearance_hash()
     {
         // The route is not in the API's own endpoint list; it is what the herald's
-        // player pages use. The hash is the version, which is what the herald's
-        // notes ask consumers to key on.
+        // player pages use, and it asks for the appearance hash.
+        //
+        // The version is wider than that hash on purpose. This test used to assert
+        // they were the same thing, which is what the herald's notes say to do and
+        // is wrong: it serves different renders under one hash. See MapPortrait.
         var portrait = HeraldXiAdapter.MapPortrait(Load(), Base);
 
         Assert.NotNull(portrait);
         Assert.Equal("https://heraldxi.example.test/portraits/3.png?v=a57c46727615", portrait.Url);
-        Assert.Equal("a57c46727615", portrait.Version);
+        Assert.Equal("a57c46727615|body=8,hands=8,legs=8,feet=8,main=21", portrait.Version);
     }
 
     [Fact]
@@ -177,6 +180,93 @@ public class HeraldXiAdapterTests
         var c = HeraldXiAdapter.Map(Load(), "u", Base);
 
         Assert.NotNull(c.Portrait);
-        Assert.Equal("a57c46727615", c.Portrait.Version);
+        Assert.StartsWith("a57c46727615|", c.Portrait.Version);
+    }
+
+    // --- the two URLs -------------------------------------------------------
+
+    [Fact]
+    public void The_character_links_to_the_herald_and_not_to_the_api()
+    {
+        // The reported bug. Every card sent a member to a page of JSON, because the
+        // URL this adapter fetches was also the URL it stored for linking.
+        var c = HeraldXiAdapter.Map(Load(), HeraldXiAdapter.PlayerUrl(Base, "Arwen"), Base);
+
+        Assert.Equal("https://heraldxi.example.test/player/Arwen", c.Url);
+        Assert.DoesNotContain("/api/", c.Url!);
+    }
+
+    [Fact]
+    public void The_api_url_and_the_player_url_are_different_pages()
+    {
+        Assert.True(HeraldXiAdapter.TryApiUrl(Base, "Arwen", out var api));
+
+        Assert.Equal("https://heraldxi.example.test/api/v1/characters/Arwen", api);
+        Assert.NotEqual(api, HeraldXiAdapter.PlayerUrl(Base, "Arwen"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("Not A Name")]
+    [InlineData("Arwen123")]
+    public void No_player_url_for_something_that_is_not_a_name(string name)
+    {
+        Assert.Null(HeraldXiAdapter.PlayerUrl(Base, name));
+    }
+
+    [Fact]
+    public void No_player_url_without_a_herald_address()
+    {
+        Assert.Null(HeraldXiAdapter.PlayerUrl("not a url", "Arwen"));
+    }
+
+    // --- the portrait's version ----------------------------------------------
+
+    [Fact]
+    public void The_portrait_version_covers_the_equipment_and_not_only_the_hash()
+    {
+        // The failure this exists for, observed on 2026-08-30: the herald served two
+        // different renders of one character under one hash, 040480b55b00, one
+        // wearing armour and one wearing none. Keyed on the hash alone, a stored
+        // portrait never updates again.
+        var geared = Load();
+        var stripped = Load();
+        stripped.Appearance!.EquipArg = "main=21";
+
+        var a = HeraldXiAdapter.MapPortrait(geared, Base)!;
+        var b = HeraldXiAdapter.MapPortrait(stripped, Base)!;
+
+        // Same hash, so the herald says nothing changed.
+        Assert.Equal(geared.Appearance!.Hash, stripped.Appearance!.Hash);
+        Assert.Equal(a.Url, b.Url);
+
+        // We say otherwise, which is what makes the next refresh fetch the picture.
+        Assert.NotEqual(a.Version, b.Version);
+        Assert.NotEqual(a.Tag, b.Tag);
+    }
+
+    [Fact]
+    public void The_portrait_url_is_still_the_one_the_herald_serves()
+    {
+        // The hash is what its own player pages ask for, so the URL keeps it even
+        // though our version key is wider.
+        var portrait = HeraldXiAdapter.MapPortrait(Load(), Base)!;
+
+        Assert.Equal($"{Base}/portraits/3.png?v=a57c46727615", portrait.Url);
+        Assert.StartsWith("a57c46727615|", portrait.Version);
+    }
+
+    [Fact]
+    public void The_models_stand_in_when_the_equipment_argument_is_missing()
+    {
+        // An older herald, or a field renamed. Falling back to the models keeps the
+        // version sensitive to equipment rather than silently returning to the hash.
+        var dto = Load();
+        dto.Appearance!.EquipArg = null;
+
+        var portrait = HeraldXiAdapter.MapPortrait(dto, Base)!;
+
+        Assert.Contains("body=8", portrait.Version);
+        Assert.Contains("main=21", portrait.Version);
     }
 }

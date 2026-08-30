@@ -137,6 +137,48 @@ public class HeraldLiveTests
     }
 
     [Fact]
+    public async Task HeraldXi_links_to_a_page_a_person_can_read()
+    {
+        // The reported bug, checked against the real herald: the link on a card has
+        // to be the player page, and that page has to exist.
+        var adapter = new HeraldXiAdapter(Fetcher("heraldxi.network-gnomes.com"));
+
+        var result = await adapter.FetchCharacterAsync(
+            "https://heraldxi.network-gnomes.com", "Arwen", CancellationToken.None);
+
+        Assert.True(result.Ok, result.Error);
+
+        var url = result.Character!.Url!;
+        Assert.EndsWith("/player/Arwen", url);
+        Assert.DoesNotContain("/api/", url);
+
+        // And it answers, rather than being a route I assumed.
+        var page = await Fetcher("heraldxi.network-gnomes.com").GetAsync(url, CancellationToken.None);
+        Assert.True(page.Ok, page.Error);
+        Assert.Contains("Arwen", page.Body!);
+    }
+
+    [Fact]
+    public async Task HeraldXi_publishes_the_equipment_its_render_depends_on()
+    {
+        // The portrait's version is the appearance hash plus the equipment, because
+        // the hash alone is not enough: on 2026-08-30 this herald served two
+        // different renders of one character under one hash. If equip_arg ever
+        // disappears this fails, rather than portraits quietly freezing again.
+        var adapter = new HeraldXiAdapter(Fetcher("heraldxi.network-gnomes.com"));
+
+        var result = await adapter.FetchCharacterAsync(
+            "https://heraldxi.network-gnomes.com", "Arwen", CancellationToken.None);
+
+        Assert.True(result.Ok, result.Error);
+
+        var portrait = result.Character!.Portrait;
+        Assert.NotNull(portrait);
+        Assert.Contains("|", portrait.Version);
+        Assert.Contains("=", portrait.Version.Split('|')[1]);
+    }
+
+    [Fact]
     public async Task HeraldXi_is_refused_when_not_allowlisted()
     {
         // The point of the allowlist. Same host, same adapter, no permission.
