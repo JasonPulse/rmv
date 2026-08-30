@@ -218,7 +218,7 @@ public static class WowArmoryParser
 
         var stamp = Number(Child(c, "lastUpdatedTimestamp"), "epoch");
 
-        return new HeraldPortrait(url, stamp is null ? url : $"{url}|{stamp}");
+        return new HeraldPortrait(url);
     }
 
     /// <summary>

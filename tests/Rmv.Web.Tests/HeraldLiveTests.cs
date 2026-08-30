@@ -27,6 +27,22 @@ public class HeraldLiveTests
         return new HeraldFetcher(client, NullLogger<HeraldFetcher>.Instance);
     }
 
+    /// <summary>
+    /// Arwen off the real FFXI herald, with the fetcher that found her, since the
+    /// portrait lives on the same allowlisted host.
+    /// </summary>
+    private static async Task<(HeraldFetcher Fetcher, HeraldCharacter Character)> ArwenAsync()
+    {
+        var fetcher = Fetcher("heraldxi.network-gnomes.com");
+
+        var result = await new HeraldXiAdapter(fetcher).FetchCharacterAsync(
+            "https://heraldxi.network-gnomes.com", "Arwen", CancellationToken.None);
+
+        Assert.True(result.Ok, result.Error);
+
+        return (fetcher, result.Character!);
+    }
+
     [Fact]
     public async Task Blackthorn_returns_a_real_character()
     {
@@ -141,14 +157,7 @@ public class HeraldLiveTests
     {
         // The reported bug, checked against the real herald: the link on a card has
         // to be the player page, and that page has to exist.
-        var adapter = new HeraldXiAdapter(Fetcher("heraldxi.network-gnomes.com"));
-
-        var result = await adapter.FetchCharacterAsync(
-            "https://heraldxi.network-gnomes.com", "Arwen", CancellationToken.None);
-
-        Assert.True(result.Ok, result.Error);
-
-        var url = result.Character!.Url!;
+        var url = (await ArwenAsync()).Character.Url!;
         Assert.EndsWith("/player/Arwen", url);
         Assert.DoesNotContain("/api/", url);
 
@@ -159,23 +168,21 @@ public class HeraldLiveTests
     }
 
     [Fact]
-    public async Task HeraldXi_publishes_the_equipment_its_render_depends_on()
+    public async Task HeraldXi_serves_a_portrait_we_can_digest()
     {
-        // The portrait's version is the appearance hash plus the equipment, because
-        // the hash alone is not enough: on 2026-08-30 this herald served two
-        // different renders of one character under one hash. If equip_arg ever
-        // disappears this fails, rather than portraits quietly freezing again.
-        var adapter = new HeraldXiAdapter(Fetcher("heraldxi.network-gnomes.com"));
+        // The picture is its own version, so what matters live is that the route
+        // answers with real image bytes. Nothing the herald says about the
+        // appearance is read; on 2026-08-30 it served two different renders of one
+        // character under one hash while calling the response immutable.
+        var (fetcher, character) = await ArwenAsync();
 
-        var result = await adapter.FetchCharacterAsync(
-            "https://heraldxi.network-gnomes.com", "Arwen", CancellationToken.None);
+        Assert.NotNull(character.Portrait);
 
-        Assert.True(result.Ok, result.Error);
+        var image = await fetcher.GetImageAsync(character.Portrait.Url, CancellationToken.None);
 
-        var portrait = result.Character!.Portrait;
-        Assert.NotNull(portrait);
-        Assert.Contains("|", portrait.Version);
-        Assert.Contains("=", portrait.Version.Split('|')[1]);
+        Assert.True(image.Ok, image.Error);
+        Assert.StartsWith("image/", image.ContentType!);
+        Assert.Equal(16, CharacterService.VersionOf(image.Bytes!).Length);
     }
 
     [Fact]

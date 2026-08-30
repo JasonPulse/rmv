@@ -31,7 +31,7 @@ public class CharacterServiceTests : HeraldDatabaseTests
         .WithCharacter("Fetva")
         .WithCharacter("Teagan")
         .WithCharacter("Sable", b => b.Portrait =
-            new HeraldPortrait("https://fake.test/portraits/1.png?v=aaa", "aaa"));
+            new HeraldPortrait("https://fake.test/portraits/1.png?v=aaa"));
 
     /// <summary>A second herald game, for the cross-game claim checks.</summary>
     private int _ffxiId;
@@ -406,12 +406,11 @@ public class CharacterServiceTests : HeraldDatabaseTests
     // --- portraits -----------------------------------------------------------
 
     /// <summary>
-    /// What the service stores for a given herald version. Derived rather than
-    /// hardcoded: a literal digest in an assertion is unreadable and says nothing
-    /// about why it is that value.
+    /// What the service stores for a given picture. Derived rather than hardcoded:
+    /// a literal digest in an assertion is unreadable and says nothing about why it
+    /// is that value.
     /// </summary>
-    private static string Tag(string version) =>
-        new HeraldPortrait("https://fake.test/x.png", version).Tag;
+    private static string Version(byte[] bytes) => CharacterService.VersionOf(bytes);
 
     [Fact]
     public async Task Stores_the_portrait_bytes_rather_than_a_link_to_them()
@@ -422,10 +421,9 @@ public class CharacterServiceTests : HeraldDatabaseTests
         Assert.True(added.Ok, added.Error);
 
         var c = added.Character!;
-        // A digest of the herald's version, not the version itself: the Lodestone's
-        // is a 120 character URL. See HeraldPortrait.Tag.
-        Assert.Equal(Tag("aaa"), c.PortraitVersion);
-        Assert.Equal($"/characters/{c.Id}/portrait?v={Tag("aaa")}", c.PortraitPath);
+        // A digest of the bytes, so the URL changes exactly when the picture does.
+        Assert.Equal(Version(StubImageHandler.Png), c.PortraitVersion);
+        Assert.Equal($"/characters/{c.Id}/portrait?v={c.PortraitVersion}", c.PortraitPath);
         Assert.Equal(16, c.PortraitVersion!.Length);
 
         var stored = await Db.CharacterPortraits.AsNoTracking()
@@ -434,7 +432,7 @@ public class CharacterServiceTests : HeraldDatabaseTests
         Assert.NotNull(stored);
         Assert.Equal(StubImageHandler.Png, stored.Bytes);
         Assert.Equal("image/png", stored.ContentType);
-        Assert.Equal(Tag("aaa"), stored.Version);
+        Assert.Equal(Version(StubImageHandler.Png), stored.Version);
         Assert.Equal(1, Images.Calls);
     }
 
@@ -450,18 +448,32 @@ public class CharacterServiceTests : HeraldDatabaseTests
     }
 
     [Fact]
-    public async Task A_refresh_does_not_download_a_picture_that_has_not_changed()
+    public async Task A_refresh_fetches_the_picture_and_writes_nothing_when_it_is_the_same()
     {
-        // The whole basis of the daily pass. Dozens of characters against someone
-        // else's server, so an unchanged portrait has to cost nothing.
+        // It does fetch. Asking the herald whether the picture changed and believing
+        // the answer is what broke: the FFXI herald served two different renders
+        // under one appearance hash. One image fetch per character per pass is the
+        // price of never showing yesterday's armour.
         var added = await _service.AddAsync(Member, HeraldGameId, "Sable", default);
         Assert.True(added.Ok, added.Error);
         Assert.Equal(1, Images.Calls);
 
+        var before = await Db.CharacterPortraits.AsNoTracking()
+            .FirstAsync(p => p.CharacterId == added.Character!.Id);
+
         Assert.True(await _service.RefreshAsync(added.Character!, default));
         await Db.SaveChangesAsync();
 
-        Assert.Equal(1, Images.Calls);
+        Assert.Equal(2, Images.Calls);
+
+        // Same bytes, so nothing moved: not the version, not the URL a browser has
+        // already cached for a year, and not the fetch time.
+        var after = await Db.CharacterPortraits.AsNoTracking()
+            .FirstAsync(p => p.CharacterId == added.Character!.Id);
+
+        Assert.Equal(before.Version, after.Version);
+        Assert.Equal(before.FetchedAt, after.FetchedAt);
+        Assert.Equal(before.Version, added.Character!.PortraitVersion);
     }
 
     [Fact]
@@ -471,11 +483,11 @@ public class CharacterServiceTests : HeraldDatabaseTests
         Assert.True(added.Ok, added.Error);
         var id = added.Character!.Id;
 
-        // The character changed gear, so the herald re-rendered and the hash moved.
-        Herald.Known["Sable"] = Herald.Known["Sable"] with
-        {
-            Portrait = new HeraldPortrait("https://fake.test/portraits/1.png?v=bbb", "bbb"),
-        };
+        var wasVersion = added.Character!.PortraitVersion;
+
+        // The reported bug, exactly. The character changed gear and the herald
+        // re-rendered, and the herald says nothing at all about that: same URL,
+        // same appearance hash, same immutable ETag. Only the bytes are different.
         Images.Body = [.. StubImageHandler.Png, 0x00];
 
         Assert.True(await _service.RefreshAsync(added.Character!, default));
@@ -484,8 +496,12 @@ public class CharacterServiceTests : HeraldDatabaseTests
         Assert.Equal(2, Images.Calls);
 
         var stored = await Db.CharacterPortraits.AsNoTracking().FirstAsync(p => p.CharacterId == id);
-        Assert.Equal(Tag("bbb"), stored.Version);
+        Assert.Equal(Version(Images.Body), stored.Version);
+        Assert.NotEqual(wasVersion, stored.Version);
         Assert.Equal(Images.Body, stored.Bytes);
+        // And the page points somewhere new, so a browser holding the old one for a
+        // year asks again.
+        Assert.Equal(stored.Version, added.Character.PortraitVersion);
         // One row per character, not one per version.
         Assert.Equal(1, await Db.CharacterPortraits.CountAsync(p => p.CharacterId == id));
     }
@@ -497,10 +513,6 @@ public class CharacterServiceTests : HeraldDatabaseTests
         Assert.True(added.Ok, added.Error);
         var id = added.Character!.Id;
 
-        Herald.Known["Sable"] = Herald.Known["Sable"] with
-        {
-            Portrait = new HeraldPortrait("https://fake.test/portraits/1.png?v=ccc", "ccc"),
-        };
         Images.ForcedStatus = System.Net.HttpStatusCode.ServiceUnavailable;
 
         Assert.True(await _service.RefreshAsync(added.Character!, default));
@@ -508,9 +520,9 @@ public class CharacterServiceTests : HeraldDatabaseTests
 
         // The version stays on what we actually hold, so the path keeps pointing at
         // bytes that exist.
-        Assert.Equal(Tag("aaa"), added.Character.PortraitVersion);
+        Assert.Equal(Version(StubImageHandler.Png), added.Character.PortraitVersion);
         var stored = await Db.CharacterPortraits.AsNoTracking().FirstAsync(p => p.CharacterId == id);
-        Assert.Equal(Tag("aaa"), stored.Version);
+        Assert.Equal(Version(StubImageHandler.Png), stored.Version);
         Assert.Equal(StubImageHandler.Png, stored.Bytes);
 
         // A portrait is decoration. Failing to fetch one must not make a character
@@ -558,18 +570,20 @@ public class CharacterServiceTests : HeraldDatabaseTests
     }
 
     [Fact]
-    public void Different_versions_give_different_tags_and_the_same_one_is_stable()
+    public void Two_pictures_are_two_versions_and_one_picture_is_one()
     {
-        // The tag is what decides whether to download again, so a stable mapping
-        // is the whole property.
-        Assert.Equal(Tag("aaa"), Tag("aaa"));
-        Assert.NotEqual(Tag("aaa"), Tag("aab"));
+        // The version decides whether the stored bytes are replaced and what URL a
+        // browser is sent to, so a stable mapping is the whole property.
+        var png = StubImageHandler.Png;
+        byte[] other = [.. png, 0x00];
 
-        // A Lodestone version is its whole image URL. The tag has to shorten that
-        // without losing the change it encodes.
-        const string a = "https://img2.finalfantasyxiv.com/f/abc_l0.jpg?1787848443";
-        const string b = "https://img2.finalfantasyxiv.com/f/abc_l0.jpg?1787870043";
-        Assert.NotEqual(Tag(a), Tag(b));
-        Assert.Equal(16, Tag(a).Length);
+        Assert.Equal(Version(png), Version(png));
+        Assert.NotEqual(Version(png), Version(other));
+        Assert.Equal(16, Version(png).Length);
+
+        // A single flipped byte is a different picture. Nothing here rounds.
+        byte[] nudged = [.. png];
+        nudged[^1] ^= 0x01;
+        Assert.NotEqual(Version(png), Version(nudged));
     }
 }

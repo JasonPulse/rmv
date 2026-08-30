@@ -334,11 +334,23 @@ public sealed class CharacterService(
     }
 
     /// <summary>
-    /// Brings the stored portrait into line with what the herald offers.
+    /// Brings the stored portrait into line with what the herald is serving.
     ///
-    /// Downloads only when the version changed, which is what makes a daily refresh
-    /// across every character cheap and polite. The FFXI herald asks for exactly
-    /// this: "poll appearances and re-render only where hash changed".
+    /// The picture is its own version. The bytes are fetched and digested, and the
+    /// digest is what gets stored and what appears in our portrait URL, so the URL
+    /// changes exactly when the picture does and never otherwise.
+    ///
+    /// This used to ask the herald whether the picture had changed and skip the
+    /// download when it said no. Every herald answers that question badly, each in
+    /// its own way, and the FFXI one answers it wrongly: on 2026-08-30 it served
+    /// two visibly different renders of one character under one appearance hash,
+    /// while sending that hash as an ETag and marking the response immutable. A
+    /// stored portrait keyed on anything the herald says about it stops updating
+    /// and nothing on either side reports a problem.
+    ///
+    /// The cost is one image fetch per character per pass, which for this roster is
+    /// under a megabyte a day, against a file the herald already has on disk. That
+    /// is the whole price of never showing yesterday's armour.
     ///
     /// A failure leaves the previous picture in place and is not recorded as a
     /// character error. A portrait is decoration; losing it should not make a
@@ -353,17 +365,6 @@ public sealed class CharacterService(
             return;
         }
 
-        // Unchanged version and bytes actually present. The second half matters:
-        // a refresh interrupted between writing the bytes and writing the version
-        // would otherwise be skipped forever, leaving a character claiming a
-        // picture the endpoint cannot serve. One indexed existence check per
-        // character per refresh buys self-healing.
-        if (character.PortraitVersion == portrait.Tag
-            && await db.CharacterPortraits.AnyAsync(p => p.CharacterId == character.Id, ct))
-        {
-            return;
-        }
-
         var fetched = await fetcher.GetImageAsync(portrait.Url, ct);
         if (!fetched.Ok || fetched.Bytes is null)
         {
@@ -372,8 +373,19 @@ public sealed class CharacterService(
             return;
         }
 
+        var version = VersionOf(fetched.Bytes);
+
         var row = character.Portrait
                   ?? await db.CharacterPortraits.FirstOrDefaultAsync(p => p.CharacterId == character.Id, ct);
+
+        // Same picture, and it is actually stored. The second half matters: a
+        // refresh interrupted between writing the bytes and writing the version
+        // would otherwise leave a character claiming a picture the endpoint cannot
+        // serve, and nothing would ever fill it in.
+        if (row is not null && row.Version == version && character.PortraitVersion == version)
+        {
+            return;
+        }
 
         if (row is null)
         {
@@ -382,15 +394,33 @@ public sealed class CharacterService(
             character.Portrait = row;
         }
 
+        if (row.Version != version)
+        {
+            log.LogInformation(
+                "New portrait for {Name}: {Old} to {New}.",
+                character.Name, row.Version.Length == 0 ? "none" : row.Version, version);
+        }
+
         row.Bytes = fetched.Bytes;
         row.ContentType = fetched.ContentType!;
-        row.Version = portrait.Tag;
+        row.Version = version;
         row.FetchedAt = DateTimeOffset.UtcNow;
 
         // Only after the bytes are in hand, so a failed download cannot leave a
         // version claiming a picture we do not have.
-        character.PortraitVersion = portrait.Tag;
+        character.PortraitVersion = version;
     }
+
+    /// <summary>
+    /// A picture's identity: a short digest of its bytes.
+    ///
+    /// Sixteen hex characters, which is what the column holds and is far more than
+    /// enough. A collision here would have to be between two successive pictures of
+    /// one character, and would mean a stale portrait rather than the wrong
+    /// person's, because the character id is separate from this.
+    /// </summary>
+    public static string VersionOf(byte[] bytes) =>
+        Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes))[..16];
 
     private static void Apply(Character target, HeraldCharacter source)
     {

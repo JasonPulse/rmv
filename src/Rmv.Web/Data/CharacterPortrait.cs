@@ -21,9 +21,9 @@ public class CharacterPortrait
     public string ContentType { get; set; } = "image/png";
 
     /// <summary>
-    /// Matches Character.PortraitVersion. Kept here as well so the endpoint can
-    /// build an ETag without a second read, and so a half-finished refresh is
-    /// detectable rather than silent.
+    /// A digest of Bytes, matching Character.PortraitVersion. Kept here as well so
+    /// the endpoint can build an ETag without a second read, and so a half-finished
+    /// refresh is detectable rather than silent.
     /// </summary>
     public string Version { get; set; } = "";
 

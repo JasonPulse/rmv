@@ -124,14 +124,13 @@ public class HeraldXiAdapterTests
         // The route is not in the API's own endpoint list; it is what the herald's
         // player pages use, and it asks for the appearance hash.
         //
-        // The version is wider than that hash on purpose. This test used to assert
-        // they were the same thing, which is what the herald's notes say to do and
-        // is wrong: it serves different renders under one hash. See MapPortrait.
+        // There is no version here. This test used to assert one, taken from the
+        // appearance hash, which is what the herald's notes say to key on and is
+        // wrong: it serves different renders under one hash. See HeraldPortrait.
         var portrait = HeraldXiAdapter.MapPortrait(Load(), Base);
 
         Assert.NotNull(portrait);
         Assert.Equal("https://heraldxi.example.test/portraits/3.png?v=a57c46727615", portrait.Url);
-        Assert.Equal("a57c46727615|body=8,hands=8,legs=8,feet=8,main=21", portrait.Version);
     }
 
     [Fact]
@@ -180,7 +179,7 @@ public class HeraldXiAdapterTests
         var c = HeraldXiAdapter.Map(Load(), "u", Base);
 
         Assert.NotNull(c.Portrait);
-        Assert.StartsWith("a57c46727615|", c.Portrait.Version);
+        Assert.EndsWith("/portraits/3.png?v=a57c46727615", c.Portrait.Url);
     }
 
     // --- the two URLs -------------------------------------------------------
@@ -220,53 +219,17 @@ public class HeraldXiAdapterTests
         Assert.Null(HeraldXiAdapter.PlayerUrl("not a url", "Arwen"));
     }
 
-    // --- the portrait's version ----------------------------------------------
+    // --- the portrait --------------------------------------------------------
 
     [Fact]
-    public void The_portrait_version_covers_the_equipment_and_not_only_the_hash()
+    public void The_portrait_is_the_route_the_herald_serves_and_nothing_more()
     {
-        // The failure this exists for, observed on 2026-08-30: the herald served two
-        // different renders of one character under one hash, 040480b55b00, one
-        // wearing armour and one wearing none. Keyed on the hash alone, a stored
-        // portrait never updates again.
-        var geared = Load();
-        var stripped = Load();
-        stripped.Appearance!.EquipArg = "main=21";
+        // A URL, no version. What version a picture is at is not this herald's to
+        // say: it served two different renders of character 1 under one appearance
+        // hash while calling the response immutable. See HeraldPortrait.
+        var portrait = HeraldXiAdapter.MapPortrait(Load(), Base);
 
-        var a = HeraldXiAdapter.MapPortrait(geared, Base)!;
-        var b = HeraldXiAdapter.MapPortrait(stripped, Base)!;
-
-        // Same hash, so the herald says nothing changed.
-        Assert.Equal(geared.Appearance!.Hash, stripped.Appearance!.Hash);
-        Assert.Equal(a.Url, b.Url);
-
-        // We say otherwise, which is what makes the next refresh fetch the picture.
-        Assert.NotEqual(a.Version, b.Version);
-        Assert.NotEqual(a.Tag, b.Tag);
-    }
-
-    [Fact]
-    public void The_portrait_url_is_still_the_one_the_herald_serves()
-    {
-        // The hash is what its own player pages ask for, so the URL keeps it even
-        // though our version key is wider.
-        var portrait = HeraldXiAdapter.MapPortrait(Load(), Base)!;
-
+        Assert.NotNull(portrait);
         Assert.Equal($"{Base}/portraits/3.png?v=a57c46727615", portrait.Url);
-        Assert.StartsWith("a57c46727615|", portrait.Version);
-    }
-
-    [Fact]
-    public void The_models_stand_in_when_the_equipment_argument_is_missing()
-    {
-        // An older herald, or a field renamed. Falling back to the models keeps the
-        // version sensitive to equipment rather than silently returning to the hash.
-        var dto = Load();
-        dto.Appearance!.EquipArg = null;
-
-        var portrait = HeraldXiAdapter.MapPortrait(dto, Base)!;
-
-        Assert.Contains("body=8", portrait.Version);
-        Assert.Contains("main=21", portrait.Version);
     }
 }

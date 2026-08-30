@@ -153,7 +153,7 @@ public static class LodestoneParser
             // that changes whenever the character re-renders, which is precisely
             // when we want to fetch it again.
             Portrait = Image(character, ".character__detail__image img") is { } portrait
-                ? new HeraldPortrait(portrait, portrait)
+                ? new HeraldPortrait(portrait)
                 : null,
         };
     }

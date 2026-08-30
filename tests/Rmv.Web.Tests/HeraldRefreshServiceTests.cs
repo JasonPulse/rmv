@@ -29,9 +29,9 @@ public class HeraldRefreshServiceTests : HeraldDatabaseTests
 
     protected override void ConfigureHerald(FakeHeraldAdapter herald) => herald
         .WithCharacter("Sable", b => b.Portrait =
-            new HeraldPortrait("https://fake.test/portraits/1.png?v=aaa", "aaa"))
+            new HeraldPortrait("https://fake.test/portraits/1.png?v=aaa"))
         .WithCharacter("Balder", b => b.Portrait =
-            new HeraldPortrait("https://fake.test/portraits/2.png?v=bbb", "bbb"))
+            new HeraldPortrait("https://fake.test/portraits/2.png?v=bbb"))
         .WithCharacter("Plain");
 
     protected override Task SeedAsync()
@@ -212,8 +212,13 @@ public class HeraldRefreshServiceTests : HeraldDatabaseTests
         var after = await Db.Characters.AsNoTracking().FirstAsync(x => x.Id == c.Id);
         Assert.Equal(50, after.Level);
         Assert.Equal("Champion", after.Class);
-        // The picture had not changed, so it was not downloaded again.
-        Assert.Equal(1, Images.Calls);
+
+        // The picture is fetched again, because asking a herald whether it changed
+        // and believing the answer is what stopped portraits updating. Same bytes,
+        // so nothing was written: the stored version is untouched.
+        Assert.Equal(2, Images.Calls);
+        Assert.Equal(
+            CharacterService.VersionOf(StubImageHandler.Png), after.PortraitVersion);
     }
 
     [Fact]

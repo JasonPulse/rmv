@@ -98,16 +98,16 @@ public class LodestoneParserTests
     }
 
     [Fact]
-    public async Task The_portrait_url_is_absolute_and_doubles_as_its_own_version()
+    public async Task The_portrait_url_is_absolute()
     {
         var c = LodestoneParser.Parse(await CharacterAsync(), await ClassJobAsync(), "https://x.test/c/1/");
 
         Assert.NotNull(c.Portrait);
         Assert.StartsWith("https://img2.finalfantasyxiv.com/", c.Portrait.Url);
-        // The Lodestone offers no hash, but it appends a cache-buster that changes
-        // when the character re-renders, so the URL is the version.
-        Assert.Equal(c.Portrait.Url, c.Portrait.Version);
-        Assert.Contains("?", c.Portrait.Version);
+        // The Lodestone appends a cache-buster. It used to serve as the version,
+        // which meant a new URL for an unchanged picture; the version is now the
+        // picture itself. See HeraldPortrait.
+        Assert.Contains("?", c.Portrait.Url);
     }
 
     [Fact]

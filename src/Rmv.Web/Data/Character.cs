@@ -60,8 +60,9 @@ public class Character
 
     /// <summary>
     /// Set when we hold a portrait for this character, and changes only when the
-    /// picture does. A short digest of whatever version the herald offered, so the
-    /// two heralds produce the same shape; see HeraldPortrait.Tag.
+    /// picture does, because it is a digest of the picture; see
+    /// CharacterService.VersionOf. Nothing a herald says about its own renders is
+    /// trusted for this, having been wrong on all three.
     ///
     /// The bytes live in CharacterPortrait, in their own table, so they are not
     /// dragged along by every query that reads a character.

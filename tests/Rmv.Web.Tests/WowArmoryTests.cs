@@ -91,18 +91,29 @@ public class WowArmoryParserTests
     }
 
     [Fact]
-    public void The_portrait_is_the_full_render_versioned_by_the_update()
+    public void The_portrait_is_the_full_body_render()
     {
         var portrait = Parsed().Portrait;
 
         Assert.NotNull(portrait);
         Assert.EndsWith("-main-raw.png", portrait.Url);
 
-        // The URL carries the character id, not the appearance, so it is reused when
-        // someone changes armour. Without the timestamp the stored picture would
-        // never be fetched again.
-        Assert.Contains("|1777676082000", portrait.Version);
-        Assert.NotEqual(portrait.Url, portrait.Version);
+        // Not the 84 pixel avatar and not the 230 pixel bust, both of which the
+        // payload also offers.
+        Assert.DoesNotContain("-avatar", portrait.Url);
+        Assert.DoesNotContain("-inset", portrait.Url);
+    }
+
+    [Fact]
+    public void The_render_url_says_nothing_about_the_appearance()
+    {
+        // Why the version is the picture rather than anything in this payload: the
+        // URL carries the character id, so Blizzard reuses it when someone changes
+        // armour. See HeraldPortrait.
+        var portrait = Parsed().Portrait!;
+
+        Assert.Contains("243313029", portrait.Url);
+        Assert.DoesNotContain("146", portrait.Url);
     }
 
     // --- finding the blob at all ---------------------------------------------

@@ -75,6 +75,14 @@ public class RosterVisibilityQueryTests : HeraldDatabaseTests
         await Db.SaveChangesAsync();
     }
 
+    /// <summary>The names the public roster would show for the herald game.</summary>
+    private Task<List<string>> OnRosterNamesAsync() =>
+        Db.Characters
+            .Where(c => c.GamePresenceId == HeraldGameId)
+            .OnRoster()
+            .Select(c => c.Name)
+            .ToListAsync();
+
     private Character Character(int memberId, string name) => new()
     {
         MemberId = memberId,
@@ -90,11 +98,7 @@ public class RosterVisibilityQueryTests : HeraldDatabaseTests
     [Fact]
     public async Task Characters_of_a_blocked_member_are_not_on_the_roster()
     {
-        var names = await Db.Characters
-            .Where(c => c.GamePresenceId == HeraldGameId)
-            .OnRoster()
-            .Select(c => c.Name)
-            .ToListAsync();
+        var names = await OnRosterNamesAsync();
 
         Assert.Contains("Visible", names);
         Assert.DoesNotContain("Hidden", names);
@@ -122,11 +126,7 @@ public class RosterVisibilityQueryTests : HeraldDatabaseTests
         Db.Characters.Add(Character(pending.Id, "Waiting One"));
         await Db.SaveChangesAsync();
 
-        var names = await Db.Characters
-            .Where(c => c.GamePresenceId == HeraldGameId)
-            .OnRoster()
-            .Select(c => c.Name)
-            .ToListAsync();
+        var names = await OnRosterNamesAsync();
 
         Assert.Contains("Waiting One", names);
     }

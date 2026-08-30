@@ -117,8 +117,8 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             e.Property(c => c.RealmRank).HasMaxLength(40);
             e.Property(c => c.LastOnline).HasMaxLength(40);
             e.Property(c => c.HeraldUrl).HasMaxLength(ExternalUrl.MaxLength);
-            // A digest of the herald's own version, so a fixed width. See
-            // HeraldPortrait.Tag.
+            // A digest of the picture's bytes, so a fixed width. See
+            // CharacterService.VersionOf.
             e.Property(c => c.PortraitVersion).HasMaxLength(32);
             e.Property(c => c.LastError).HasMaxLength(300);
             // Text, like MemberStatus, so the table reads without a lookup.

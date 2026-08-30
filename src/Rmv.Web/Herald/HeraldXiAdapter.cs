@@ -108,19 +108,14 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
     /// The portrait the herald renders for a character, or null when it has none.
     ///
     /// The API does not list this route; it is what the herald's own player pages
-    /// use. A character with renderable false, or a missing hash, has no picture,
-    /// and the herald 404s the route rather than serving a placeholder.
+    /// use, and it asks for the appearance hash. A character with renderable false,
+    /// or a missing hash, has no picture, and the herald 404s the route rather than
+    /// serving a placeholder.
     ///
-    /// The version is the appearance hash **and** the equipment argument, not the
-    /// hash alone. The herald's notes say to re-render only where the hash changed,
-    /// and taking that at face value was wrong: on 2026-08-30 the herald served two
-    /// different renders of character 1 under one hash, 040480b55b00, one wearing
-    /// armour and one wearing none. It even sends that hash as the ETag and marks
-    /// the response immutable. So the hash tracks something narrower than the
-    /// picture, and a site keyed on it alone stops updating a portrait for good.
-    ///
-    /// equip_arg is the models the renderer is actually given, so it changes when
-    /// the equipment does. It costs nothing: it is in the record already fetched.
+    /// Only a URL. What version the picture is at is not this herald's to say: it
+    /// served two different renders of character 1 under one hash, 040480b55b00,
+    /// one wearing armour and one wearing none, while sending that hash as an
+    /// immutable ETag. See HeraldPortrait.
     /// </summary>
     public static HeraldPortrait? MapPortrait(XiCharacter dto, string baseUrl)
     {
@@ -134,13 +129,7 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
         // The URL keeps the hash, which is what the herald's own pages ask for.
         var url = $"{root}/portraits/{dto.Id}.png?v={Uri.EscapeDataString(hash)}";
 
-        var equipment = dto.Appearance.EquipArg is { Length: > 0 } arg
-            ? arg
-            : string.Join(',', (dto.Appearance.Models ?? new Dictionary<string, int>())
-                .OrderBy(m => m.Key, StringComparer.Ordinal)
-                .Select(m => $"{m.Key}={m.Value}"));
-
-        return new HeraldPortrait(url, $"{hash}|{equipment}");
+        return new HeraldPortrait(url);
     }
 
     /// <param name="playerUrl">The herald's page for this character. Never the API.</param>
@@ -216,26 +205,16 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
     }
 
     /// <summary>
-    /// Only the two fields that decide whether there is a picture and whether it
-    /// has changed. The block also carries models, equipment and a face id, which
-    /// are the renderer's business rather than ours.
+    /// Only the two fields that decide whether there is a picture and where it is.
+    ///
+    /// The block also carries models, equipment and a face id. None of it is read:
+    /// whether the picture has changed is answered by fetching it, because this
+    /// herald's own answer to that question has been wrong. See HeraldPortrait.
     /// </summary>
     public sealed class XiAppearance
     {
         public string? Hash { get; set; }
 
         public bool Renderable { get; set; }
-
-        /// <summary>
-        /// What the renderer is handed, e.g. "main=94" or a full set of slots.
-        ///
-        /// Part of the portrait's version, because the hash beside it is not enough
-        /// on its own; see MapPortrait.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("equip_arg")]
-        public string? EquipArg { get; set; }
-
-        /// <summary>The same equipment as numbers, in case equip_arg ever goes away.</summary>
-        public Dictionary<string, int>? Models { get; set; }
     }
 }
