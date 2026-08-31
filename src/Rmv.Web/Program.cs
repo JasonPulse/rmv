@@ -310,6 +310,11 @@ forwarded.KnownIPNetworks.Clear();
 forwarded.KnownProxies.Clear();
 app.UseForwardedHeaders(forwarded);
 
+// First, so every response carries them: a page, a 404, a static file, an image
+// endpoint, and the error page the status-code middleware re-executes. See
+// SecurityHeaders.
+app.UseMiddleware<Rmv.Web.Security.SecurityHeaders>();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");

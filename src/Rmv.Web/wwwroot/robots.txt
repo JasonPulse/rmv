@@ -1,0 +1,18 @@
+# Results May Vary
+#
+# The pages worth reading are public and welcome in an index. The ones listed
+# below need a sign-in, so a crawler indexing them only produces search results
+# that lead to a login screen.
+#
+# This asks politely and nothing more. It stops a search engine, not a scanner:
+# the request for /admin/.aws/credentials.bak that prompted this file would have
+# ignored it, as such requests ignore everything. What stops those is that the
+# paths do not exist and the real ones need authorisation.
+
+User-agent: *
+Disallow: /account/
+Disallow: /admin/
+Disallow: /characters
+Disallow: /gallery/add
+Disallow: /status
+Disallow: /tools/daoc/spellcraft

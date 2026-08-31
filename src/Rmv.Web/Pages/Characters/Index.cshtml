@@ -151,7 +151,7 @@
                                     </form>
                                 }
                                 <form method="post" asp-page-handler="Remove" asp-route-id="@c.Id"
-                                      onsubmit="return confirm('Remove @c.Name?')">
+                                      data-confirm="Remove @c.Name?">
                                     <button class="linkish linkish--danger" type="submit">remove</button>
                                 </form>
                             </div>

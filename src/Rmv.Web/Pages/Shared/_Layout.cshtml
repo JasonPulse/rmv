@@ -114,6 +114,10 @@
 </footer>
 
 <script src="~/js/htmx.min.js" defer></script>
+@* One listener for every "are you sure?" on the site. In a file because the
+   content policy refuses inline script, and because the message contains a
+   name somebody chose; see wwwroot/js/confirm.js. *@
+<script src="~/js/confirm.js" asp-append-version="true" defer></script>
 @if (Site.DiscordEnabled && User.Identity?.IsAuthenticated == true)
 {
     <script src="~/js/account-menu.js" asp-append-version="true" defer></script>
