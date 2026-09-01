@@ -105,6 +105,78 @@ leaving somebody with an empty canvas:
 %AC %AS %AP %TRP Realm Points %TRL Realm Levels Earned %TK Total Kills
 ```
 
+## Terra, which is the one with drag and drop
+
+`Terra.zip`, the Tera generator, is the third and the one he remembered. It is a
+different program: same 116-font folder and the same herald scraping, but the
+layout model was rewritten.
+
+### The model
+
+Three columns, each holding a list rather than a fixed slot:
+
+```
+textFields  = "1~%C;2~Some text;3~%L;"
+colors      = "1~255,255,255;2~200,180,90;"
+startingPos = "1~12,52;2~140,90;"
+```
+
+One entry per text field, keyed by an index, so a signature has as many fields as
+somebody adds and each carries its own text, its own colour and its own x and y.
+Font and size stayed global to the whole image.
+
+That is the free positioning the twelve-slot versions could not express, and it is
+what my element list already matches. Per-element font, size, alignment, outline
+and character binding are additions on top.
+
+### How the drag actually worked, which is worth stealing
+
+A popup whose background is the chosen signature background at the preview's exact
+size, holding one `<img>` per text field. Each of those images is
+`placeDivImg.php?f=font&fs=size&t=text&c=colour`: the server rasterises that one
+field as a transparent PNG in the real font, and jQuery UI's `draggable()` moves
+the picture around. On close, `position()` is read off each one and serialised into
+startingPos.
+
+So you drag the actual rendered glyphs over the actual background, and the editor
+cannot disagree with the renderer about text metrics. In 2014, with GD's metrics
+unavailable to a browser and no webfonts, that was the only way to be faithful.
+
+The modern equivalent is cheaper and does not put a render on every keystroke: the
+site already serves Vollkorn as woff2, so the browser can lay out the same face at
+the same size, and a real render on drop catches any drift. Same intent, no server
+work while dragging. There are two hand-tuned constants in the old pair, a minus 30
+on the y in the renderer against a plus 25 inside placeDivImg, which is what
+compensating for a baseline by trial and error looks like; drawing from the top of
+the text removes the need for either.
+
+### The thing neither backup has
+
+Terra's default design is `1~%C;`, so tokens were meant to work. They do not. In
+its createCustomImage.php the line that does the substitution,
+
+```php
+$newText = str_replace($keys,$values,$text);
+```
+
+is inside a commented-out block, and the render loop writes the raw field text
+instead. The keys and values are still computed on every request and then thrown
+away. A Terra signature drew the literal characters `%C`.
+
+So the version with the tokens has no drag and drop, and the version with the drag
+and drop has no tokens. The new one is the first to have both, which is worth
+knowing before comparing it to a memory of either.
+
+### Two smaller things
+
+The canvas in all three versions was the background image's own size, so a
+signature was 520x160 for a preset and whatever a member uploaded otherwise. Fixed
+at 520x160 here, because an editor whose canvas changes shape under the design is
+harder to use than one that does not, and uploads are re-encoded to it anyway.
+
+Terra's update.php writes `gif='0'` into a column nothing else touches, so animated
+signatures were started and abandoned. Not planned here either.
+
 ## What carries over
 
 Feature parity means all of the above: the twelve slots' worth of expressive
