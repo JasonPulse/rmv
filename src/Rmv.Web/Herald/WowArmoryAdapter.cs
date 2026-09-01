@@ -43,6 +43,16 @@ public sealed class WowArmoryAdapter(HeraldFetcher fetcher) : IHeraldAdapter
     /// month's gear. Here it is a token, which is where it belongs.
     /// </summary>
     public IReadOnlyList<HeraldStat> Stats { get; } = HeraldStatTokens.Declare(
+        // The shared columns, in the Armory's words. %Realm% carries the faction
+        // because that is how the Armory names where somebody is; %Server% below is
+        // the realm on its own. No %Deaths%: the payload has none.
+        new("Guild", "Guild", "Results May Vary", SheetField.Guild),
+        new("Realm", "Realm and faction", "Quel'Thalas (Alliance)", SheetField.Realm),
+        new("Rank", "Title", "Inquisitor", SheetField.Rank),
+        new("Score", "Achievement points", "21,430", SheetField.Score),
+        new("Kills", "Honourable kills", "8,120", SheetField.Kills),
+        new("Seen", "When the Armory last updated them", "2026-08-30", SheetField.Seen),
+
         new("ItemLevel", "Average item level", "146"),
         new("Spec", "Specialisation", "Frost"),
         new("Faction", "Faction", "Alliance"),

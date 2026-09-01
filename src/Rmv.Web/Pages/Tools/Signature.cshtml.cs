@@ -51,14 +51,14 @@ public class SignatureModel(
     public IReadOnlyList<SignatureToken> Tokens => SignatureTokens.All;
 
     /// <summary>
-    /// What each herald publishes on top of the shared tokens, grouped so a member
+    /// What each herald publishes on top of the character sheet, grouped so a member
     /// can see that relics are a DAoC thing and master level is not.
     ///
-    /// Offered whether or not they have a character there. A stat from a herald this
-    /// line's character is not on draws nothing, which is the honest answer, and
-    /// seeing the list is how somebody learns what a game they play has.
+    /// Only the heralds they have a character on. Offering all four meant offering
+    /// %ItemLevel% to somebody with no WoW character, where it would draw nothing on
+    /// any line they put it on.
     /// </summary>
-    public IReadOnlyList<Rmv.Web.Herald.HeraldStatTokens.Group> HeraldTokens => heraldStats.All;
+    public IReadOnlyList<Rmv.Web.Herald.HeraldStatTokens.Group> HeraldTokens { get; private set; } = [];
 
     public IReadOnlyCollection<string> Fonts => fonts.Keys;
 
@@ -274,6 +274,8 @@ public class SignatureModel(
         RenderedAt = Signature.Image?.RenderedAt;
 
         Characters = await RosterAsync(member, ct);
+
+        HeraldTokens = heraldStats.For(Characters.Select(c => c.Game?.HeraldAdapterKey));
 
         // The first preview, so the canvas never shows raw tokens even for a moment.
         if (SignatureDesignReader.Read(Design) is { } design)

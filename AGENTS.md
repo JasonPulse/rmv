@@ -73,6 +73,19 @@ Change these, not their callers:
   because Razor escaping does nothing about `javascript:`.
 - **Whether an address may be connected to.** `AddressPolicy.IsAllowed`, enforced in
   `HeraldHttpHandler`'s connect callback, not at save time.
+- **What a signature can say about a character.** `SignatureTokens.All` is the
+  character sheet only: name, game, level, class, race, which is exactly what the
+  add form asks for. Guild, realm, rank, score, kills, deaths and last seen are
+  columns every herald fills with something different, so each adapter declares the
+  ones it fills and labels them in its own words; `SheetColumns` names which column
+  each token reads and `SignatureData.Column` reads it. `SheetColumns` is a fixed
+  list rather than a set built as adapters declare, because adapters are scoped and
+  a stored render is served without building one.
+- **Where a line may sit on a signature.** `SignatureLimits.TopFor`. The reader, the
+  renderer and the editor all ask it. Clamping y to the canvas height rather than to
+  height minus the font size is what made "I added a line and it didn't show up".
+- **What a member may type for a character.** `CharacterSheet`, taken by
+  `CharacterService.AddManualAsync` and `UpdateManualAsync` and built by the form.
 - **Shared rendering.** `_StatusPill`, `_Flash`, `_CharacterBody`. All three exist
   because two pages had drifted copies.
 

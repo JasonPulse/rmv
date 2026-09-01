@@ -122,7 +122,7 @@ public sealed class SignatureRenderer(SignatureFonts fonts)
         var font = fonts.Get(element.Font, element.Size);
 
         var x = Math.Clamp(element.X, 0, SignatureLimits.Width);
-        var y = Math.Clamp(element.Y, 0, SignatureLimits.Height);
+        var y = SignatureLimits.TopFor(element.Y, element.Size);
 
         var options = new RichTextOptions(font)
         {

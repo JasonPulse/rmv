@@ -59,7 +59,9 @@ public class CharacterServiceTests : HeraldDatabaseTests
 
     private Task<AddOutcome> RequestAsync(
         int gameId, string name, bool useHerald, string? job = null, int? level = null) =>
-        _service.AddAsync(Member, new CharacterRequest(gameId, name, job, level, useHerald), default);
+        _service.AddAsync(
+            Member, new CharacterRequest(gameId, name, new CharacterSheet(job, null, level), useHerald),
+            default);
 
     [Fact]
     public async Task A_herald_game_is_looked_up_when_the_member_wants_it()
@@ -249,7 +251,7 @@ public class CharacterServiceTests : HeraldDatabaseTests
     public async Task Records_a_hand_typed_sheet_for_a_game_with_no_herald()
     {
         var outcome = await _service.AddManualAsync(
-            Member, NoHeraldGameId, "Sigrun", "Warden", 44, default);
+            Member, NoHeraldGameId, "Sigrun", new CharacterSheet("Warden", null, 44), default);
 
         Assert.True(outcome.Ok, outcome.Error);
         var c = outcome.Character!;
@@ -270,7 +272,7 @@ public class CharacterServiceTests : HeraldDatabaseTests
     {
         // Fifteen years on, plenty of these are a name and nothing else.
         var outcome = await _service.AddManualAsync(
-            Member, NoHeraldGameId, "Halvard", null, null, default);
+            Member, NoHeraldGameId, "Halvard", CharacterSheet.Blank, default);
 
         Assert.True(outcome.Ok, outcome.Error);
         Assert.Null(outcome.Character!.Class);
@@ -305,7 +307,7 @@ public class CharacterServiceTests : HeraldDatabaseTests
         // The reported shape of this bug: a perfectly good sheet showing a "last
         // refresh failed" warning, because nothing was ever going to refresh it.
         var added = await _service.AddManualAsync(
-            Member, NoHeraldGameId, "Sigrun", "Warden", 44, default);
+            Member, NoHeraldGameId, "Sigrun", new CharacterSheet("Warden", null, 44), default);
         Assert.True(added.Ok, added.Error);
 
         var ok = await _service.RefreshAsync(added.Character!, default);
@@ -320,12 +322,12 @@ public class CharacterServiceTests : HeraldDatabaseTests
     public async Task Editing_a_sheet_corrects_it_in_place()
     {
         var added = await _service.AddManualAsync(
-            Member, NoHeraldGameId, "Sigrun", "Warden", 44, default);
+            Member, NoHeraldGameId, "Sigrun", new CharacterSheet("Warden", null, 44), default);
         Assert.True(added.Ok, added.Error);
         var id = added.Character!.Id;
 
         var edited = await _service.UpdateManualAsync(
-            added.Character, "Sigrunn", "Druid", 50, default);
+            added.Character, "Sigrunn", new CharacterSheet("Druid", null, 50), default);
 
         Assert.True(edited.Ok, edited.Error);
         Assert.Equal(id, edited.Character!.Id);
@@ -342,11 +344,11 @@ public class CharacterServiceTests : HeraldDatabaseTests
         // The name check has to skip the row being edited, or saving a sheet
         // reports it as already claimed by its own owner.
         var added = await _service.AddManualAsync(
-            Member, NoHeraldGameId, "Sigrun", "Warden", 44, default);
+            Member, NoHeraldGameId, "Sigrun", new CharacterSheet("Warden", null, 44), default);
         Assert.True(added.Ok, added.Error);
 
         var edited = await _service.UpdateManualAsync(
-            added.Character!, "Sigrun", "Warden", 45, default);
+            added.Character!, "Sigrun", new CharacterSheet("Warden", null, 45), default);
 
         Assert.True(edited.Ok, edited.Error);
         Assert.Equal(45, edited.Character!.Level);
@@ -355,12 +357,12 @@ public class CharacterServiceTests : HeraldDatabaseTests
     [Fact]
     public async Task A_sheet_cannot_be_renamed_over_someone_elses_character()
     {
-        var mine = await _service.AddManualAsync(Member, NoHeraldGameId, "Sigrun", null, null, default);
-        var theirs = await _service.AddManualAsync(Member, NoHeraldGameId, "Halvard", null, null, default);
+        var mine = await _service.AddManualAsync(Member, NoHeraldGameId, "Sigrun", CharacterSheet.Blank, default);
+        var theirs = await _service.AddManualAsync(Member, NoHeraldGameId, "Halvard", CharacterSheet.Blank, default);
         Assert.True(mine.Ok, mine.Error);
         Assert.True(theirs.Ok, theirs.Error);
 
-        var edited = await _service.UpdateManualAsync(mine.Character!, "Halvard", null, null, default);
+        var edited = await _service.UpdateManualAsync(mine.Character!, "Halvard", CharacterSheet.Blank, default);
 
         Assert.False(edited.Ok);
         Assert.Contains("already added", edited.Error);
@@ -372,7 +374,7 @@ public class CharacterServiceTests : HeraldDatabaseTests
         var added = await _service.AddAsync(Member, HeraldGameId, "Fetva", default);
         Assert.True(added.Ok, added.Error);
 
-        var edited = await _service.UpdateManualAsync(added.Character!, "Fetva", "Wizard", 1, default);
+        var edited = await _service.UpdateManualAsync(added.Character!, "Fetva", new CharacterSheet("Wizard", null, 1), default);
 
         Assert.False(edited.Ok);
         Assert.Contains("Refresh it", edited.Error);
@@ -380,12 +382,47 @@ public class CharacterServiceTests : HeraldDatabaseTests
     }
 
     [Fact]
+    public async Task A_typed_race_is_stored_and_can_be_corrected()
+    {
+        var added = await _service.AddManualAsync(
+            Member, NoHeraldGameId, "Sigrun", new CharacterSheet("Warden", "Firbolg", 44), default);
+
+        Assert.True(added.Ok, added.Error);
+        Assert.Equal("Firbolg", added.Character!.Race);
+
+        var edited = await _service.UpdateManualAsync(
+            added.Character, "Sigrun", new CharacterSheet("Warden", "Celt", 44), default);
+
+        Assert.True(edited.Ok, edited.Error);
+        Assert.Equal("Celt", edited.Character!.Race);
+
+        // And cleared, for somebody who filled it in by mistake.
+        var cleared = await _service.UpdateManualAsync(
+            added.Character, "Sigrun", new CharacterSheet("Warden", "  ", 44), default);
+
+        Assert.True(cleared.Ok, cleared.Error);
+        Assert.Null(cleared.Character!.Race);
+    }
+
+    [Fact]
+    public async Task A_race_longer_than_the_column_is_refused_rather_than_truncated()
+    {
+        var outcome = await _service.AddManualAsync(
+            Member, NoHeraldGameId, "Sigrun",
+            new CharacterSheet(null, new string('x', CharacterLimits.MaxRace + 1), null), default);
+
+        Assert.False(outcome.Ok);
+        Assert.Contains("too long", outcome.Error);
+        Assert.False(await Db.Characters.AnyAsync(c => c.GamePresenceId == NoHeraldGameId));
+    }
+
+    [Fact]
     public async Task A_level_outside_the_range_is_refused()
     {
         Assert.False((await _service.AddManualAsync(
-            Member, NoHeraldGameId, "Sigrun", "Warden", 0, default)).Ok);
+            Member, NoHeraldGameId, "Sigrun", new CharacterSheet("Warden", null, 0), default)).Ok);
         Assert.False((await _service.AddManualAsync(
-            Member, NoHeraldGameId, "Sigrun", "Warden", 1000, default)).Ok);
+            Member, NoHeraldGameId, "Sigrun", new CharacterSheet("Warden", null, 1000), default)).Ok);
 
         // Nothing was written by either attempt.
         Assert.False(await Db.Characters.AnyAsync(c => c.GamePresenceId == NoHeraldGameId));

@@ -22,13 +22,19 @@ DESIGN = {
     "background": "Colour",
     "backgroundKey": None,
     "colour": "#101820",
+    # The shipped default's own positions, because where a new line lands depends on
+    # where the last one is and 134 is what made "I added a line and it didn't show
+    # up" happen.
     "elements": [
-        {"x": 16, "y": 20, "align": "Left", "font": "vollkorn", "size": 22,
-         "colour": "#ffcc66", "shadow": None, "characterId": 1,
+        {"x": 12, "y": 18, "align": "Left", "font": "vollkorn", "size": 22,
+         "colour": "#ffcc66", "outline": None, "characterId": 1,
          "template": "%Name%%SP%%Class%"},
-        {"x": 16, "y": 60, "align": "Left", "font": "vollkorn", "size": 14,
-         "colour": "#cfd6e4", "shadow": None, "characterId": None,
+        {"x": 12, "y": 48, "align": "Left", "font": "vollkorn", "size": 17,
+         "colour": "#cfd6e4", "outline": None, "characterId": None,
          "template": "%User% plays %AllChars%"},
+        {"x": 12, "y": 134, "align": "Left", "font": "vollkorn", "size": 14,
+         "colour": "#a89f8c", "outline": None, "characterId": None,
+         "template": "%User% has played %AllChars% characters in %AllGames% games"},
     ],
 }
 

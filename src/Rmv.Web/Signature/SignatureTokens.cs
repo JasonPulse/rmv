@@ -46,36 +46,35 @@ public sealed record SignatureToken(
 /// the bound character's; see IHeraldAdapter.Stats. That is what makes one signature
 /// able to carry a DAoC line about relics, an FFXI line about master level and a
 /// total across both.
+///
+/// This list is only what a character sheet says: the five fields the add form asks
+/// for. Guild, realm, rank, score, kills, deaths and last seen used to be here too,
+/// and that was the mistake. They are columns every herald fills with something, but
+/// not with the same thing: %Score% drew realm points on DAoC, total job levels on
+/// FFXI and achievement points on WoW, and %Rank% drew a realm rank on one and a
+/// worn title on the others. Offered as one shared token they read as facts about a
+/// character and drew whatever the game happened to mean. Each herald now declares
+/// them in its own words, so the palette says "Total job levels" beside %Score%
+/// under the FFXI heading; see SheetField.
 /// </summary>
 public static class SignatureTokens
 {
     public static readonly IReadOnlyList<SignatureToken> All =
     [
         // --- the element's character -----------------------------------------
+        // The character sheet itself, which is exactly what the add form asks for.
+        // Nothing here depends on a herald, so these work on a character somebody
+        // typed out for a game whose server closed in 2004.
         new("Name", TokenScope.Character, "Character name", "Property",
             s => s.Character?.Name ?? ""),
+        new("Game", TokenScope.Character, "The game this character is on", "Dark Age of Camelot",
+            s => s.Character?.Game ?? ""),
         new("Level", TokenScope.Character, "Level", "50",
             s => s.Character?.Level ?? ""),
         new("Class", TokenScope.Character, "Class, job or specialisation", "Skald",
             s => s.Character?.Class ?? ""),
         new("Race", TokenScope.Character, "Race", "Norseman",
             s => s.Character?.Race ?? ""),
-        new("Realm", TokenScope.Character, "Realm, server or faction", "Midgard",
-            s => s.Character?.Realm ?? ""),
-        new("Guild", TokenScope.Character, "Guild", "Results May Vary",
-            s => s.Character?.Guild ?? ""),
-        new("Rank", TokenScope.Character, "Realm rank or title", "8L0",
-            s => s.Character?.Rank ?? ""),
-        new("Score", TokenScope.Character, "Realm points, job levels or achievement points",
-            "1,234,567", s => s.Character?.Score ?? ""),
-        new("Kills", TokenScope.Character, "Kills", "12,345",
-            s => s.Character?.Kills ?? ""),
-        new("Deaths", TokenScope.Character, "Deaths", "678",
-            s => s.Character?.Deaths ?? ""),
-        new("Game", TokenScope.Character, "The game this character is on", "Dark Age of Camelot",
-            s => s.Character?.Game ?? ""),
-        new("Seen", TokenScope.Character, "When the herald last saw them", "2026-05-01",
-            s => s.Character?.Seen ?? ""),
 
         // --- the member, across every herald ----------------------------------
         new("User", TokenScope.Member, "Your name here", "Property",
@@ -164,11 +163,18 @@ public static class SignatureTokens
                 // the shared tokens, so no herald can shadow %Name%.
                 text.Append(stat);
             }
+            else if (Herald.SheetColumns.Field(name) is { } field)
+            {
+                // One of the shared columns, named by the herald that fills it. The
+                // value is on the character; an empty column draws nothing, which is
+                // what a guildless character or a hand-typed sheet looks like.
+                text.Append(subject.Character is { } c ? SignatureData.Column(c, field) : "");
+            }
             else if (Herald.HeraldStatTokens.IsKnown(name))
             {
                 // A real token, from a herald this line's character is not on. Empty
-                // rather than left as typed: "%Relics%" appearing on an FFXI line is
-                // not a typo to point out, it is a stat that does not apply.
+                // rather than left as typed: "%Relics%" on an FFXI line is not a typo
+                // to point out, it is a stat that does not apply.
             }
             else
             {

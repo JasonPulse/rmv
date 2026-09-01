@@ -114,18 +114,21 @@ public static class SignatureDesignReader
 
         return new SignatureElement(
             X: Math.Clamp(e.X, 0, SignatureLimits.Width),
-            Y: Math.Clamp(e.Y, 0, SignatureLimits.Height),
+            Y: SignatureLimits.TopFor(e.Y, Size(e.Size)),
             Align: Enum.IsDefined(e.Align) ? e.Align : TextAlign.Left,
             // Checked against the real allowlist by the renderer, which owns the
             // faces. Kept as sent so a font added later starts working for a design
             // that already names it.
             Font: string.IsNullOrWhiteSpace(e.Font) ? SignatureFonts.DefaultKey : e.Font.Trim(),
-            Size: Math.Clamp(e.Size, SignatureLimits.MinFontSize, SignatureLimits.MaxFontSize),
+            Size: Size(e.Size),
             Colour: Colour(e.Colour) ?? "#ffffff",
             Outline: Colour(e.Outline),
             CharacterId: e.CharacterId is { } id && owned.Contains(id) ? id : null,
             Template: template);
     }
+
+    private static int Size(int size) =>
+        Math.Clamp(size, SignatureLimits.MinFontSize, SignatureLimits.MaxFontSize);
 
     /// <summary>
     /// A colour, normalised, or null.

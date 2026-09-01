@@ -20,6 +20,15 @@ public sealed class FakeHeraldAdapter : IHeraldAdapter
 
     public string DefaultBaseUrl => "https://fake.test";
 
+    /// <summary>
+    /// One of each kind, so a test can see a herald group in the editor's palette:
+    /// a stat from the character's Stats document, and one of the shared columns
+    /// named in this herald's own words.
+    /// </summary>
+    public IReadOnlyList<HeraldStat> Stats { get; } = HeraldStatTokens.Declare(
+        new("FakeStat", "Something this herald publishes", "12"),
+        new("Score", "Fake points", "1,234", SheetField.Score));
+
     /// <summary>Score, matching the two real heralds that publish a cumulative measure.</summary>
     public LeaderboardMetric Metric { get; set; } = new(RankBy.Score, "Realm points");
 

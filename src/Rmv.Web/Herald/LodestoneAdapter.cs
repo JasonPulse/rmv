@@ -41,6 +41,13 @@ public sealed class LodestoneAdapter(HeraldFetcher fetcher) : IHeraldAdapter
     /// it is exactly what somebody would put in a signature.
     /// </summary>
     public IReadOnlyList<HeraldStat> Stats { get; } = HeraldStatTokens.Declare(
+        // The shared columns this herald fills. It publishes no kills, no deaths and
+        // nothing cumulative, so it declares none of those: a token that would draw
+        // nothing is not worth offering.
+        new("Guild", "Free company", "Results May Vary", SheetField.Guild),
+        new("Realm", "World", "Cerberus", SheetField.Realm),
+        new("Rank", "Title", "Warrior of Light", SheetField.Rank),
+
         new("JobLevels", "Levels across every job", "1,204"),
         new("JobsLevelled", "Jobs levelled at all", "21"),
         new("JobsAtCap", "Jobs at the level cap", "3"),

@@ -32,6 +32,16 @@ public sealed class BlackthornHeraldAdapter(HeraldFetcher fetcher) : IHeraldAdap
     /// generator's %W, which had no home until heralds could declare their own.
     /// </summary>
     public IReadOnlyList<HeraldStat> Stats { get; } = HeraldStatTokens.Declare(
+        // The shared columns, in this herald's words. These are the names the 2001
+        // generator used and they mean here what they meant there.
+        new("Guild", "Guild", "Results May Vary", SheetField.Guild),
+        new("Realm", "Realm", "Midgard", SheetField.Realm),
+        new("Rank", "Realm rank", "8L0", SheetField.Rank),
+        new("Score", "Realm points, all time", "11,383,420", SheetField.Score),
+        new("Kills", "Kills, all time", "12,345", SheetField.Kills),
+        new("Deaths", "Deaths, all time", "678", SheetField.Deaths),
+        new("Seen", "Last online, as the herald puts it", "Recently", SheetField.Seen),
+
         new("LastWeek", "Realm points last week", "11,792"),
         new("ThisWeek", "Realm points this week", "1,230"),
         new("Ratio", "Kill to death ratio", "2.92"),

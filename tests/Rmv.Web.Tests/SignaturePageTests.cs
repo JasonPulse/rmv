@@ -195,6 +195,19 @@ public class SignaturePageTests : HeraldDatabaseTests
         Assert.NotNull(stored.Elements[0].CharacterId);
     }
 
+    [Fact]
+    public async Task The_palette_offers_only_the_heralds_he_has_a_character_on()
+    {
+        // He has one character, on the fake herald this fixture registers. Offering
+        // the Armory's %ItemLevel% to somebody with no WoW character is offering a
+        // token that draws nothing on every line it could go on.
+        var page = Page();
+        await page.OnGetAsync(default);
+
+        Assert.Single(page.HeraldTokens);
+        Assert.Equal(Herald.DisplayName, page.HeraldTokens[0].Herald);
+    }
+
     // --- the canvas's text ---------------------------------------------------
 
     [Fact]

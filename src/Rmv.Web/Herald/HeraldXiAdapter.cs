@@ -36,6 +36,17 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
     /// a worse signature than saying nothing.
     /// </summary>
     public IReadOnlyList<HeraldStat> Stats { get; } = HeraldStatTokens.Declare(
+        // The shared columns, in FFXI's words. %Score% here is total job levels and
+        // %Rank% is the title somebody is wearing, which is why the palette says so
+        // rather than offering both under one heading and leaving it to be guessed.
+        // No %Guild%: FFXI has none, and the column is left null.
+        new("Realm", "Home nation", "Windurst", SheetField.Realm),
+        new("Rank", "Title", "Eternal Mercenary", SheetField.Rank),
+        new("Score", "Total job levels", "527", SheetField.Score),
+        new("Kills", "Kills", "1,204", SheetField.Kills),
+        new("Deaths", "Deaths", "312", SheetField.Deaths),
+        new("Seen", "Online now, or the day they logged out", "Online now", SheetField.Seen),
+
         new("Playtime", "Time played", "15 days"),
         new("MasterLevel", "Master level", "20"),
         new("Merits", "Merit points", "7"),
@@ -44,7 +55,6 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
         new("Battles", "Battles fought", "5,931"),
         new("Defeated", "Enemies defeated", "8,297"),
         new("Distance", "Distance travelled", "887,119"),
-        new("Nation", "Home nation", "Windurst"),
         new("MainJob", "Main job and level", "MNK 99"),
         new("SubJob", "Support job and level", "WHM 49"));
 
@@ -212,10 +222,9 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
             stats["Zone"] = zone;
         }
 
-        if (Blank(dto.Nation) is { } nation)
-        {
-            stats["Nation"] = nation;
-        }
+        // Nation is not in here. It is the Realm column, and this herald declares
+        // %Realm% as "Home nation", so putting it in the document as well would be
+        // two tokens drawing one value.
 
         // The jobs separately as well as together, because a signature might want
         // the main job on its own line.

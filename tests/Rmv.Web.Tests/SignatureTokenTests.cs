@@ -241,4 +241,73 @@ public class SignatureTokenTests
 
         Assert.Equal(names.Count, names.Distinct().Count());
     }
+
+    // --- what a character sheet says, and what a herald says ------------------
+
+    [Fact]
+    public void The_character_group_is_the_character_sheet_and_nothing_else()
+    {
+        // What the add form asks for, plus the two facts a character cannot be
+        // without. Everything a herald fills in moved out, because a member with a
+        // hand-typed character was being offered %Rank% and %Score% for a game whose
+        // server closed in 2004.
+        var sheet = SignatureTokens.All
+            .Where(t => t.Scope == TokenScope.Character)
+            .Select(t => t.Name)
+            .OrderBy(n => n)
+            .ToList();
+
+        Assert.Equal(["Class", "Game", "Level", "Name", "Race"], sheet);
+
+        // And none of them is a column a herald names in its own words.
+        Assert.All(sheet, name => Assert.Null(Rmv.Web.Herald.SheetColumns.Field(name)));
+    }
+
+    [Fact]
+    public void A_hand_typed_character_draws_its_own_race()
+    {
+        // Race is on the add form now, so it draws for a game with no herald.
+        var typed = new Character
+        {
+            Id = 4,
+            Name = "Sigrun",
+            Class = "Warden",
+            Race = "Firbolg",
+            Level = 44,
+            Source = CharacterSource.Manual,
+            AddedAt = DateTimeOffset.UtcNow,
+            GamePresenceId = 9,
+            Game = new GamePresence { Id = 9, Game = "Shadowbane" },
+        };
+
+        Assert.Equal(
+            "Sigrun, Firbolg Warden 44, Shadowbane",
+            Resolve("%Name%, %Race% %Class% %Level%, %Game%", typed));
+    }
+
+    [Fact]
+    public void A_shared_column_draws_without_any_herald_being_built()
+    {
+        // The reason SheetColumns is a fixed list rather than a set that fills up as
+        // adapters are constructed. Adapters are scoped services; a signature served
+        // from its stored render never builds one. A resolver that learned these
+        // names from adapter construction would draw them on the request that
+        // happened to have built an adapter and leave "%Score%" as typed on the next.
+        //
+        // Nothing in this test touches the registry.
+        Assert.Equal(
+            "Results May Vary - 8L0 - 1,234,567 - 12,345/678 - Midgard - 2026-05-01",
+            Resolve("%Guild%%SP%%Rank%%SP%%Score%%SP%%Kills%/%Deaths%%SP%%Realm%%SP%%Seen%"));
+    }
+
+    [Fact]
+    public void A_shared_column_a_character_has_nothing_in_draws_nothing()
+    {
+        var bare = new Character
+        {
+            Id = 5, Name = "Halvard", AddedAt = DateTimeOffset.UtcNow, GamePresenceId = 9,
+        };
+
+        Assert.Equal("[][][]", Resolve("[%Guild%][%Score%][%Seen%]", bare));
+    }
 }

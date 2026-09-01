@@ -63,6 +63,18 @@ public static class SignatureLimits
     /// is comfortably inside this.
     /// </summary>
     public const int MaxDesignLength = 8_000;
+
+    /// <summary>
+    /// Where the top of a line of this size may sit, so all of the line is on the
+    /// canvas.
+    ///
+    /// It used to be 0 to Height in three places, which is how "I added a line and
+    /// it didn't show up" happened: the editor puts a new line 24 pixels under the
+    /// last one, the default design's last line sits at 134, and 158 was a legal
+    /// position for a 16 pixel line on a canvas 160 tall. Two pixels of it drew.
+    /// </summary>
+    public static int TopFor(int y, int size) =>
+        Math.Clamp(y, 0, Math.Max(0, Height - size));
 }
 
 /// <summary>
@@ -135,7 +147,13 @@ public sealed record SignatureDesign(
                 Colour: "#c9c2b4",
                 Outline: null,
                 CharacterId: characterId,
-                Template: "%Guild%%SP%%Rank%%SP%%Score%"),
+                // The character sheet, not a herald's stats. This line used to be
+                // %Guild%%SP%%Rank%%SP%%Score%, which drew " - Eternal Mercenary -
+                // 527" for an FFXI character: a blank guild, a worn title and a
+                // count of job levels, punctuated as though they belonged together.
+                // A default has to read properly for a character somebody typed in
+                // as well as one a herald filled.
+                Template: "%Game%"),
             new SignatureElement(
                 X: 12,
                 Y: 134,

@@ -92,6 +92,12 @@
                         </div>
 
                         <div class="field">
+                            <label asp-for="Input.Race">Race</label>
+                            <input class="input" asp-for="Input.Race" autocomplete="off"
+                                   placeholder="Norseman, Elvaan, Night Elf" />
+                        </div>
+
+                        <div class="field">
                             <label asp-for="Input.Level">Level</label>
                             <input class="input input--narrow" asp-for="Input.Level" type="number"
                                    min="@CharacterLimits.MinLevel" max="@CharacterLimits.MaxLevel" placeholder="50" />
@@ -175,6 +181,11 @@
                                             <label for="edit-class-@c.Id">Job or class</label>
                                             <input class="input" id="edit-class-@c.Id" name="Edit.Class"
                                                    value="@c.Class" autocomplete="off" />
+                                        </div>
+                                        <div class="field">
+                                            <label for="edit-race-@c.Id">Race</label>
+                                            <input class="input" id="edit-race-@c.Id" name="Edit.Race"
+                                                   value="@c.Race" autocomplete="off" />
                                         </div>
                                         <div class="field">
                                             <label for="edit-level-@c.Id">Level</label>

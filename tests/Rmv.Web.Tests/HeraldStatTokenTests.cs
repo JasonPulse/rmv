@@ -77,26 +77,113 @@ public class HeraldStatTokenTests
     }
 
     [Fact]
-    public void No_two_heralds_disagree_about_a_key()
+    public void No_two_heralds_disagree_about_where_a_key_reads_from()
     {
-        // They may share one: two games with an item level would both be %ItemLevel%
-        // and that reads fine, because the value comes from the line's own character.
-        // What must not happen is two heralds using one key for different things, so
-        // this prints them rather than asserting none, and the labels have to match.
+        // Heralds share keys on purpose: %Score% is declared by three of them and
+        // %Kills% by three. What they may not do is point one key at two different
+        // fields, because then the same token draws different data depending on which
+        // adapter happened to declare it last.
+        //
+        // Labels are free to differ, and that is the point of them being per herald:
+        // %Score% is "Realm points, all time" on DAoC and "Total job levels" on FFXI.
         var byKey = Adapters()
             .SelectMany(a => a.Stats.Select(s => (a.DisplayName, s)))
             .GroupBy(x => x.s.Key, StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Count() > 1)
             .ToList();
 
+        Assert.NotEmpty(byKey);
+
         foreach (var group in byKey)
         {
-            var labels = group.Select(x => x.s.Label).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var fields = group.Select(x => x.s.From).Distinct().ToList();
 
-            Assert.True(labels.Count == 1,
-                $"{group.Key} means different things on "
-                + string.Join(" and ", group.Select(x => $"{x.DisplayName} ({x.s.Label})")));
+            Assert.True(fields.Count == 1,
+                $"%{group.Key}% reads from more than one field: "
+                + string.Join(" and ", group.Select(x => $"{x.DisplayName} ({x.s.From})")));
         }
+    }
+
+    [Fact]
+    public void One_key_pointed_at_two_fields_stops_the_site()
+    {
+        // Adapters are constructed at startup, so this throws where somebody will see
+        // it rather than shipping a token that means two things.
+        var clash = Assert.Throws<InvalidOperationException>(() =>
+            HeraldStatTokens.Declare(new HeraldStat("Score", "Something else", "1", SheetField.Kills)));
+
+        Assert.Contains("%Score%", clash.Message);
+    }
+
+    [Fact]
+    public void A_herald_names_the_shared_columns_in_its_own_words()
+    {
+        // His complaint, as a test. The default line said %Guild%%SP%%Rank%%SP%%Score%
+        // and drew " - Eternal Mercenary - 527" for an FFXI character: a blank guild,
+        // a worn title and a count of job levels. The values were right and the
+        // tokens told him nothing about what they were.
+        var byHerald = Adapters().ToDictionary(a => a.Key, a => a.Stats);
+
+        string Label(string herald, string key) =>
+            byHerald[herald].Single(s => s.Key == key).Label;
+
+        Assert.Equal("Realm points, all time", Label("blackthorn", "Score"));
+        Assert.Equal("Total job levels", Label("heraldxi", "Score"));
+        Assert.Equal("Achievement points", Label("armory", "Score"));
+
+        Assert.Equal("Realm rank", Label("blackthorn", "Rank"));
+        Assert.Equal("Title", Label("heraldxi", "Rank"));
+
+        // And all three read the same column, so a line bound to a character draws
+        // that character's own number.
+        Assert.All(new[] { "blackthorn", "heraldxi", "armory" },
+            h => Assert.Equal(SheetField.Score, byHerald[h].Single(s => s.Key == "Score").From));
+    }
+
+    [Fact]
+    public void A_herald_does_not_declare_a_column_it_never_fills()
+    {
+        var byHerald = Adapters().ToDictionary(a => a.Key, a => a.Stats.Select(s => s.Key).ToList());
+
+        // FFXI has no guild at all, and the adapter sets the column to null.
+        Assert.DoesNotContain("Guild", byHerald["heraldxi"]);
+
+        // The Lodestone publishes nothing cumulative and no kills.
+        Assert.DoesNotContain("Score", byHerald["lodestone"]);
+        Assert.DoesNotContain("Kills", byHerald["lodestone"]);
+
+        // The Armory payload has no deaths.
+        Assert.DoesNotContain("Deaths", byHerald["armory"]);
+    }
+
+    [Fact]
+    public void A_value_is_declared_once_and_not_twice()
+    {
+        // FFXI's nation was both the Realm column and a "Nation" entry in the stats
+        // document, so two tokens drew one value and only one of them was labelled
+        // for the game.
+        var ffxi = Adapters().Single(a => a.Key == "heraldxi").Stats;
+
+        Assert.DoesNotContain(ffxi, s => s.Key == "Nation");
+        Assert.Equal("Home nation", ffxi.Single(s => s.Key == "Realm").Label);
+    }
+
+    [Fact]
+    public void The_palette_only_offers_heralds_a_member_has_a_character_on()
+    {
+        var adapters = Adapters();
+        var tokens = new HeraldStatTokens(new HeraldRegistry(adapters));
+
+        // His roster: FFXI and DAoC, plus a game with no herald at all.
+        var mine = tokens.For(["heraldxi", "blackthorn", null]);
+
+        Assert.Equal(2, mine.Count);
+        Assert.DoesNotContain(mine, g => g.Stats.Any(s => s.Key == "ItemLevel"));
+        Assert.Contains(mine, g => g.Stats.Any(s => s.Key == "MasterLevel"));
+
+        // Nobody with nothing added gets a palette of tokens that cannot work.
+        Assert.Empty(tokens.For([]));
+        Assert.Empty(tokens.For([null, "", "not-a-herald"]));
     }
 
     [Fact]
@@ -276,7 +363,9 @@ public class HeraldStatTokenTests
     [Fact]
     public void The_palette_groups_them_by_herald()
     {
-        var groups = new HeraldStatTokens(new HeraldRegistry(Adapters())).All;
+        var adapters = Adapters();
+        var groups = new HeraldStatTokens(new HeraldRegistry(adapters))
+            .For(adapters.Select(a => a.Key));
 
         // One group per herald that has any, named so somebody can tell which game a
         // stat belongs to.

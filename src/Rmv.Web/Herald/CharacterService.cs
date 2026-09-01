@@ -18,8 +18,20 @@ public sealed record AddOutcome(bool Ok, Character? Character, string? Error)
 /// decides, because a member choosing "type it in" against a working herald would
 /// only be choosing worse data.
 /// </param>
+/// <summary>
+/// What a member types for a game with no herald, and the fields a signature's
+/// %Class%, %Race% and %Level% draw on for such a character.
+///
+/// One record rather than three parameters repeated down four signatures. Adding
+/// race was the third field, which is where a parameter list stops reading.
+/// </summary>
+public sealed record CharacterSheet(string? Class = null, string? Race = null, int? Level = null)
+{
+    public static readonly CharacterSheet Blank = new();
+}
+
 public sealed record CharacterRequest(
-    int GameId, string Name, string? Class = null, int? Level = null, bool UseHerald = true);
+    int GameId, string Name, CharacterSheet? Sheet = null, bool UseHerald = true);
 
 public sealed class CharacterService(
     RmvDbContext db,
@@ -56,7 +68,7 @@ public sealed class CharacterService(
         if (adapter is null)
         {
             return await AddManualAsync(
-                member, request.GameId, request.Name, request.Class, request.Level, ct);
+                member, request.GameId, request.Name, request.Sheet, ct);
         }
 
         if (request.UseHerald)
@@ -71,7 +83,7 @@ public sealed class CharacterService(
         }
 
         return await AddManualAsync(
-            member, request.GameId, request.Name, request.Class, request.Level, ct);
+            member, request.GameId, request.Name, request.Sheet, ct);
     }
 
     /// <summary>
@@ -135,7 +147,7 @@ public sealed class CharacterService(
     /// nothing ever overwrites it.
     /// </summary>
     public async Task<AddOutcome> AddManualAsync(
-        Member member, int gameId, string rawName, string? jobClass, int? level, CancellationToken ct)
+        Member member, int gameId, string rawName, CharacterSheet? sheet, CancellationToken ct)
     {
         var name = (rawName ?? "").Trim();
 
@@ -161,15 +173,16 @@ public sealed class CharacterService(
         // Source = Manual, RefreshAsync leaves those alone, and the daily pass
         // filters to FromHerald.
 
-        if (!TryTidy(jobClass, level, out var tidyClass, out var tidyLevel, out var error))
+        if (!TryTidy(sheet, out var tidy, out var error))
         {
             return AddOutcome.Fail(error!);
         }
 
         var character = NewCharacter(member, gameId, CharacterSource.Manual);
         character.Name = name;
-        character.Class = tidyClass;
-        character.Level = tidyLevel;
+        character.Class = tidy.Class;
+        character.Race = tidy.Race;
+        character.Level = tidy.Level;
         // Nothing fetched it, so there is no fetch time to report and no error.
         character.LastFetchedAt = null;
 
@@ -182,7 +195,7 @@ public sealed class CharacterService(
     /// next refresh look like it lost someone's edit.
     /// </summary>
     public async Task<AddOutcome> UpdateManualAsync(
-        Character character, string rawName, string? jobClass, int? level, CancellationToken ct)
+        Character character, string rawName, CharacterSheet? sheet, CancellationToken ct)
     {
         if (!character.IsManual)
         {
@@ -195,7 +208,7 @@ public sealed class CharacterService(
             return AddOutcome.Fail("That does not look like a character name.");
         }
 
-        if (!TryTidy(jobClass, level, out var tidyClass, out var tidyLevel, out var error))
+        if (!TryTidy(sheet, out var tidy, out var error))
         {
             return AddOutcome.Fail(error!);
         }
@@ -209,8 +222,9 @@ public sealed class CharacterService(
         }
 
         character.Name = name;
-        character.Class = tidyClass;
-        character.Level = tidyLevel;
+        character.Class = tidy.Class;
+        character.Race = tidy.Race;
+        character.Level = tidy.Level;
 
         await db.SaveChangesAsync(ct);
         return AddOutcome.Added(character);
@@ -251,23 +265,32 @@ public sealed class CharacterService(
     }
 
     /// <summary>
-    /// Job and level as the member typed them. Blank is allowed for both: a level
-    /// nobody remembers is better recorded as absent than as a guess.
+    /// The sheet as the member typed it. Every field may be blank: a level nobody
+    /// remembers is better recorded as absent than as a guess.
     /// </summary>
-    private static bool TryTidy(
-        string? jobClass, int? level, out string? tidyClass, out int? tidyLevel, out string? error)
+    private static bool TryTidy(CharacterSheet? sheet, out CharacterSheet tidy, out string? error)
     {
-        tidyClass = string.IsNullOrWhiteSpace(jobClass) ? null : jobClass.Trim();
-        tidyLevel = level;
+        sheet ??= CharacterSheet.Blank;
         error = null;
 
-        if (tidyClass is { Length: > CharacterLimits.MaxClass })
+        tidy = new CharacterSheet(
+            Class: Trimmed(sheet.Class),
+            Race: Trimmed(sheet.Race),
+            Level: sheet.Level);
+
+        if (tidy.Class is { Length: > CharacterLimits.MaxClass })
         {
             error = "That job or class name is too long.";
             return false;
         }
 
-        if (level is < CharacterLimits.MinLevel or > CharacterLimits.MaxLevel)
+        if (tidy.Race is { Length: > CharacterLimits.MaxRace })
+        {
+            error = "That race is too long.";
+            return false;
+        }
+
+        if (tidy.Level is < CharacterLimits.MinLevel or > CharacterLimits.MaxLevel)
         {
             error = $"Level has to be between {CharacterLimits.MinLevel} "
                     + $"and {CharacterLimits.MaxLevel}.";
@@ -276,6 +299,9 @@ public sealed class CharacterService(
 
         return true;
     }
+
+    private static string? Trimmed(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private async Task<AddOutcome> SaveNewAsync(
         Character character, string name, int gameId, CancellationToken ct)

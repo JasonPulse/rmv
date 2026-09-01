@@ -347,6 +347,46 @@ public class SignatureRendererTests
         Assert.Equal(SignatureLimits.Width, image.Width);
     }
 
+    [Fact]
+    public void A_line_added_under_the_last_one_is_drawn_where_it_can_be_seen()
+    {
+        // Reported as "I added a line and it didn't show up". The editor puts a new
+        // line 24 pixels under the last, the default design's last line sits at 134,
+        // and 158 was a legal top for a 16 pixel line on a canvas 160 tall. Two
+        // pixels of it drew.
+        var blank = SignatureDesign.Default(1) with { Elements = [] };
+
+        var low = SignatureDesign.Default(1) with
+        {
+            Elements =
+            [
+                new SignatureElement(12, 158, TextAlign.Left, SignatureFonts.DefaultKey, 16,
+                    "#ffffff", null, 1, "Added a line"),
+            ],
+        };
+
+        using var empty = Decode(Renderer().Render(blank, Him(), Roster()));
+        using var drawn = Decode(Renderer().Render(low, Him(), Roster()));
+
+        // A whole line of text, not a sliver. Twelve pixels of it is the shortest
+        // this string could honestly be at this size.
+        Assert.True(Difference(empty, drawn) > 200,
+            $"only {Difference(empty, drawn)} pixels changed, so the line is off the canvas");
+    }
+
+    [Theory]
+    // Where the top of a line may sit, so all of the line is on the canvas. One
+    // answer, in SignatureLimits, read by the reader and by the renderer.
+    [InlineData(158, 16, 144)]
+    [InlineData(0, 16, 0)]
+    [InlineData(-40, 16, 0)]
+    [InlineData(160, 48, 112)]
+    [InlineData(100, 16, 100)]
+    public void A_line_sits_where_all_of_it_fits(int y, int size, int expected)
+    {
+        Assert.Equal(expected, SignatureLimits.TopFor(y, size));
+    }
+
     [Theory]
     [InlineData(-100)]
     [InlineData(0)]

@@ -58,6 +58,11 @@
 
     const clamp = (n, low, high) => Math.min(Math.max(n, low), high);
 
+    // Where the top of a line of this size may sit, so all of it is on the canvas.
+    // The server's SignatureLimits.TopFor says the same thing and is the one that
+    // counts; this keeps the canvas from showing a position the render will not take.
+    const top = (y, size) => clamp(y, 0, Math.max(0, height - size));
+
     const write = () => {
         field.value = JSON.stringify(design);
     };
@@ -238,7 +243,7 @@
         const element = design.elements[dragging.index];
 
         element.x = Math.round(clamp(event.clientX - box.left - dragging.grabX, 0, width));
-        element.y = Math.round(clamp(event.clientY - box.top - dragging.grabY, 0, height));
+        element.y = Math.round(top(event.clientY - box.top - dragging.grabY, element.size));
 
         dragging.line.style.left = `${element.x}px`;
         dragging.line.style.top = `${element.y}px`;
@@ -288,7 +293,7 @@
 
         const [dx, dy] = moves[event.key];
         element.x = Math.round(clamp(element.x + dx, 0, width));
-        element.y = Math.round(clamp(element.y + dy, 0, height));
+        element.y = Math.round(top(element.y + dy, element.size));
 
         focused = Number(line.dataset.line);
         changed({ panel: true });
@@ -523,19 +528,42 @@
         input.addEventListener('click', () => input.select());
     });
 
+    /// Somewhere a new line of this size can be seen.
+    ///
+    /// Under the last one if it fits, and if it does not, the highest 24 pixel row
+    /// nothing else is sitting on. Adding a line and being handed one already on top
+    /// of another is only marginally better than being handed one off the canvas.
+    const spot = size => {
+        const last = design.elements[design.elements.length - 1];
+        const clear = y => design.elements.every(e => Math.abs(e.y - y) >= 12);
+
+        if (last && last.y + 24 + size <= height && clear(last.y + 24)) {
+            return last.y + 24;
+        }
+
+        for (let y = 12; y + size <= height; y += 24) {
+            if (clear(y)) {
+                return y;
+            }
+        }
+
+        return top(height, size);
+    };
+
     form.querySelector('[data-add]').addEventListener('click', () => {
         if (design.elements.length >= maxElements) {
             return;
         }
 
         const last = design.elements[design.elements.length - 1];
+        const size = 16;
 
         design.elements.push({
             x: 12,
-            y: last ? clamp(last.y + 24, 0, height) : 18,
+            y: spot(size),
             align: 'Left',
             font: last ? last.font : 'vollkorn',
-            size: 16,
+            size,
             colour: last ? last.colour : '#e8d8a0',
             outline: last ? last.outline : null,
             characterId: last ? last.characterId : null,

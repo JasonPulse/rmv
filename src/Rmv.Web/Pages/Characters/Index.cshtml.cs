@@ -97,8 +97,14 @@ public class IndexModel(
         [Display(Name = "Job or class")]
         public string? Class { get; set; }
 
+        [StringLength(CharacterLimits.MaxRace)]
+        public string? Race { get; set; }
+
         [Range(CharacterLimits.MinLevel, CharacterLimits.MaxLevel)]
         public int? Level { get; set; }
+
+        /// <summary>What the service stores, so the form is not a second field list.</summary>
+        public CharacterSheet Sheet() => new(Class, Race, Level);
     }
 
     public class InputModel : SheetInput
@@ -168,7 +174,7 @@ public class IndexModel(
         var outcome = await characters.AddAsync(
             member,
             new CharacterRequest(
-                Input.GamePresenceId, Input.Name, Input.Class, Input.Level, Input.UseHerald),
+                Input.GamePresenceId, Input.Name, Input.Sheet(), Input.UseHerald),
             ct);
 
         if (!outcome.Ok)
@@ -197,7 +203,7 @@ public class IndexModel(
         }
 
         var outcome = await characters.UpdateManualAsync(
-            character, Edit.Name, Edit.Class, Edit.Level, ct);
+            character, Edit.Name, Edit.Sheet(), ct);
 
         if (!outcome.Ok)
         {

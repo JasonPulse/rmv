@@ -119,7 +119,7 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             e.Property(c => c.Guild).HasMaxLength(80);
             e.Property(c => c.Realm).HasMaxLength(40);
             e.Property(c => c.Class).HasMaxLength(CharacterLimits.MaxClass);
-            e.Property(c => c.Race).HasMaxLength(40);
+            e.Property(c => c.Race).HasMaxLength(CharacterLimits.MaxRace);
             e.Property(c => c.RealmRank).HasMaxLength(40);
             e.Property(c => c.LastOnline).HasMaxLength(40);
             e.Property(c => c.HeraldUrl).HasMaxLength(ExternalUrl.MaxLength);

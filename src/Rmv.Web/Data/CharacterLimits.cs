@@ -29,6 +29,9 @@ public static class CharacterLimits
     /// <summary>Job or class, as typed for a game with no herald.</summary>
     public const int MaxClass = 60;
 
+    /// <summary>Race, as typed for a game with no herald.</summary>
+    public const int MaxRace = 40;
+
     public const int MinLevel = 1;
 
     /// <summary>

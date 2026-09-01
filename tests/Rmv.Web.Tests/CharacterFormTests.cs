@@ -145,6 +145,7 @@ public class CharacterFormTests : HeraldDatabaseTests
             GamePresenceId = _armoryGameId,
             Name = "Lapsed",
             Class = "Frost Death Knight",
+            Race = "Blood Elf",
             Level = 80,
             UseHerald = false,
         };
@@ -160,6 +161,10 @@ public class CharacterFormTests : HeraldDatabaseTests
         Assert.Equal(CharacterSource.Manual, stored.Source);
         Assert.Equal("Frost Death Knight", stored.Class);
         Assert.Equal(80, stored.Level);
+
+        // Race is on the form because a signature offers %Race% to every character,
+        // and before this there was no way to fill it for a game with no herald.
+        Assert.Equal("Blood Elf", stored.Race);
     }
 
     [Fact]

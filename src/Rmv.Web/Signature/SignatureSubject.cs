@@ -94,6 +94,32 @@ public static class SignatureData
     }
 
     /// <summary>
+    /// One of the shared columns, by the name a herald declared it under.
+    ///
+    /// One switch, because a herald names these and the resolver reads them, and a
+    /// second mapping is a token that appears in the palette and draws the wrong
+    /// field. See SheetField for why they are per herald at all.
+    /// </summary>
+    public static string Column(SignatureCharacter character, Herald.SheetField field)
+    {
+        ArgumentNullException.ThrowIfNull(character);
+
+        return field switch
+        {
+            Herald.SheetField.Guild => character.Guild,
+            Herald.SheetField.Realm => character.Realm,
+            Herald.SheetField.Rank => character.Rank,
+            Herald.SheetField.Score => character.Score,
+            Herald.SheetField.Kills => character.Kills,
+            Herald.SheetField.Deaths => character.Deaths,
+            Herald.SheetField.Seen => character.Seen,
+            // Document: the value is in the Stats document, which Resolve looks in
+            // before it gets here.
+            _ => "",
+        };
+    }
+
+    /// <summary>
     /// The cross-herald sums. Realm points on DAoC, total job levels on FFXI and
     /// achievement points on WoW all live in Character.Score, so adding them is
     /// adding numbers that mean different things. That is the joke, and it is what

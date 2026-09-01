@@ -115,12 +115,80 @@ public enum RankBy
 public sealed record LeaderboardMetric(RankBy By, string Label);
 
 /// <summary>
-/// One extra stat a herald publishes, and what a signature calls it.
+/// Which of the shared columns a herald's stat reads.
+///
+/// Most stats are in the Stats document, which is what Document means. The rest are
+/// the columns every herald fills in something like, and the point of naming them
+/// here is that no two heralds mean the same thing by one: Score is realm points on
+/// DAoC, total job levels on FFXI and achievement points on WoW, and Rank is a realm
+/// rank on one and a title on the other two. A member offered a bare %Score% has to
+/// guess. Declared per herald, each with its own label, they read as what they are.
+/// </summary>
+public enum SheetField
+{
+    /// <summary>From the character's Stats document, which is the usual case.</summary>
+    Document,
+
+    Guild,
+    Realm,
+    Rank,
+    Score,
+    Kills,
+    Deaths,
+    Seen,
+}
+
+/// <summary>
+/// The token name each shared column is written as.
+///
+/// Fixed and complete here rather than accumulated as adapters declare their stats,
+/// and that is the whole point: adapters are scoped services, built when a request
+/// needs one. A signature served from the stored render never builds one, so a
+/// resolver that learned these names from adapter construction would draw them for
+/// one request and leave "%Score%" as typed for the next.
+///
+/// A herald chooses which of these it offers and what to call it; see
+/// IHeraldAdapter.Stats. It does not get to point one at a different column, which
+/// HeraldStatTokens.Declare enforces.
+/// </summary>
+public static class SheetColumns
+{
+    private static readonly Dictionary<string, SheetField> ByName =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Guild"] = SheetField.Guild,
+            ["Realm"] = SheetField.Realm,
+            ["Rank"] = SheetField.Rank,
+            ["Score"] = SheetField.Score,
+            ["Kills"] = SheetField.Kills,
+            ["Deaths"] = SheetField.Deaths,
+            ["Seen"] = SheetField.Seen,
+        };
+
+    /// <summary>The column this name reads, or null when it names no column.</summary>
+    public static SheetField? Field(string key) =>
+        ByName.TryGetValue(key, out var field) ? field : null;
+
+    public static IEnumerable<string> Names => ByName.Keys;
+}
+
+/// <summary>
+/// One stat a herald publishes, and what a signature calls it.
 /// </summary>
 /// <param name="Key">The token name, without percent signs. Unique across the herald.</param>
-/// <param name="Label">What the editor's palette calls it.</param>
+/// <param name="Label">
+/// What the editor's palette calls it, in this herald's own words. Two heralds may
+/// share a key and label it differently; that is the whole reason the label is here
+/// and not in one shared list.
+/// </param>
 /// <param name="Example">A filled-in value, so the palette can show what it looks like.</param>
-public sealed record HeraldStat(string Key, string Label, string Example);
+/// <param name="From">
+/// The shared column this reads, or Document for the usual case. A key may only ever
+/// name one column, whichever heralds declare it; HeraldStatTokens.Declare enforces
+/// that at startup.
+/// </param>
+public sealed record HeraldStat(
+    string Key, string Label, string Example, SheetField From = SheetField.Document);
 
 public interface IHeraldAdapter
 {
