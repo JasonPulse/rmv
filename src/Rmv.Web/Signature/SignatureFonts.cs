@@ -10,10 +10,16 @@ namespace Rmv.Web.Signature;
 /// ".ttf" to a filesystem path, which is a directory traversal wearing a font
 /// picker; asking this class for a key it does not have gets the default instead.
 ///
-/// Curated rather than the 116 out of the v1 backup. Those are dafont-era freeware
-/// whose terms usually exclude exactly this use, server-side rasterisation on a
-/// public site, and the site already ships Vollkorn under the SIL Open Font
-/// License. The licence travels with the file; see Signature/Fonts/OFL.txt.
+/// Five rather than the 116 out of the backup. Those are dafont-era freeware whose
+/// terms usually exclude exactly this use, server-side rasterisation on a public
+/// site. These are all under the SIL Open Font License, and each family's own
+/// licence sits beside it in Signature/Fonts: they are the same licence but not the
+/// same copyright line, and one shared file would be a claim about somebody else's
+/// font.
+///
+/// The spread is what a signature needs rather than what a foundry would sell: a
+/// text serif, inscriptional capitals, a blackletter, a condensed sans for numbers,
+/// and an old print face.
 /// </summary>
 public sealed class SignatureFonts
 {
@@ -32,7 +38,16 @@ public sealed class SignatureFonts
 
         // One entry per key. The filename is here and nowhere else, so a font that
         // fails to load is a startup problem rather than a broken signature later.
+        //
+        // The variable fonts load at their default instance, which is the regular
+        // weight. SixLabors.Fonts 1.0 does not read the weight axis, so a bold face
+        // would have to be a separate file; nobody has asked, and a signature is
+        // mostly one size of one face.
         Add("vollkorn", Path.Combine(root, "Vollkorn[wght].ttf"));
+        Add("cinzel", Path.Combine(root, "Cinzel[wght].ttf"));
+        Add("blackletter", Path.Combine(root, "UnifrakturMaguntia-Book.ttf"));
+        Add("oswald", Path.Combine(root, "Oswald[wght].ttf"));
+        Add("imfell", Path.Combine(root, "IMFellEnglish-Regular.ttf"));
 
         if (!_families.ContainsKey(DefaultKey))
         {

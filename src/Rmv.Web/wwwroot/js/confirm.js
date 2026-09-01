@@ -14,9 +14,11 @@
 //
 // Capturing, so it runs before any other submit handler decides to send the form.
 document.addEventListener('submit', event => {
-    const message = event.target instanceof HTMLFormElement
-        ? event.target.dataset.confirm
-        : null;
+    // The button that submitted, then the form. A form with several submit buttons
+    // needs the message on the button: the signature editor's Save must not prompt
+    // just because Start over does.
+    const message = event.submitter?.dataset?.confirm
+        ?? (event.target instanceof HTMLFormElement ? event.target.dataset.confirm : null);
 
     if (message && !window.confirm(message)) {
         event.preventDefault();

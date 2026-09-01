@@ -126,6 +126,11 @@ ROUTES="
 /gallery 200 200
 /gallery/add 302 302
 /gallery/999999/image 404 404
+/tools/signature 302 302
+/tools/signature/background 302 302
+/sig/nosuchslugxx.png 404 404
+/sig/short.png 404 404
+/img/sig/thumb/bgss1.png 200 200
 /healthz/live 200 200
 /healthz/ready 200 200
 /admin/history 200 302

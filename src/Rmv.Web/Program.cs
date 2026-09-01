@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Rmv.Web.Analytics;
 using Rmv.Web.Herald;
+using Rmv.Web.Signature;
 using Rmv.Web.Tools;
 using Rmv.Web.Tools.Spellcraft;
 using Rmv.Web.Data;
@@ -71,6 +72,7 @@ if (databaseConfigured)
     builder.Services.AddScoped<IDeploymentStore, PostgresDeploymentStore>();
     builder.Services.AddScoped<MemberDirectory>();
     builder.Services.AddScoped<SpellcraftTemplateStore>();
+    builder.Services.AddScoped<Rmv.Web.Signature.SignatureService>();
 
     // Keep the Data Protection key ring in Postgres. Without it every process
     // mints its own keys, so a sign-in cookie stops validating on redeploy and
@@ -226,6 +228,15 @@ builder.Services.AddScoped<HeraldRegistry>();
 builder.Services.AddScoped<CharacterService>();
 builder.Services.AddScoped<Rmv.Web.Gallery.GalleryService>();
 
+// Signatures. The fonts and the presets are read from disk once and shared; the
+// renderer holds no state and the service is scoped for its DbContext.
+builder.Services.AddSingleton(sp => new Rmv.Web.Signature.SignatureFonts(
+    Path.Combine(sp.GetRequiredService<IWebHostEnvironment>().ContentRootPath, "Signature", "Fonts")));
+builder.Services.AddSingleton(sp => new Rmv.Web.Signature.SignaturePresets(
+    sp.GetRequiredService<IWebHostEnvironment>().WebRootPath,
+    sp.GetRequiredService<ILogger<Rmv.Web.Signature.SignaturePresets>>()));
+builder.Services.AddSingleton<Rmv.Web.Signature.SignatureRenderer>();
+
 // ---------------------------------------------------------------------------
 // Spellcraft
 //
@@ -257,6 +268,18 @@ builder.Services.AddRateLimiter(o =>
         {
             PermitLimit = 10,
             Window = TimeSpan.FromMinutes(5),
+            QueueLimit = 0,
+        }));
+
+    // Signatures are embedded in forum posts, so a burst is what a popular thread
+    // looks like rather than an attack. Answering one is a row read or a 304, and
+    // Cloudflare absorbs the repeats, so this is only a ceiling.
+    o.AddPolicy(RateLimitPolicies.Signature, http => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 120,
+            Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
         }));
 
@@ -348,6 +371,7 @@ if (databaseConfigured)
 {
     app.MapPortraits();
     app.MapScreenshots();
+    app.MapSignatures();
 }
 
 app.MapHealthChecks("/healthz/live", new() { Predicate = _ => false });

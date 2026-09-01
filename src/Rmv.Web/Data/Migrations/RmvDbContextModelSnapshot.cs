@@ -491,6 +491,112 @@ namespace Rmv.Web.Data.Migrations
                     b.ToTable("screenshot_images", (string)null);
                 });
 
+            modelBuilder.Entity("Rmv.Web.Data.Signature", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Design")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("MemberId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId")
+                        .IsUnique();
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("signatures", (string)null);
+                });
+
+            modelBuilder.Entity("Rmv.Web.Data.SignatureBackground", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<byte[]>("Bytes")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MemberId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<DateTimeOffset>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId", "UploadedAt");
+
+                    b.ToTable("signature_backgrounds", (string)null);
+                });
+
+            modelBuilder.Entity("Rmv.Web.Data.SignatureImage", b =>
+                {
+                    b.Property<int>("SignatureId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Bytes")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTimeOffset>("RenderedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SourceVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("SignatureId");
+
+                    b.ToTable("signature_images", (string)null);
+                });
+
             modelBuilder.Entity("Rmv.Web.Data.SpellcraftTemplate", b =>
                 {
                     b.Property<int>("Id")
@@ -599,6 +705,39 @@ namespace Rmv.Web.Data.Migrations
                     b.Navigation("Screenshot");
                 });
 
+            modelBuilder.Entity("Rmv.Web.Data.Signature", b =>
+                {
+                    b.HasOne("Rmv.Web.Data.Member", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Member");
+                });
+
+            modelBuilder.Entity("Rmv.Web.Data.SignatureBackground", b =>
+                {
+                    b.HasOne("Rmv.Web.Data.Member", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Member");
+                });
+
+            modelBuilder.Entity("Rmv.Web.Data.SignatureImage", b =>
+                {
+                    b.HasOne("Rmv.Web.Data.Signature", "Signature")
+                        .WithOne("Image")
+                        .HasForeignKey("Rmv.Web.Data.SignatureImage", "SignatureId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Signature");
+                });
+
             modelBuilder.Entity("Rmv.Web.Data.SpellcraftTemplate", b =>
                 {
                     b.HasOne("Rmv.Web.Data.Member", "Member")
@@ -623,6 +762,11 @@ namespace Rmv.Web.Data.Migrations
                 });
 
             modelBuilder.Entity("Rmv.Web.Data.Screenshot", b =>
+                {
+                    b.Navigation("Image");
+                });
+
+            modelBuilder.Entity("Rmv.Web.Data.Signature", b =>
                 {
                     b.Navigation("Image");
                 });

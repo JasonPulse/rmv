@@ -1313,3 +1313,134 @@ textarea.input {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; }
 }
+
+/* ==========================================================================
+   Forum signature editor
+
+   The canvas is the render's own size in CSS pixels, and the text on it is the
+   same Vollkorn the server draws with at the same pixel sizes. That is what makes
+   dragging faithful: the 2014 generator had to ask the server to rasterise every
+   field as a transparent PNG and drag the pictures, because there were no webfonts
+   and GD's metrics were invisible to a browser.
+   ========================================================================== */
+
+.sig__render {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid color-mix(in srgb, var(--trim) 35%, transparent);
+}
+
+.sig__layout {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 62rem) {
+  .sig__layout { grid-template-columns: auto minmax(20rem, 1fr); align-items: start; }
+}
+
+.sig__canvas {
+  position: relative;
+  overflow: hidden;
+  background-position: center;
+  background-size: cover;
+  border: 1px solid var(--trim);
+  /* The face and the sizes match the renderer's. Do not change one without the
+     other, or a dragged position stops meaning what it draws. */
+  font-family: var(--font-display);
+  cursor: default;
+  touch-action: none; /* Pointer drags, not scrolling. */
+  max-width: 100%;
+}
+
+.sig__line {
+  position: absolute;
+  white-space: nowrap;
+  line-height: 1;
+  cursor: grab;
+  padding: 1px 2px;
+  margin: -1px -2px;
+  border: 1px dashed transparent;
+}
+
+.sig__line:hover,
+.sig__line:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  outline: none;
+}
+
+.sig__line--on { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.sig__line--drag { cursor: grabbing; border-style: solid; }
+
+.sig__actions { display: flex; gap: .75rem; margin-top: 1rem; flex-wrap: wrap; }
+
+.sig__side { display: grid; gap: 1rem; }
+
+.sig__row {
+  padding: .75rem;
+  border: 1px solid color-mix(in srgb, var(--trim) 25%, transparent);
+  margin-bottom: .6rem;
+}
+
+.sig__row--on { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+.sig__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem .8rem;
+  align-items: end;
+  margin-top: .5rem;
+}
+
+.sig__control { display: grid; gap: .2rem; }
+
+.sig__control > span {
+  font: 600 0.7rem/1 var(--font-display);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.sig__control .input { padding: .3rem .4rem; font-size: .85rem; }
+.sig__control input[type="color"] { width: 3rem; padding: .15rem; }
+.sig__control input[type="checkbox"] { width: 1.1rem; height: 1.1rem; }
+
+.btn--small { padding: .35rem .7rem; font-size: .78rem; }
+
+.sig__bgs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: .5rem;
+  margin-top: .75rem;
+}
+
+.sig__bg {
+  display: block;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--trim) 35%, transparent);
+  background: var(--stone);
+  color: var(--ink-faint);
+  cursor: pointer;
+  font: 600 0.75rem/2.6 var(--font-display);
+  min-height: 42px;
+}
+
+.sig__bg:hover { border-color: var(--accent); }
+.sig__bg img { display: block; width: 100%; height: auto; }
+
+.sig__bg-own { display: grid; gap: .25rem; }
+
+.sig__bg-remove {
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font: 600 0.7rem/1 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  cursor: pointer;
+  padding: .2rem;
+}
+
+.sig__bg-remove:hover { color: #a4463c; }

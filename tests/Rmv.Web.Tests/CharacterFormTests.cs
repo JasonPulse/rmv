@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Rmv.Web.Data;
 using Rmv.Web.Herald;
@@ -61,12 +62,19 @@ public class CharacterFormTests : HeraldDatabaseTests
         var registry = new HeraldRegistry([Herald, new WowArmoryAdapter(Fetcher)]);
         var config = new ConfigurationBuilder().Build();
 
+        // No SignatureService in this provider on purpose: the page redraws a
+        // signature after a change and must work where signatures are not
+        // registered, which is the site running without a database.
+        var services = new ServiceCollection().BuildServiceProvider();
+
         var model = new IndexModel(
             Db,
             new CharacterService(Db, registry, Fetcher, NullLogger<CharacterService>.Instance),
             registry,
             new CurrentMember(config, NullLogger<CurrentMember>.Instance,
-                new MemberDirectory(Db, config, NullLogger<MemberDirectory>.Instance)));
+                new MemberDirectory(Db, config, NullLogger<MemberDirectory>.Instance)),
+            services,
+            NullLogger<IndexModel>.Instance);
 
         var http = new DefaultHttpContext
         {

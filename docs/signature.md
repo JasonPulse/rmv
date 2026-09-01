@@ -328,6 +328,46 @@ Asked and answered on 2026-08-30.
 4. Canvas is **520x160**, which is what every v1 preset was and what a forum
    signature is. A second smaller size can follow once anyone asks.
 
+## Built
+
+Steps one to five, on 2026-09-01. What is running:
+
+- `SignatureTokens` and `SignatureData`: the token set, resolved against a character
+  and the member's totals across every herald.
+- `SignatureRenderer` over ImageSharp 2.1.13 and Drawing 1.0.0, the Apache 2.0 pair.
+  Five OFL faces: Vollkorn, Cinzel, UnifrakturMaguntia, Oswald and IM Fell English,
+  each with its own licence beside it.
+- `SignatureDesignReader`: the boundary. Everything a browser sends is parsed and
+  clamped, including the character binding against the ones the member owns.
+- `SignatureService`: one signature per member, an opaque slug, and the decision
+  about when to re-render. `SourceVersion` digests the design plus every string the
+  elements resolve to, so a pass over a member who did nothing writes nothing.
+- `SignatureEndpoint` at `/sig/{slug}.png`: stored bytes, an ETag, 304 on
+  revalidation, `max-age=900` with `stale-while-revalidate`, and a per-address rate
+  limit.
+- The editor at `/tools/signature`: drag with a pointer, nudge with arrows, a token
+  palette, per-line font, size, colour, outline, alignment and character, the 22
+  presets, and up to two uploads re-encoded to the canvas.
+- The herald pass redraws the signatures of members whose characters moved, once per
+  member rather than once per character.
+
+### Measured, not assumed
+
+Ten forum signatures loading at once against the local stack: **43ms total wall
+clock, no renders**. One cold request is 22ms and 24KB; a revalidation is 4.5ms and
+no bytes. A render is about 15ms and happens once per member per day.
+
+The editor's canvas against the renderer, at the three default sizes: text widths
+of 486, 310 and 414 pixels in the browser against 483, 307 and 412 from ImageSharp.
+Within three pixels over 490, so what is dragged is where it draws.
+
+### Left out on purpose
+
+- One weight per face. SixLabors.Fonts 1.0 does not read a variable font's weight
+  axis, so bold would mean shipping a second file per family. Nobody has asked.
+- No animated GIF. Terra started one and abandoned it.
+- The canvas is fixed at 520x160 rather than following the background.
+
 ## Build order
 
 Each step ships on its own and is useful before the next exists.

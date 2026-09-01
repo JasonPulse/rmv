@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Rmv.Web.Data;
 using Rmv.Web.Herald;
+using Rmv.Web.Signature;
 using Rmv.Web.Tools;
 
 namespace Rmv.Web.Pages.Characters;
@@ -23,7 +24,9 @@ public class IndexModel(
     RmvDbContext db,
     CharacterService characters,
     HeraldRegistry heralds,
-    CurrentMember me) : PageModel
+    CurrentMember me,
+    IServiceProvider services,
+    ILogger<IndexModel> logger) : PageModel
 {
     public IReadOnlyList<Character> Mine { get; private set; } = [];
 
@@ -173,7 +176,7 @@ public class IndexModel(
             return await RedisplayAsync(ct, outcome.Error);
         }
 
-        return RedirectToPage(new { added = outcome.Character!.Name });
+        return await DoneAsync(member, new { added = outcome.Character!.Name }, ct);
     }
 
     /// <summary>
@@ -201,7 +204,7 @@ public class IndexModel(
             return await RedisplayAsync(ct, outcome.Error);
         }
 
-        return RedirectToPage(new { saved = character.Name });
+        return await DoneAsync(member, new { saved = character.Name }, ct);
     }
 
     public async Task<IActionResult> OnPostRemoveAsync(int id, CancellationToken ct)
@@ -213,7 +216,7 @@ public class IndexModel(
         db.Characters.Remove(character);
         await db.SaveChangesAsync(ct);
 
-        return RedirectToPage(new { removed = character.Name });
+        return await DoneAsync(member, new { removed = character.Name }, ct);
     }
 
     public async Task<IActionResult> OnPostRefreshAsync(int id, CancellationToken ct)
@@ -225,9 +228,41 @@ public class IndexModel(
         var ok = await characters.RefreshAsync(character, ct);
         await db.SaveChangesAsync(ct);
 
-        return RedirectToPage(ok
+        return await DoneAsync(member, ok
             ? new { refreshed = character.Name }
-            : new { failed = character.Name });
+            : new { failed = character.Name }, ct);
+    }
+
+    /// <summary>
+    /// Leaves a handler that changed something, having redrawn the signature.
+    ///
+    /// Every mutating handler here ends by coming through this, because a signature
+    /// draws counts as well as stats: adding a character changes %AllChars% and
+    /// removing one changes it back, and a member watching their own signature not
+    /// notice for a day would reasonably call that broken. The daily pass covers
+    /// stats moving on a herald; this covers the member doing something themselves.
+    ///
+    /// Nothing here can fail the action that was actually asked for. Redrawing is
+    /// decoration, and its failure is a log line rather than a lost character.
+    /// </summary>
+    private async Task<IActionResult> DoneAsync(Member member, object? flash, CancellationToken ct)
+    {
+        var signatures = services.GetService<SignatureService>();
+
+        if (signatures is not null)
+        {
+            try
+            {
+                await signatures.RefreshAsync(member.Id, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "Could not redraw the signature for member {Member}.", member.Id);
+            }
+        }
+
+        return RedirectToPage(flash);
     }
 
     /// <summary>

@@ -1,0 +1,223 @@
+@page "/tools/signature"
+@model Rmv.Web.Pages.Tools.SignatureModel
+@{
+    ViewData["Title"] = "Forum signature";
+    ViewData["Description"] = "Build a forum signature from your characters on any herald.";
+}
+
+<section class="hero">
+    <div class="shell">
+        <div class="hero__plaque"><h1>Forum signature</h1></div>
+        <p>
+            One picture, drawn from your characters on any herald, at an address you
+            paste into a forum once and never touch again.
+        </p>
+    </div>
+</section>
+
+<div class="shell">
+    <hr class="rule" />
+
+    @{ var flash = new Rmv.Web.Pages.Shared.Flash(Model.Notice, Model.Error); }
+    <partial name="_Flash" model="flash" />
+
+    @* What a forum sees. First, because it is the reason anybody is here, and it is
+       the server's own render rather than the editor's approximation. *@
+    <section class="section">
+        <article class="panel">
+            <p class="panel__title">Your signature</p>
+
+            @if (Model.ImagePath is not null)
+            {
+                <p style="margin:0 0 1rem">
+                    <img class="sig__render" src="@Model.ImagePath" alt="Your forum signature"
+                         width="@Model.Width" height="@Model.Height" />
+                </p>
+            }
+
+            <div class="field">
+                <label for="sig-embed">For a forum</label>
+                <input class="input mono" id="sig-embed" type="text" readonly
+                       value="@Model.Embed" data-copy />
+                <p class="hint">
+                    Most forums take that as it is. If yours wants a plain address,
+                    use <span class="mono">@Model.Address</span>
+                </p>
+            </div>
+
+            @if (Model.RenderedAt is { } drawn)
+            {
+                <p class="hint">
+                    Last drawn @drawn.ToString("yyyy-MM-dd HH:mm") UTC. It redraws
+                    itself when your characters change, so the address never needs
+                    updating.
+                </p>
+            }
+        </article>
+    </section>
+
+    <div class="bar"><h2>Design</h2></div>
+
+    @if (Model.Characters.Count == 0)
+    {
+        <section class="section">
+            <article class="panel panel--inset">
+                <h3>No characters yet</h3>
+                <p class="dim">
+                    A signature draws on your characters. Add one on
+                    <a href="/characters">your characters page</a> and come back.
+                    The counts still work without any: a signature that says how many
+                    games you have played reads honestly at nought.
+                </p>
+            </article>
+        </section>
+    }
+
+    <form method="post" asp-page-handler="Save" class="sig" data-editor
+          data-canvas-width="@Model.Width" data-canvas-height="@Model.Height"
+          data-max-elements="@Model.MaxElements">
+
+        @* The design travels as JSON in here. The editor reads it on load and writes
+           it back on every change, so what is posted is what the canvas shows. *@
+        <input type="hidden" asp-for="Design" data-design />
+
+        <div class="sig__layout">
+            <div class="sig__stage">
+                @* The canvas. Its size is the render's size, so a position dragged
+                   here is the position drawn there. The face is the same Vollkorn the
+                   renderer uses, served as woff2, which is what makes dragging
+                   faithful without a round trip per keystroke. In 2014 this needed
+                   the server to rasterise every field as a PNG to drag. *@
+                <div class="sig__canvas" data-stage
+                     style="width:@(Model.Width)px;height:@(Model.Height)px"></div>
+
+                <p class="hint" data-stage-hint>
+                    Drag the lines to place them. Everything is drawn again on the
+                    server when you save, and that render is what a forum gets.
+                </p>
+
+                <div class="sig__actions">
+                    <button class="btn" type="submit">Save</button>
+                    <button class="btn btn--ghost" type="submit" asp-page-handler="Reset"
+                            data-confirm="Put the design back to the default?">Start over</button>
+                </div>
+            </div>
+
+            <div class="sig__side">
+                <article class="panel panel--inset">
+                    <p class="panel__title">Lines</p>
+
+                    @* The lists the editor builds its dropdowns from. Attributes
+                       rather than a script block, because the content policy refuses
+                       inline script and because a character's name is theirs to
+                       choose; read as an attribute it is a string and nothing else. *@
+                    <div data-elements
+                         data-characters="@Model.CharactersJson"
+                         data-fonts="@Model.FontsJson"></div>
+
+                    <p style="margin:.75rem 0 0">
+                        <button class="btn btn--ghost" type="button" data-add>Add a line</button>
+                    </p>
+                    <p class="hint" data-element-count></p>
+                </article>
+
+                <article class="panel panel--inset">
+                    <p class="panel__title">Tokens</p>
+                    <p class="hint">
+                        Click one to drop it into the line you are editing. Anything
+                        else you type is drawn as you typed it.
+                    </p>
+
+                    @foreach (var group in Model.Tokens.GroupBy(t => t.Scope))
+                    {
+                        <p class="hint" style="margin:.75rem 0 .25rem">
+                            @(group.Key switch
+                            {
+                                Rmv.Web.Signature.TokenScope.Character => "This line's character",
+                                Rmv.Web.Signature.TokenScope.Member => "You, across every herald",
+                                _ => "Handy",
+                            })
+                        </p>
+                        <div class="chips">
+                            @foreach (var token in group)
+                            {
+                                <button class="chip" type="button" data-token="@token.Name"
+                                        title="@token.Description (@token.Example)">%@token.Name%</button>
+                            }
+                        </div>
+                    }
+                </article>
+
+                <article class="panel panel--inset">
+                    <p class="panel__title">Background</p>
+
+                    <div class="field">
+                        <label for="sig-colour">Plain colour</label>
+                        <input class="input input--narrow" id="sig-colour" type="color" data-colour />
+                    </div>
+
+                    <div class="sig__bgs">
+                        <button class="sig__bg" type="button" data-background="colour"
+                                title="No picture, just the colour">None</button>
+
+                        @foreach (var upload in Model.Uploads)
+                        {
+                            <span class="sig__bg-own">
+                                <button class="sig__bg" type="button"
+                                        data-background="upload" data-key="@upload.Id"
+                                        title="@upload.Name">
+                                    <img src="/tools/signature?handler=Background&amp;id=@upload.Id"
+                                         alt="@upload.Name" width="130" height="40" />
+                                </button>
+                                <button class="sig__bg-remove" type="submit"
+                                        asp-page-handler="RemoveBackground" asp-route-id="@upload.Id"
+                                        data-confirm="Remove @upload.Name?"
+                                        title="Remove @upload.Name">Remove</button>
+                            </span>
+                        }
+
+                        @foreach (var preset in Model.Presets)
+                        {
+                            <button class="sig__bg" type="button"
+                                    data-background="preset" data-key="@preset.Key"
+                                    title="@preset.Name">
+                                <img src="@preset.Thumbnail" alt="@preset.Name"
+                                     width="130" height="40" loading="lazy" />
+                            </button>
+                        }
+                    </div>
+                </article>
+            </div>
+        </div>
+    </form>
+
+    @if (Model.Uploads.Count < Model.MaxBackgrounds)
+    {
+        <section class="section">
+            <article class="panel panel--inset">
+                <p class="panel__title">Your own background</p>
+
+                @* Posts to its own page so the upload can be rate limited, which
+                   Razor Pages will not do from a handler attribute. *@
+                <form method="post" action="/tools/signature/background"
+                      enctype="multipart/form-data" class="stack" style="--stack-gap:1rem">
+                    <div class="field">
+                        <label for="sig-file">Picture</label>
+                        <input class="input" id="sig-file" name="file" type="file"
+                               accept="image/png,image/jpeg,image/gif,image/webp" />
+                        <p class="hint">
+                            Cropped to @(Model.Width)x@(Model.Height) and stored at that size, so
+                            it costs the same whatever you upload. @Model.MaxBackgrounds per member;
+                            you have @Model.Uploads.Count.
+                        </p>
+                    </div>
+                    <p style="margin:0"><button class="btn" type="submit">Upload</button></p>
+                </form>
+            </article>
+        </section>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/signature-editor.js" asp-append-version="true" defer></script>
+}

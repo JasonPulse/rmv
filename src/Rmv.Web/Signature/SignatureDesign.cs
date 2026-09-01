@@ -56,6 +56,13 @@ public static class SignatureLimits
 
     /// <summary>How many backgrounds one member may keep. His number.</summary>
     public const int MaxBackgrounds = 2;
+
+    /// <summary>
+    /// A ceiling on the stored JSON, so a design column cannot become a document.
+    /// Twelve elements of a 160 character template plus their positions and colours
+    /// is comfortably inside this.
+    /// </summary>
+    public const int MaxDesignLength = 8_000;
 }
 
 /// <summary>
@@ -86,8 +93,13 @@ public sealed record SignatureElement(
 /// A whole signature, before it is drawn.
 ///
 /// A record rather than an entity: this is the shape the renderer and the editor
-/// agree on, and it is what gets stored as JSON. Persistence comes later and does
-/// not change it.
+/// agree on, and it is what gets stored as JSON.
+///
+/// Do not compare two of these with ==. Elements is a list, so the generated
+/// equality compares that member by reference and two designs with identical
+/// contents come out unequal. Serialise both and compare the strings, or compare the
+/// elements as a sequence. Nothing in the application relies on design equality;
+/// SignatureService digests the fields it cares about explicitly.
 /// </summary>
 public sealed record SignatureDesign(
     BackgroundKind Background,

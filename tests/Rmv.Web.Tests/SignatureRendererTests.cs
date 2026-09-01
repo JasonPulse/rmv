@@ -297,6 +297,39 @@ public class SignatureRendererTests
     }
 
     [Fact]
+    public void Every_shipped_face_loads_and_draws()
+    {
+        // Five files under the Open Font License. A face whose file is missing or
+        // will not parse is a font in the picker that silently draws in Vollkorn, so
+        // this checks each one both loads and produces different pixels.
+        Assert.Equal(5, Fonts.Keys.Count);
+
+        var seen = new Dictionary<string, string>();
+
+        foreach (var key in Fonts.Keys)
+        {
+            Assert.True(Fonts.Has(key), key);
+
+            var design = SignatureDesign.Default(1) with
+            {
+                Elements =
+                [
+                    new SignatureElement(10, 20, TextAlign.Left, key, 24,
+                        "#ffffff", null, 1, "Property - Level 50"),
+                ],
+            };
+
+            var png = Save($"font-{key}", Renderer().Render(design, Him(), Roster()));
+            var digest = Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(png))[..16];
+
+            // Two keys drawing identical pixels means one of them fell back.
+            Assert.DoesNotContain(digest, seen.Values);
+            seen[key] = digest;
+        }
+    }
+
+    [Fact]
     public void A_font_nobody_has_falls_back_rather_than_failing()
     {
         // v1 appended ".ttf" to whatever the form sent and opened it, which is a

@@ -30,6 +30,12 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
 
     public DbSet<SpellcraftTemplate> SpellcraftTemplates => Set<SpellcraftTemplate>();
 
+    public DbSet<Signature> Signatures => Set<Signature>();
+
+    public DbSet<SignatureImage> SignatureImages => Set<SignatureImage>();
+
+    public DbSet<SignatureBackground> SignatureBackgrounds => Set<SignatureBackground>();
+
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
 
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -207,6 +213,57 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             e.HasOne(x => x.Screenshot).WithOne(s => s.Image)
                 .HasForeignKey<ScreenshotImage>(x => x.ScreenshotId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Signature>(e =>
+        {
+            e.ToTable("signatures");
+
+            // One per member, and one slug in the whole table. Both are enforced
+            // here rather than only in the handler, because a forum post embeds the
+            // slug for years and two designs answering to one address is not a thing
+            // to discover later.
+            e.HasIndex(x => x.MemberId).IsUnique();
+            e.HasIndex(x => x.Slug).IsUnique();
+
+            e.Property(x => x.Slug).HasMaxLength(Signature.SlugLength).IsRequired();
+            e.Property(x => x.Design)
+                .HasColumnType("jsonb")
+                .HasMaxLength(Rmv.Web.Signature.SignatureLimits.MaxDesignLength)
+                .IsRequired();
+
+            e.HasOne(x => x.Member).WithMany()
+                .HasForeignKey(x => x.MemberId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<SignatureImage>(e =>
+        {
+            e.ToTable("signature_images");
+            e.HasKey(x => x.SignatureId);
+
+            e.Property(x => x.Version).HasMaxLength(32).IsRequired();
+            e.Property(x => x.SourceVersion).HasMaxLength(32).IsRequired();
+
+            // Its own table so a query about a signature does not carry the PNG.
+            e.HasOne(x => x.Signature).WithOne(s => s.Image)
+                .HasForeignKey<SignatureImage>(x => x.SignatureId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<SignatureBackground>(e =>
+        {
+            e.ToTable("signature_backgrounds");
+
+            e.Property(x => x.ContentType).HasMaxLength(40).IsRequired();
+            e.Property(x => x.Name).HasMaxLength(60).IsRequired();
+
+            e.HasOne(x => x.Member).WithMany()
+                .HasForeignKey(x => x.MemberId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // The picker reads a member's own, newest first.
+            e.HasIndex(x => new { x.MemberId, x.UploadedAt });
         });
 
         b.Entity<RequestLog>(e =>

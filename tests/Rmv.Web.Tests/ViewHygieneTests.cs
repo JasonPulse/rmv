@@ -94,23 +94,59 @@ public class ViewHygieneTests
     }
 
     [Fact]
-    public void The_confirm_prompts_are_data_attributes()
+    public void Every_confirm_prompt_is_somewhere_that_submits()
     {
-        // Six of them, and this is the shape they have to keep. Named so a seventh
-        // written the old way is caught here rather than by nothing.
-        var withConfirm = Views()
-            .Where(v => File.ReadAllText(v).Contains("data-confirm", StringComparison.Ordinal))
-            .Select(Name)
-            .OrderBy(n => n, StringComparer.Ordinal)
-            .ToList();
+        // The real failure mode, and one I walked into building the signature
+        // editor: confirm.js listens for a submit and reads the message off the
+        // submitter or the form. A data-confirm on anything else is a prompt that
+        // never appears, and a delete that goes through without asking.
+        //
+        // This replaced an assertion listing the files that had one, which failed
+        // every time a legitimate new prompt was added and told nobody anything.
+        var attribute = new Regex(@"data-confirm\s*=", RegexOptions.IgnoreCase);
 
-        Assert.Equal(
-            [
-                "Pages/Admin/History.cshtml",
-                "Pages/Admin/Members.cshtml",
-                "Pages/Characters/Index.cshtml",
-                "Pages/Tools/Daoc/Spellcraft.cshtml",
-            ],
-            withConfirm.Select(n => n.Replace('\\', '/')).ToList());
+        var offenders = new List<string>();
+
+        foreach (var view in Views())
+        {
+            var markup = File.ReadAllText(view);
+
+            foreach (var match in attribute.Matches(markup).Cast<Match>())
+            {
+                // The tag this attribute is inside.
+                var open = markup.LastIndexOf('<', match.Index);
+                if (open < 0)
+                {
+                    offenders.Add($"{Name(view)}: not inside a tag");
+                    continue;
+                }
+
+                var close = markup.IndexOf('>', match.Index);
+                var tag = markup[open..(close < 0 ? markup.Length : close)];
+
+                var submits = tag.StartsWith("<form", StringComparison.OrdinalIgnoreCase)
+                              || (tag.StartsWith("<button", StringComparison.OrdinalIgnoreCase)
+                                  && tag.Contains("type=\"submit\"", StringComparison.OrdinalIgnoreCase));
+
+                if (!submits)
+                {
+                    offenders.Add($"{Name(view)}: {tag[..Math.Min(60, tag.Length)]}");
+                }
+            }
+        }
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void The_prompts_have_not_all_quietly_disappeared()
+    {
+        // The other half: the check above passes trivially if somebody deletes every
+        // prompt. Six existed when the inline handlers were removed and the editor
+        // added two more.
+        var count = Views()
+            .Sum(v => Regex.Matches(File.ReadAllText(v), "data-confirm").Count);
+
+        Assert.True(count >= 6, $"only {count} confirm prompts left");
     }
 }

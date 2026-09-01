@@ -6,7 +6,8 @@ namespace Rmv.Web.Herald;
 /// <summary>What one pass did. Counts rather than a bool, so a log line can say.</summary>
 /// <param name="Refreshed">Characters the herald answered for.</param>
 /// <param name="Failed">Characters it did not. Their previous data is untouched.</param>
-public sealed record RefreshSummary(int Refreshed, int Failed)
+/// <param name="Signatures">Signatures redrawn because their characters moved.</param>
+public sealed record RefreshSummary(int Refreshed, int Failed, int Signatures = 0)
 {
     public static readonly RefreshSummary None = new(0, 0);
 
@@ -134,6 +135,7 @@ public sealed class HeraldRefreshService(
 
         var refreshed = 0;
         var failed = 0;
+        var owners = new HashSet<int>();
 
         foreach (var id in ids)
         {
@@ -142,7 +144,7 @@ public sealed class HeraldRefreshService(
                 return new RefreshSummary(refreshed, failed);
             }
 
-            if (await RefreshOneAsync(id, ct))
+            if (await RefreshOneAsync(id, owners, ct))
             {
                 refreshed++;
             }
@@ -154,13 +156,62 @@ public sealed class HeraldRefreshService(
             await Task.Delay(BetweenCharacters, ct);
         }
 
-        log.LogInformation(
-            "Herald refresh finished: {Refreshed} refreshed, {Failed} failed.", refreshed, failed);
+        var signatures = await RedrawSignaturesAsync(owners, ct);
 
-        return new RefreshSummary(refreshed, failed);
+        log.LogInformation(
+            "Herald refresh finished: {Refreshed} refreshed, {Failed} failed, {Signatures} signature(s) redrawn.",
+            refreshed, failed, signatures);
+
+        return new RefreshSummary(refreshed, failed, signatures);
     }
 
-    private async Task<bool> RefreshOneAsync(int id, CancellationToken ct)
+    /// <summary>
+    /// Redraws the signatures of everyone whose characters were just refreshed.
+    ///
+    /// Once per member, not once per character, and each one checks a digest before
+    /// it draws anything: a member whose stats did not move costs a query and no
+    /// render. This is what keeps a signature embedded in a forum post current
+    /// without anybody opening the site, which is the whole point of a signature.
+    ///
+    /// A failure here is logged and skipped. A signature is decoration, and it must
+    /// not be able to fail the pass that keeps the characters themselves current.
+    /// </summary>
+    private async Task<int> RedrawSignaturesAsync(HashSet<int> owners, CancellationToken ct)
+    {
+        var redrawn = 0;
+
+        foreach (var memberId in owners)
+        {
+            if (ct.IsCancellationRequested)
+            {
+                return redrawn;
+            }
+
+            try
+            {
+                await using var scope = scopes.CreateAsyncScope();
+                var signatures = scope.ServiceProvider
+                    .GetRequiredService<Rmv.Web.Signature.SignatureService>();
+
+                if (await signatures.RefreshAsync(memberId, ct))
+                {
+                    redrawn++;
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning(ex, "Could not redraw the signature for member {Member}.", memberId);
+            }
+        }
+
+        return redrawn;
+    }
+
+    private async Task<bool> RefreshOneAsync(int id, HashSet<int> owners, CancellationToken ct)
     {
         try
         {
@@ -177,6 +228,11 @@ public sealed class HeraldRefreshService(
                 // Removed between listing and now. Not a failure.
                 return true;
             }
+
+            // Whose signature might now be out of date. Collected rather than acted
+            // on here: a member with six characters would otherwise be re-checked
+            // six times in one pass.
+            owners.Add(character.MemberId);
 
             var ok = await characters.RefreshAsync(character, ct);
 

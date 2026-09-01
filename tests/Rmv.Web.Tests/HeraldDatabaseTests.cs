@@ -47,6 +47,27 @@ public abstract class HeraldDatabaseTests : IAsyncLifetime
             "Set RMV_TEST_POSTGRES to run Database tests, e.g. "
             + "Host=localhost;Port=5432;Database=rmv_test;Username=rmv;Password=...");
 
+    /// <summary>
+    /// The repository root, for tests that need the app's own files: the signature
+    /// fonts and the preset backgrounds.
+    ///
+    /// Here rather than in each test class, because two of them had grown the same
+    /// walk and this base class exists for exactly that.
+    /// </summary>
+    protected static string RepositoryRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "src", "Rmv.Web")))
+        {
+            dir = dir.Parent;
+        }
+
+        Assert.NotNull(dir);
+
+        return dir.FullName;
+    }
+
     /// <summary>Characters the fake herald should know about.</summary>
     protected abstract void ConfigureHerald(FakeHeraldAdapter herald);
 
