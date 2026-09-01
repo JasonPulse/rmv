@@ -11,9 +11,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Copied rather than embedded so the licence sits beside the font it covers. -->
+    <Content Include="Signature\Fonts\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="AngleSharp" Version="1.7.2" />
     <PackageReference Include="AspNet.Security.OAuth.Discord" Version="10.0.0" />
     <PackageReference Include="Markdig" Version="1.3.2" />
+    <!-- Signature rendering. The 2.x line and Drawing 1.0.0 are the Apache 2.0
+         pair; ImageSharp 3.x and its Drawing carry the Six Labors Split License
+         instead, whose free tier depends on being an open source project, which
+         this repository has no LICENSE file to claim. Pure managed either way, so
+         the runtime image needs nothing added to it. See docs/signature.md. -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.13" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
