@@ -77,6 +77,18 @@ public class SignatureModel(
 
     public string FontsJson => System.Text.Json.JsonSerializer.Serialize(Fonts);
 
+    /// <summary>
+    /// What each line will actually say, so the canvas shows real text rather than
+    /// the tokens somebody typed.
+    ///
+    /// This matters for placement and it is the whole reason it exists: %Name%%SP%
+    /// is ten characters and "Milliennial - " is fourteen, so a line positioned
+    /// against the tokens lands somewhere else once it is drawn. Resolved here rather
+    /// than in the browser, by the same code the renderer uses, so the preview cannot
+    /// disagree with the picture.
+    /// </summary>
+    public string PreviewJson { get; private set; } = "[]";
+
     public int Width => SignatureLimits.Width;
 
     public int Height => SignatureLimits.Height;
@@ -180,6 +192,39 @@ public class SignatureModel(
     }
 
     /// <summary>
+    /// The resolved text for a design the editor is still editing.
+    ///
+    /// Called as somebody types, debounced, and answers with one string per line.
+    /// The same SignatureTokens the renderer uses, against their real characters, so
+    /// what the canvas shows is what the PNG will say.
+    /// </summary>
+    public async Task<IActionResult> OnPostPreviewAsync(CancellationToken ct)
+    {
+        if (await me.GetAsync(User, ct) is not { } member)
+        {
+            return Forbid();
+        }
+
+        if (Design is null || Design.Length > SignatureLimits.MaxDesignLength)
+        {
+            return BadRequest();
+        }
+
+        if (SignatureDesignReader.Read(Design) is not { } design)
+        {
+            return BadRequest();
+        }
+
+        var roster = await RosterAsync(member, ct);
+
+        return new JsonResult(design.Elements
+            .Take(SignatureLimits.MaxElements)
+            .Select(e => SignatureTokens.Resolve(
+                e.Template, SignatureData.Subject(member, roster, e.CharacterId)))
+            .ToList());
+    }
+
+    /// <summary>
     /// One of the member's own backgrounds, for the editor's canvas.
     ///
     /// A handler rather than a public endpoint: this is somebody's own picture and
@@ -204,6 +249,19 @@ public class SignatureModel(
         return File(background.Bytes, background.ContentType);
     }
 
+    /// <summary>
+    /// The member's characters, ordered for the editor's dropdown, and the same list
+    /// the preview resolves against.
+    /// </summary>
+    private Task<List<Character>> RosterAsync(Member member, CancellationToken ct) =>
+        db.Characters
+            .Include(c => c.Game)
+            .Where(c => c.MemberId == member.Id)
+            .OrderBy(c => c.Game!.Game)
+            .ThenBy(c => c.Name)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
     private async Task LoadAsync(Member member, CancellationToken ct)
     {
         Signature = await signatures.EnsureAsync(member, ct);
@@ -215,13 +273,16 @@ public class SignatureModel(
         ImagePath = SignatureEndpoint.PathFor(Signature.Slug);
         RenderedAt = Signature.Image?.RenderedAt;
 
-        Characters = await db.Characters
-            .Include(c => c.Game)
-            .Where(c => c.MemberId == member.Id)
-            .OrderBy(c => c.Game!.Game)
-            .ThenBy(c => c.Name)
-            .AsNoTracking()
-            .ToListAsync(ct);
+        Characters = await RosterAsync(member, ct);
+
+        // The first preview, so the canvas never shows raw tokens even for a moment.
+        if (SignatureDesignReader.Read(Design) is { } design)
+        {
+            PreviewJson = System.Text.Json.JsonSerializer.Serialize(design.Elements
+                .Take(SignatureLimits.MaxElements)
+                .Select(e => SignatureTokens.Resolve(
+                    e.Template, SignatureData.Subject(member, Characters, e.CharacterId))));
+        }
 
         Uploads = await db.SignatureBackgrounds
             .Where(b => b.MemberId == member.Id)

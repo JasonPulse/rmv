@@ -55,9 +55,9 @@
                         <input class="input" asp-for="Input.Name" autocomplete="off"
                                placeholder="Exactly as it appears in game" />
                         <p class="hint" data-when="herald" hidden>
-                            Spelling has to match. We ask the herald, and it is
-                            fussier than we are. For the Lodestone and the Armory you
-                            can paste your character's page address instead. The
+                            Spelling has to match. For the Lodestone and the Armory you can paste
+                            your character's page address instead, and the Armory needs the
+                            realm, so <span class="mono">Syfr-Quel'Thalas</span> works too. The
                             Armory also needs the realm, so
                             <span class="mono">Syfr-Quel'Thalas</span> works too.
                         </p>
@@ -96,8 +96,8 @@
                             <input class="input input--narrow" asp-for="Input.Level" type="number"
                                    min="@CharacterLimits.MinLevel" max="@CharacterLimits.MaxLevel" placeholder="50" />
                             <p class="hint">
-                                This game has no herald, so nothing updates the sheet
-                                for you. Leave a field blank if you do not remember.
+                                Nothing updates this one for you. Leave a field blank if you do
+                                not remember.
                             </p>
                         </div>
                     </div>

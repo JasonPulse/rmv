@@ -195,6 +195,101 @@ public class SignaturePageTests : HeraldDatabaseTests
         Assert.NotNull(stored.Elements[0].CharacterId);
     }
 
+    // --- the canvas's text ---------------------------------------------------
+
+    [Fact]
+    public async Task The_page_hands_the_canvas_the_words_not_the_tokens()
+    {
+        var page = Page();
+        await page.OnGetAsync(default);
+
+        var lines = JsonDocument.Parse(page.PreviewJson).RootElement
+            .EnumerateArray().Select(e => e.GetString()!).ToList();
+
+        // One per line of the default design, and his name in the first one rather
+        // than %User%.
+        Assert.Equal(SignatureDesignReader.Read(page.Design)!.Elements.Count, lines.Count);
+        Assert.DoesNotContain(lines, l => l.Contains('%'));
+        Assert.Contains(lines, l => l.Contains("Property"));
+    }
+
+    [Fact]
+    public async Task Asking_what_a_design_says_answers_with_one_line_each()
+    {
+        var page = Page();
+        await page.OnGetAsync(default);
+
+        var character = await Db.Characters.AsNoTracking().FirstAsync();
+
+        page.Design = SignatureService.Serialise(new SignatureDesign(
+            BackgroundKind.Colour, null, "#101820",
+        [
+            new SignatureElement(10, 10, TextAlign.Left, SignatureFonts.DefaultKey, 18,
+                "#fff", null, character.Id, "%Name%%SP%%Class%"),
+            new SignatureElement(10, 40, TextAlign.Left, SignatureFonts.DefaultKey, 18,
+                "#fff", null, null, "%User% plays %AllChars%"),
+        ]));
+
+        var result = Assert.IsType<JsonResult>(await page.OnPostPreviewAsync(default));
+        var lines = Assert.IsAssignableFrom<List<string>>(result.Value);
+
+        // The point of the whole thing: what comes back is what the renderer will
+        // draw, so a line dragged against it lands where it was put.
+        Assert.Equal("Property - Skald", lines[0]);
+        Assert.Equal($"{Member.DisplayName} plays 1", lines[1]);
+    }
+
+    [Fact]
+    public async Task Asking_about_a_design_that_will_not_read_is_refused_not_crashed()
+    {
+        var page = Page();
+        await page.OnGetAsync(default);
+
+        page.Design = "<not json>";
+        Assert.IsType<BadRequestResult>(await page.OnPostPreviewAsync(default));
+
+        page.Design = new string('x', SignatureLimits.MaxDesignLength + 1);
+        Assert.IsType<BadRequestResult>(await page.OnPostPreviewAsync(default));
+
+        page.Design = null;
+        Assert.IsType<BadRequestResult>(await page.OnPostPreviewAsync(default));
+    }
+
+    [Fact]
+    public async Task A_line_bound_to_somebody_elses_character_says_nothing_about_them()
+    {
+        // The preview resolves against the caller's own roster, so an id from another
+        // member's signature draws blank here as well as in the render.
+        var other = await NewMemberAsync();
+
+        Db.Characters.Add(new Character
+        {
+            MemberId = other.Id,
+            GamePresenceId = HeraldGameId,
+            Name = "Secret",
+            Level = 50,
+            AddedAt = DateTimeOffset.UtcNow,
+        });
+
+        await Db.SaveChangesAsync();
+
+        var theirs = await Db.Characters.AsNoTracking().FirstAsync(c => c.Name == "Secret");
+
+        var page = Page();
+        await page.OnGetAsync(default);
+
+        page.Design = SignatureService.Serialise(new SignatureDesign(
+            BackgroundKind.Colour, null, "#101820",
+        [
+            new SignatureElement(10, 10, TextAlign.Left, SignatureFonts.DefaultKey, 18,
+                "#fff", null, theirs.Id, "[%Name%]"),
+        ]));
+
+        var result = Assert.IsType<JsonResult>(await page.OnPostPreviewAsync(default));
+
+        Assert.Equal("[]", Assert.IsAssignableFrom<List<string>>(result.Value)[0]);
+    }
+
     [Fact]
     public async Task A_background_belonging_to_somebody_else_is_not_found()
     {

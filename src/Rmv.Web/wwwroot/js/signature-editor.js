@@ -5,11 +5,13 @@
 // canvas shows. The server clamps all of it again on the way in and renders from the
 // stored design, so nothing here is trusted and nothing here needs to be.
 //
-// Why the canvas is faithful. It is the render's own size, and the text is the same
-// Vollkorn the renderer draws with, served as woff2 at the same pixel sizes. The 2014
-// version could not do that: no webfonts, and GD's metrics were invisible to a
-// browser, so it asked the server to rasterise every field as a transparent PNG and
-// dragged the pictures. This drags text and costs the server nothing until Save.
+// Why the canvas is faithful. It is the render's own size, the text is the same
+// Vollkorn the renderer draws with at the same pixel sizes, and the words are the
+// resolved words rather than the tokens, because %Name%%SP% is ten characters and
+// "Milliennial - " is fourteen. Resolving happens on the server, debounced, so the
+// preview cannot drift from the picture. The 2014 version rasterised every field as a
+// transparent PNG on the server and dragged the pictures; this drags text and asks
+// only for the strings.
 (() => {
     const form = document.querySelector('[data-editor]');
     if (!form) {
@@ -40,13 +42,42 @@
         return;
     }
 
-    // Which line the token buttons drop into.
+    // Which line the token buttons drop into, and where in it the cursor was.
     let focused = 0;
+    let caret = null;
+
+    // What each line will actually say, from the server. Starts with what the page
+    // was rendered with, so the canvas never shows raw tokens.
+    let resolved = [];
+
+    try {
+        resolved = JSON.parse(list.dataset.preview || '[]');
+    } catch {
+        resolved = [];
+    }
 
     const clamp = (n, low, high) => Math.min(Math.max(n, low), high);
 
     const write = () => {
         field.value = JSON.stringify(design);
+    };
+
+    /// The design changed. Every path that changes it ends here, because the order
+    /// matters and because six of them had grown their own copy of the sequence: the
+    /// field first so a save posts what is on screen, then the words if they can have
+    /// changed, then the canvas, then the panel if its rows have moved.
+    const changed = ({ words = false, panel = false } = {}) => {
+        write();
+
+        if (words) {
+            refresh();
+        }
+
+        draw();
+
+        if (panel) {
+            show();
+        }
     };
 
     // --- the canvas ------------------------------------------------------------
@@ -101,10 +132,16 @@
                 line.style.transform = 'translateX(-100%)';
             }
 
-            // The tokens are shown as typed here, because resolving them in the
-            // browser would need every character's data and would be a second
-            // implementation of SignatureTokens. Placement is what this is for.
-            line.textContent = element.template || '(empty)';
+            // The real text, not the tokens. %Name%%SP% is ten characters and
+            // "Milliennial - " is fourteen, so a line placed against the tokens
+            // lands somewhere else once it is drawn. Resolved by the server that
+            // does the drawing, so this cannot disagree with the picture.
+            line.textContent = resolved[index] ?? element.template ?? '';
+
+            if (line.textContent.length === 0) {
+                line.textContent = '(empty)';
+                line.classList.add('sig__line--empty');
+            }
 
             if (index === focused) {
                 line.classList.add('sig__line--on');
@@ -112,6 +149,43 @@
 
             stage.append(line);
         });
+    };
+
+    // --- what the lines actually say -------------------------------------------
+
+    const token = document.querySelector('input[name="__RequestVerificationToken"]');
+    let pending = null;
+
+    /// Asks the server what the current design resolves to, and redraws.
+    const refresh = () => {
+        clearTimeout(pending);
+
+        pending = setTimeout(async () => {
+            try {
+                const body = new FormData();
+                body.append('Design', field.value);
+
+                const answer = await fetch('/tools/signature?handler=Preview', {
+                    method: 'POST',
+                    headers: token ? { RequestVerificationToken: token.value } : {},
+                    body,
+                });
+
+                if (!answer.ok) {
+                    return;
+                }
+
+                const lines = await answer.json();
+
+                if (Array.isArray(lines)) {
+                    resolved = lines;
+                    draw();
+                }
+            } catch {
+                // Offline, or the page is being left. The canvas keeps the last text
+                // it had, which is better than emptying it.
+            }
+        }, 250);
     };
 
     // --- dragging --------------------------------------------------------------
@@ -217,9 +291,7 @@
         element.y = Math.round(clamp(element.y + dy, 0, height));
 
         focused = Number(line.dataset.line);
-        write();
-        draw();
-        show();
+        changed({ panel: true });
         stage.querySelector(`[data-line="${focused}"]`)?.focus();
         event.preventDefault();
     });
@@ -259,13 +331,29 @@
         input.type = 'text';
         input.value = element.template;
         input.maxLength = 160;
+        input.dataset.template = String(index);
         input.setAttribute('aria-label', `Text of line ${index + 1}`);
 
-        input.addEventListener('focus', () => { focused = index; draw(); });
+        // The cursor is tracked as it moves, because clicking a token button takes
+        // focus off this input and selectionStart is gone by then.
+        const remember = () => {
+            if (focused === index) {
+                caret = { start: input.selectionStart ?? 0, end: input.selectionEnd ?? 0 };
+            }
+        };
+
+        input.addEventListener('focus', () => {
+            focused = index;
+            remember();
+            highlight();
+        });
+
+        ['keyup', 'click', 'select'].forEach(name => input.addEventListener(name, remember));
+
         input.addEventListener('input', () => {
             element.template = input.value;
-            write();
-            draw();
+            remember();
+            changed({ words: true });
         });
 
         wrap.append(input);
@@ -292,7 +380,12 @@
             'Character',
             [['', 'None, just you']].concat(characters.map(c => [String(c.id), c.label])),
             element.characterId === null ? '' : String(element.characterId),
-            value => { element.characterId = value === '' ? null : Number(value); }));
+            // A different character says different things, so this one needs the
+            // words again rather than just a redraw.
+            value => {
+                element.characterId = value === '' ? null : Number(value);
+                changed({ words: true });
+            }));
 
         const remove = document.createElement('button');
         remove.className = 'btn btn--ghost btn--small';
@@ -301,10 +394,10 @@
         remove.setAttribute('aria-label', `Remove line ${index + 1}`);
         remove.addEventListener('click', () => {
             design.elements.splice(index, 1);
+            resolved.splice(index, 1);
             focused = Math.max(0, focused - 1);
-            write();
-            draw();
-            show();
+            caret = null;
+            changed({ words: true, panel: true });
         });
         bar.append(remove);
 
@@ -321,8 +414,6 @@
         wrap.append(span, input);
         return wrap;
     };
-
-    const changed = () => { write(); draw(); };
 
     const number = (label, value, low, high, set) => {
         const input = document.createElement('input');
@@ -380,10 +471,30 @@
                 return;
             }
 
-            element.template = `${element.template}%${button.dataset.token}%`;
-            write();
-            draw();
-            show();
+            const insert = `%${button.dataset.token}%`;
+
+            // Where the cursor was when the input lost focus to this button, not the
+            // end of the line. Somebody putting a token in the middle of a sentence
+            // should not have to cut and paste it back.
+            const at = caret ?? { start: element.template.length, end: element.template.length };
+            const before = element.template.slice(0, at.start);
+            const after = element.template.slice(at.end);
+
+            element.template = `${before}${insert}${after}`;
+
+            const cursor = at.start + insert.length;
+            caret = { start: cursor, end: cursor };
+
+            changed({ words: true, panel: true });
+
+            // Back to the line, with the cursor after what was just inserted, so a
+            // second token goes where the first one left off.
+            const again = list.querySelector(`[data-template="${focused}"]`);
+
+            if (again) {
+                again.focus();
+                again.setSelectionRange(cursor, cursor);
+            }
         });
     });
 
@@ -432,9 +543,8 @@
         });
 
         focused = design.elements.length - 1;
-        write();
-        draw();
-        show();
+        caret = null;
+        changed({ words: true, panel: true });
     });
 
     paint();

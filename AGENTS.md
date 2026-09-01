@@ -93,6 +93,14 @@ bash tools/smoke.sh https://www.resultsmayvary.org # after deploying
 `Network` tests hit other people's servers and fail intermittently. Re-run before
 believing one.
 
+The signature editor's script is the one part the suite cannot reach, because the page
+needs a Discord sign-in. `tools/sig-editor-harness.py` serves the real
+`signature-editor.js` with the attributes the Razor view writes and answers the preview
+request the way `OnPostPreviewAsync` does, so dragging, the token buttons and the
+resolved text can be driven in a browser. Note that a tab which is not the focused OS
+window sets `activeElement` without dispatching `focus`, and throttles timers to a
+second, so a debounce looks slower there than it is.
+
 Proving a fix is real: break it deliberately and watch a named test fail. When the
 single fold was reverted, six offline tests failed and named the root-with-Pending
 case. Worth knowing: no database test failed, because `MemberDirectory` had already

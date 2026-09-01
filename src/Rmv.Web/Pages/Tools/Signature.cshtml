@@ -21,8 +21,6 @@
     @{ var flash = new Rmv.Web.Pages.Shared.Flash(Model.Notice, Model.Error); }
     <partial name="_Flash" model="flash" />
 
-    @* What a forum sees. First, because it is the reason anybody is here, and it is
-       the server's own render rather than the editor's approximation. *@
     <section class="section">
         <article class="panel">
             <p class="panel__title">Your signature</p>
@@ -40,17 +38,16 @@
                 <input class="input mono" id="sig-embed" type="text" readonly
                        value="@Model.Embed" data-copy />
                 <p class="hint">
-                    Most forums take that as it is. If yours wants a plain address,
-                    use <span class="mono">@Model.Address</span>
+                    If your forum wants a plain address rather than a tag, use
+                    <span class="mono">@Model.Address</span>
                 </p>
             </div>
 
             @if (Model.RenderedAt is { } drawn)
             {
                 <p class="hint">
-                    Last drawn @drawn.ToString("yyyy-MM-dd HH:mm") UTC. It redraws
-                    itself when your characters change, so the address never needs
-                    updating.
+                    Last drawn @drawn.ToString("yyyy-MM-dd HH:mm") UTC. It keeps itself
+                    up to date, so the address never changes.
                 </p>
             }
         </article>
@@ -64,106 +61,81 @@
             <article class="panel panel--inset">
                 <h3>No characters yet</h3>
                 <p class="dim">
-                    A signature draws on your characters. Add one on
-                    <a href="/characters">your characters page</a> and come back.
-                    The counts still work without any: a signature that says how many
-                    games you have played reads honestly at nought.
+                    Add one on <a href="/characters">your characters page</a> and it can
+                    go in your signature.
                 </p>
             </article>
         </section>
     }
 
-    <form method="post" asp-page-handler="Save" class="sig" data-editor
-          data-canvas-width="@Model.Width" data-canvas-height="@Model.Height"
-          data-max-elements="@Model.MaxElements">
+    @* The editor is a div rather than a form. The background panel needs forms of
+       its own for removing and uploading, and a form inside a form is dropped. *@
+    <div class="sig sig__layout" data-editor
+         data-canvas-width="@Model.Width" data-canvas-height="@Model.Height"
+         data-max-elements="@Model.MaxElements">
 
-        @* The design travels as JSON in here. The editor reads it on load and writes
-           it back on every change, so what is posted is what the canvas shows. *@
-        <input type="hidden" asp-for="Design" data-design />
-
-        <div class="sig__layout">
             <div class="sig__stage">
-                @* The canvas. Its size is the render's size, so a position dragged
-                   here is the position drawn there. The face is the same Vollkorn the
-                   renderer uses, served as woff2, which is what makes dragging
-                   faithful without a round trip per keystroke. In 2014 this needed
-                   the server to rasterise every field as a PNG to drag. *@
-                <div class="sig__canvas" data-stage
-                     style="width:@(Model.Width)px;height:@(Model.Height)px"></div>
+                <form method="post" asp-page-handler="Save">
+                    @* The design travels as JSON in here. The editor reads it on load
+                       and writes it back on every change, so what is posted is what
+                       the canvas shows. *@
+                    <input type="hidden" asp-for="Design" data-design />
 
-                <p class="hint" data-stage-hint>
-                    Drag the lines to place them. Everything is drawn again on the
-                    server when you save, and that render is what a forum gets.
-                </p>
+                    @* The canvas is the render's own size, and the text on it is the
+                       same Vollkorn the renderer draws with at the same pixel sizes,
+                       so a position dragged here is the position drawn there. *@
+                    <div class="sig__canvas" data-stage
+                         style="width:@(Model.Width)px;height:@(Model.Height)px"></div>
 
-                <div class="sig__actions">
-                    <button class="btn" type="submit">Save</button>
-                    <button class="btn btn--ghost" type="submit" asp-page-handler="Reset"
-                            data-confirm="Put the design back to the default?">Start over</button>
-                </div>
-            </div>
+                    <p class="hint">Drag a line to move it. Arrow keys nudge it.</p>
 
-            <div class="sig__side">
-                <article class="panel panel--inset">
-                    <p class="panel__title">Lines</p>
+                    <div class="sig__actions">
+                        <button class="btn" type="submit">Save</button>
+                        <button class="btn btn--ghost" type="submit" asp-page-handler="Reset"
+                                data-confirm="Put the design back to the default?">Start over</button>
+                    </div>
+                </form>
 
-                    @* The lists the editor builds its dropdowns from. Attributes
-                       rather than a script block, because the content policy refuses
-                       inline script and because a character's name is theirs to
-                       choose; read as an attribute it is a string and nothing else. *@
-                    <div data-elements
-                         data-characters="@Model.CharactersJson"
-                         data-fonts="@Model.FontsJson"></div>
-
-                    <p style="margin:.75rem 0 0">
-                        <button class="btn btn--ghost" type="button" data-add>Add a line</button>
-                    </p>
-                    <p class="hint" data-element-count></p>
-                </article>
-
-                <article class="panel panel--inset">
+                @* Under the buttons, where there is width for them, which also keeps
+                   the background picker on the right within reach. *@
+                <article class="panel panel--inset sig__tokens">
                     <p class="panel__title">Tokens</p>
-                    <p class="hint">
-                        Click one to drop it into the line you are editing. Anything
-                        else you type is drawn as you typed it.
-                    </p>
+                    <p class="hint">Click one to insert it where the cursor is.</p>
 
                     @foreach (var group in Model.Tokens.GroupBy(t => t.Scope))
                     {
-                        <p class="hint" style="margin:.75rem 0 .25rem">
+                        <p class="sig__group">
                             @(group.Key switch
                             {
                                 Rmv.Web.Signature.TokenScope.Character => "This line's character",
-                                Rmv.Web.Signature.TokenScope.Member => "You, across every herald",
-                                _ => "Handy",
+                                Rmv.Web.Signature.TokenScope.Member => "You, across every game",
+                                _ => "Separator",
                             })
                         </p>
                         <div class="chips">
                             @foreach (var token in group)
                             {
                                 <button class="chip" type="button" data-token="@token.Name"
-                                        title="@token.Description (@token.Example)">%@token.Name%</button>
+                                        title="@token.Description">%@token.Name%</button>
                             }
                         </div>
                     }
-                    @* Each herald's own stats, which is the part the 2014 one could
-                       not express: it knew one server's numbers and had a fixed list
-                       of them. A line bound to a DAoC character draws %Relics%; the
-                       same token on an FFXI line draws nothing, which is the honest
-                       answer rather than an error. *@
+
                     @foreach (var herald in Model.HeraldTokens)
                     {
-                        <p class="hint" style="margin:.75rem 0 .25rem">@herald.Herald</p>
+                        <p class="sig__group">@herald.Herald</p>
                         <div class="chips">
                             @foreach (var stat in herald.Stats)
                             {
                                 <button class="chip" type="button" data-token="@stat.Key"
-                                        title="@stat.Label (@stat.Example)">%@stat.Key%</button>
+                                        title="@stat.Label">%@stat.Key%</button>
                             }
                         </div>
                     }
                 </article>
+            </div>
 
+            <div class="sig__side">
                 <article class="panel panel--inset">
                     <p class="panel__title">Background</p>
 
@@ -185,10 +157,12 @@
                                     <img src="/tools/signature?handler=Background&amp;id=@upload.Id"
                                          alt="@upload.Name" width="130" height="40" />
                                 </button>
-                                <button class="sig__bg-remove" type="submit"
-                                        asp-page-handler="RemoveBackground" asp-route-id="@upload.Id"
-                                        data-confirm="Remove @upload.Name?"
-                                        title="Remove @upload.Name">Remove</button>
+                                <form method="post" asp-page-handler="RemoveBackground"
+                                      asp-route-id="@upload.Id">
+                                    <button class="sig__bg-remove" type="submit"
+                                            data-confirm="Remove @upload.Name?"
+                                            title="Remove @upload.Name">Remove</button>
+                                </form>
                             </span>
                         }
 
@@ -202,36 +176,44 @@
                             </button>
                         }
                     </div>
+
+                    @if (Model.Uploads.Count < Model.MaxBackgrounds)
+                    {
+                        <hr class="rule rule--fine" />
+                        <p class="sig__group">Your own</p>
+
+                        @* Posts to its own page so the upload can be rate limited. *@
+                        <form method="post" action="/tools/signature/background"
+                              enctype="multipart/form-data" class="stack" style="--stack-gap:.6rem">
+                            <input class="input" id="sig-file" name="file" type="file"
+                                   accept="image/png,image/jpeg,image/gif,image/webp" />
+                            <p class="hint">
+                                Cropped to @(Model.Width)x@(Model.Height). @Model.MaxBackgrounds per member;
+                                you have @Model.Uploads.Count.
+                            </p>
+                            <p style="margin:0"><button class="btn btn--ghost" type="submit">Upload</button></p>
+                        </form>
+                    }
+                </article>
+
+                <article class="panel panel--inset">
+                    <p class="panel__title">Lines</p>
+
+                    @* The lists the editor builds its dropdowns from, and the text each
+                       line currently resolves to. Attributes rather than a script
+                       block, because the content policy refuses inline script. *@
+                    <div data-elements
+                         data-characters="@Model.CharactersJson"
+                         data-fonts="@Model.FontsJson"
+                         data-preview="@Model.PreviewJson"></div>
+
+                    <p style="margin:.75rem 0 0">
+                        <button class="btn btn--ghost" type="button" data-add>Add a line</button>
+                    </p>
+                    <p class="hint" data-element-count></p>
                 </article>
             </div>
-        </div>
-    </form>
-
-    @if (Model.Uploads.Count < Model.MaxBackgrounds)
-    {
-        <section class="section">
-            <article class="panel panel--inset">
-                <p class="panel__title">Your own background</p>
-
-                @* Posts to its own page so the upload can be rate limited, which
-                   Razor Pages will not do from a handler attribute. *@
-                <form method="post" action="/tools/signature/background"
-                      enctype="multipart/form-data" class="stack" style="--stack-gap:1rem">
-                    <div class="field">
-                        <label for="sig-file">Picture</label>
-                        <input class="input" id="sig-file" name="file" type="file"
-                               accept="image/png,image/jpeg,image/gif,image/webp" />
-                        <p class="hint">
-                            Cropped to @(Model.Width)x@(Model.Height) and stored at that size, so
-                            it costs the same whatever you upload. @Model.MaxBackgrounds per member;
-                            you have @Model.Uploads.Count.
-                        </p>
-                    </div>
-                    <p style="margin:0"><button class="btn" type="submit">Upload</button></p>
-                </form>
-            </article>
-        </section>
-    }
+    </div>
 </div>
 
 @section Scripts {

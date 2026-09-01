@@ -94,7 +94,10 @@ public static class SignatureTokens
             s => s.Totals.Since),
 
         // --- v1 ---------------------------------------------------------------
-        new("SP", TokenScope.Fixed, "A dash with spaces around it", " - ", _ => " - "),
+        // Its own scope so the editor labels it "Separator" rather than lumping it in
+        // with the rest. The description says what it puts in, because nobody is
+        // going to click an unexplained token to find out.
+        new("SP", TokenScope.Fixed, "Puts \" - \" in, to separate two things", " - ", _ => " - "),
     ];
 
     private static readonly Dictionary<string, SignatureToken> ByName =

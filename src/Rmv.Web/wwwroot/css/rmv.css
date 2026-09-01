@@ -1414,6 +1414,12 @@ textarea.input {
   grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   gap: .5rem;
   margin-top: .75rem;
+  /* Twenty two presets is four rows of thumbnails, which pushed everything under
+     this panel off the screen. Capped and scrolled, so the panel is a fixed size
+     whatever is in it. */
+  max-height: 14rem;
+  overflow-y: auto;
+  padding-right: .25rem;
 }
 
 .sig__bg {
@@ -1444,3 +1450,22 @@ textarea.input {
 }
 
 .sig__bg-remove:hover { color: #a4463c; }
+
+/* The token palette sits under the canvas and its buttons, which is where the width
+   is and which keeps the background picker on the right reachable without scrolling
+   past three panels to find it. */
+.sig__tokens { margin-top: 1.25rem; }
+
+.sig__group {
+  margin: .8rem 0 .3rem;
+  font: 600 0.7rem/1 var(--font-display);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.sig__group:first-of-type { margin-top: .4rem; }
+
+/* An empty line still needs to be grabbable, so it shows a placeholder rather than
+   collapsing to nothing. */
+.sig__line--empty { opacity: .55; font-style: italic; }
