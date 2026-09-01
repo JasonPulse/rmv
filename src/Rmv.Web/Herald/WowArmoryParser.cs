@@ -158,8 +158,47 @@ public static class WowArmoryParser
                 LastOnline = LastUpdated(c),
                 Url = url,
                 Portrait = Portrait(c),
+                Stats = Stats(document.RootElement, c),
             };
         }
+    }
+
+    /// <summary>
+    /// What the Armory publishes that the shared fields have no room for.
+    ///
+    /// Item level in particular: it is the number WoW players compare, and it is
+    /// deliberately not %Score%, which ranks a board spanning four games.
+    /// </summary>
+    private static Dictionary<string, string> Stats(JsonElement root, JsonElement c)
+    {
+        var stats = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        void Count(string key, long? value)
+        {
+            if (value is { } n && n > 0)
+            {
+                stats[key] = n.ToString("N0", CultureInfo.InvariantCulture);
+            }
+        }
+
+        Count("ItemLevel", Number(c, "averageItemLevel"));
+        Count("Honor", Number(Child(Child(c, "pvp"), "prestige"), "honorLevel"));
+        Count("Renown", Number(c, "renown"));
+
+        // The mythic rating lives in the summary rather than on the character, and
+        // only for somebody who runs them.
+        Count("Mythic", Number(Child(Child(root, "summary"), "mythicKeystoneDungeons"), "rating")
+                        ?? Number(Child(root, "summary"), "mythicRating"));
+
+        foreach (var (key, from) in new[] { ("Spec", "spec"), ("Faction", "faction"), ("Server", "realm") })
+        {
+            if (Named(c, from) is { Length: > 0 } value)
+            {
+                stats[key] = value;
+            }
+        }
+
+        return stats;
     }
 
     /// <summary>

@@ -113,4 +113,66 @@ public class BlackthornHeraldAdapterTests
             Assert.False(built);
         }
     }
+
+    // --- what this herald publishes that the others do not --------------------
+
+    [Fact]
+    public async Task Reads_the_stats_matrix_and_not_only_the_all_time_column()
+    {
+        // The page is fourteen stats across five periods, seventy numbers, and the
+        // shared fields take three of them. Realm points for last week was %W in the
+        // 2001 generator and had nowhere to go until heralds could declare their own.
+        var c = await ParseAsync("Enchantress", Fixture("blackthorn-player.html"));
+
+        Assert.NotNull(c.Stats);
+
+        Assert.Equal("11,792", c.Stats["LastWeek"]);
+        Assert.Equal("1,230", c.Stats["ThisWeek"]);
+        Assert.Equal("2.92", c.Stats["Ratio"]);
+        Assert.Equal("1,217", c.Stats["Solo"]);
+        Assert.Equal("2,599", c.Stats["DeathBlows"]);
+        Assert.Equal("62", c.Stats["Keeps"]);
+        Assert.Equal("7", c.Stats["Relics"]);
+        Assert.Equal("2,761", c.Stats["AlbionKills"]);
+        Assert.Equal("3,937", c.Stats["MidgardKills"]);
+
+        // And the shared fields still come from All Time.
+        Assert.Equal(2_823_660, c.RealmPoints);
+        Assert.Equal(6698, c.Kills);
+        Assert.Equal(2295, c.Deaths);
+    }
+
+    [Fact]
+    public async Task A_stat_the_page_does_not_have_is_absent_rather_than_zero()
+    {
+        // This character is Hibernian, so the page has no Hibernia kills row.
+        var c = await ParseAsync("Enchantress", Fixture("blackthorn-player.html"));
+
+        Assert.False(c.Stats!.ContainsKey("HiberniaKills"));
+    }
+
+    [Fact]
+    public void Everything_declared_is_something_a_signature_can_ask_for()
+    {
+        // The palette offers these, so each has to be a key the parser can produce
+        // and a label somebody can read.
+        var adapter = new BlackthornHeraldAdapter(
+            new HeraldFetcher(new HttpClient(new StubImageHandler()),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<HeraldFetcher>.Instance));
+
+        Assert.NotEmpty(adapter.Stats);
+
+        foreach (var stat in adapter.Stats)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(stat.Key), "key");
+            Assert.False(string.IsNullOrWhiteSpace(stat.Label), stat.Key);
+            Assert.False(string.IsNullOrWhiteSpace(stat.Example), stat.Key);
+            Assert.DoesNotContain("%", stat.Key);
+        }
+
+        // No two of them, and none shadowing a token every character has.
+        var keys = adapter.Stats.Select(s => s.Key.ToLowerInvariant()).ToList();
+        Assert.Equal(keys.Count, keys.Distinct().Count());
+        Assert.All(adapter.Stats, s => Assert.Null(Rmv.Web.Signature.SignatureTokens.Find(s.Key)));
+    }
 }

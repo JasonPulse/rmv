@@ -146,6 +146,22 @@
                             }
                         </div>
                     }
+                    @* Each herald's own stats, which is the part the 2014 one could
+                       not express: it knew one server's numbers and had a fixed list
+                       of them. A line bound to a DAoC character draws %Relics%; the
+                       same token on an FFXI line draws nothing, which is the honest
+                       answer rather than an error. *@
+                    @foreach (var herald in Model.HeraldTokens)
+                    {
+                        <p class="hint" style="margin:.75rem 0 .25rem">@herald.Herald</p>
+                        <div class="chips">
+                            @foreach (var stat in herald.Stats)
+                            {
+                                <button class="chip" type="button" data-token="@stat.Key"
+                                        title="@stat.Label (@stat.Example)">%@stat.Key%</button>
+                            }
+                        </div>
+                    }
                 </article>
 
                 <article class="panel panel--inset">

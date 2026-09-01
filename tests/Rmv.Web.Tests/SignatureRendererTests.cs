@@ -255,6 +255,77 @@ public class SignatureRendererTests
         return count;
     }
 
+    [Fact]
+    public void One_signature_can_carry_three_heralds_and_a_total()
+    {
+        // The question he asked, drawn. Each line binds to a character on a different
+        // herald and uses that herald's own stats; the last line is about all of them.
+        // Written out so a person can look at it.
+        var roster = new List<Character>
+        {
+            new()
+            {
+                Id = 1, Name = "Property", Level = 50, Class = "Skald", Realm = "Midgard",
+                RealmRank = "8L0", Score = 2_823_660, AddedAt = new DateTimeOffset(2001, 10, 10, 0, 0, 0, TimeSpan.Zero),
+                GamePresenceId = 1, Game = new GamePresence { Id = 1, Game = "Dark Age of Camelot" },
+                Stats = Rmv.Web.Herald.HeraldStats.Serialise(new Dictionary<string, string>
+                {
+                    ["LastWeek"] = "11,792", ["Relics"] = "7", ["Keeps"] = "62",
+                }),
+            },
+            new()
+            {
+                Id = 2, Name = "Milliennial", Level = 99, Class = "MNK 99 / WHM 49",
+                Realm = "Windurst", Score = 527, AddedAt = DateTimeOffset.UtcNow,
+                GamePresenceId = 2, Game = new GamePresence { Id = 2, Game = "Final Fantasy XI" },
+                Stats = Rmv.Web.Herald.HeraldStats.Serialise(new Dictionary<string, string>
+                {
+                    ["Playtime"] = "15 days", ["Merits"] = "7", ["Zone"] = "Eastern Adoulin",
+                }),
+            },
+            new()
+            {
+                Id = 3, Name = "Syfr", Level = 80, Class = "Frost Death Knight",
+                Realm = "Quel'Thalas (Alliance)", Score = 7_290, AddedAt = DateTimeOffset.UtcNow,
+                GamePresenceId = 3, Game = new GamePresence { Id = 3, Game = "World of Warcraft" },
+                Stats = Rmv.Web.Herald.HeraldStats.Serialise(new Dictionary<string, string>
+                {
+                    ["ItemLevel"] = "146", ["Faction"] = "Alliance",
+                }),
+            },
+        };
+
+        var design = SignatureDesign.Default(1) with
+        {
+            Elements =
+            [
+                new SignatureElement(12, 10, TextAlign.Left, SignatureFonts.DefaultKey, 17,
+                    "#e8d8a0", null, 1, "%Name% %Rank%%SP%%Relics% relics%SP%%LastWeek% last week"),
+                new SignatureElement(12, 40, TextAlign.Left, SignatureFonts.DefaultKey, 17,
+                    "#c9c2b4", null, 2, "%Name% %Class%%SP%%Playtime%%SP%%Merits% merits"),
+                new SignatureElement(12, 70, TextAlign.Left, SignatureFonts.DefaultKey, 17,
+                    "#c9c2b4", null, 3, "%Name% %Class%%SP%item level %ItemLevel%"),
+                new SignatureElement(12, 132, TextAlign.Left, SignatureFonts.DefaultKey, 14,
+                    "#a89f8c", null, null,
+                    "%User% has played %AllChars% characters in %AllGames% games since %Since%"),
+            ],
+        };
+
+        var png = Save("three-heralds", Renderer().Render(design, Him(), roster));
+
+        using var image = Decode(png);
+        Assert.Equal(SignatureLimits.Width, image.Width);
+
+        // Every line drew something: removing any one of them changes the picture.
+        for (var i = 0; i < design.Elements.Count; i++)
+        {
+            var without = design.Elements.Where((_, index) => index != i).ToList();
+            using var missing = Decode(Renderer().Render(design with { Elements = without }, Him(), roster));
+
+            Assert.NotEqual(0, Difference(image, missing));
+        }
+    }
+
     // --- what a member can push at it ----------------------------------------
 
     [Fact]

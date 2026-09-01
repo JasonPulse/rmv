@@ -36,6 +36,22 @@ public sealed record HeraldCharacter
 
     /// <summary>The character's portrait, if the herald has one.</summary>
     public HeraldPortrait? Portrait { get; init; }
+
+    /// <summary>
+    /// Whatever else this herald publishes, keyed by the token name that draws it.
+    ///
+    /// The twelve fields above are the ones every herald has something like, which
+    /// is what makes %Level% and %Score% work whichever game a line is about. This
+    /// is for the rest, and the rest is most of it: the DAoC herald publishes
+    /// fourteen stats across five periods, seventy numbers, and three of them fit
+    /// above. Realm points for last week was a token in the 2001 generator and had
+    /// no home here until this existed.
+    ///
+    /// Already formatted, because a herald knows what its own numbers mean: seconds
+    /// of playtime become "41 days", a ratio keeps its decimal, and a count gets
+    /// its thousands separators. See IHeraldAdapter.Stats for what each one declares.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? Stats { get; init; }
 }
 
 /// <summary>
@@ -98,10 +114,31 @@ public enum RankBy
 /// <param name="Label">Column heading, e.g. "Realm points".</param>
 public sealed record LeaderboardMetric(RankBy By, string Label);
 
+/// <summary>
+/// One extra stat a herald publishes, and what a signature calls it.
+/// </summary>
+/// <param name="Key">The token name, without percent signs. Unique across the herald.</param>
+/// <param name="Label">What the editor's palette calls it.</param>
+/// <param name="Example">A filled-in value, so the palette can show what it looks like.</param>
+public sealed record HeraldStat(string Key, string Label, string Example);
+
 public interface IHeraldAdapter
 {
     /// <summary>How this server's characters compare. See LeaderboardMetric.</summary>
     LeaderboardMetric Metric { get; }
+
+    /// <summary>
+    /// What this herald publishes beyond the fields every herald has.
+    ///
+    /// Declared rather than discovered, because the signature editor has to offer
+    /// these to a member who has no character on this server yet, and because a
+    /// token the palette offers and no herald fills is a signature that says
+    /// "%Relics%" to a forum.
+    ///
+    /// Empty for a herald with nothing extra. The keys must not collide with the
+    /// tokens every character has; SignatureTokenTests holds that.
+    /// </summary>
+    IReadOnlyList<HeraldStat> Stats => [];
 
     /// <summary>
     /// Who this herald leaves out, in words a member reads, or null when it lists

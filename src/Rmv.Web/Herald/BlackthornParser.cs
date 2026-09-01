@@ -31,7 +31,68 @@ public static class BlackthornParser
             Kills = ReadAllTimeStat(doc, "Kills"),
             Deaths = ReadAllTimeStat(doc, "Deaths"),
             Url = url,
+            Stats = ReadStats(doc, labels),
         };
+    }
+
+    /// <summary>
+    /// What this herald publishes that no other one does.
+    ///
+    /// The page is a matrix: fourteen stats down, five periods across, so seventy
+    /// numbers of which three fit the shared fields. Realm points for last week was a
+    /// token in the 2001 generator, %W, and was the obvious thing missing until this.
+    ///
+    /// Not all seventy. A palette of seventy is unusable and a signature has room for
+    /// four lines; these are the ones somebody would actually put in one.
+    /// </summary>
+    private static Dictionary<string, string> ReadStats(IDocument doc, Dictionary<string, string> labels)
+    {
+        var stats = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        void Add(string key, long? value)
+        {
+            if (value is { } n)
+            {
+                stats[key] = n.ToString("N0", CultureInfo.InvariantCulture);
+            }
+        }
+
+        // The periods that mean something in a signature. "This month" and "last
+        // month" are on the page too and nobody has ever put them in one.
+        Add("ThisWeek", ReadStat(doc, "RealmPoints", "This Week"));
+        Add("LastWeek", ReadStat(doc, "RealmPoints", "Last Week"));
+
+        Add("Solo", ReadStat(doc, "Solo", "All Time"));
+        Add("SoloWeek", ReadStat(doc, "Solo", "This Week"));
+        Add("DeathBlows", ReadStat(doc, "DB", "All Time"));
+        Add("Keeps", ReadStat(doc, "Keeps", "All Time"));
+        Add("Relics", ReadStat(doc, "Relics", "All Time"));
+        Add("AlbionKills", ReadStat(doc, "Albion Kills", "All Time"));
+        Add("MidgardKills", ReadStat(doc, "Midgard Kills", "All Time"));
+        Add("HiberniaKills", ReadStat(doc, "Hibernia Kills", "All Time"));
+
+        // A ratio keeps its decimal, so it is read as text rather than a count.
+        if (ReadStatText(doc, "K/D Ratio", "All Time") is { Length: > 0 } ratio)
+        {
+            stats["Ratio"] = ratio;
+        }
+
+        // The fair group fights block, which is its own little table.
+        foreach (var (label, key) in new[]
+                 {
+                     ("Total Fights", "Fights"),
+                     ("Wins", "Wins"),
+                     ("Losses", "Losses"),
+                     ("Win Rate", "WinRate"),
+                 })
+        {
+            if (labels.GetValueOrDefault(label) is { Length: > 0 } value && value != "-")
+            {
+                stats[key] = value;
+            }
+        }
+
+        return stats;
     }
 
     /// <summary>
@@ -91,16 +152,25 @@ public static class BlackthornParser
         return found;
     }
 
+    /// <summary>The All Time column, which is what the shared fields want.</summary>
+    private static long? ReadAllTimeStat(IDocument doc, string statLabel) =>
+        ReadStat(doc, statLabel, "All Time");
+
+    private static long? ReadStat(IDocument doc, string statLabel, string period) =>
+        ParseLong(ReadStatText(doc, statLabel, period));
+
     /// <summary>
-    /// Reads the All Time column from the stats table. "All Time" is found by its
-    /// heading rather than assumed to be last, and the row by its label.
+    /// One cell of the stats matrix, by its row label and its column heading.
+    ///
+    /// Both are found by name rather than by position: the page has fourteen rows and
+    /// five periods, and counting either would break the day one is added.
     /// </summary>
-    private static long? ReadAllTimeStat(IDocument doc, string statLabel)
+    private static string? ReadStatText(IDocument doc, string statLabel, string period)
     {
         foreach (var (headers, rows) in Tables(doc))
         {
             var column = Array.FindIndex(headers,
-                h => h.Equals("All Time", StringComparison.OrdinalIgnoreCase));
+                h => h.Equals(period, StringComparison.OrdinalIgnoreCase));
 
             if (column < 0)
             {
@@ -117,7 +187,8 @@ public static class BlackthornParser
 
                 if (cells[0].Equals(statLabel, StringComparison.OrdinalIgnoreCase))
                 {
-                    return ParseLong(cells[column]);
+                    var value = cells[column];
+                    return value is "-" or "" ? null : value;
                 }
             }
         }

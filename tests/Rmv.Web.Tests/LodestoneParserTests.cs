@@ -152,4 +152,36 @@ public class LodestoneParserTests
     {
         Assert.Equal(expected, LodestoneParser.IdFromHref(href));
     }
+
+    [Fact]
+    public async Task Reads_what_the_lodestone_has_that_the_shared_fields_do_not()
+    {
+        // Total levels across every job is the FFXIV answer to FFXI's total job
+        // levels, and the profile column has four blocks nothing else carries.
+        var c = LodestoneParser.Parse(await CharacterAsync(), await ClassJobAsync(), "https://x.test/c/1/");
+
+        Assert.NotNull(c.Stats);
+
+        Assert.Equal("Immortal Flames / First Flame Lieutenant", c.Stats["GrandCompany"]);
+        Assert.Equal("Gridania", c.Stats["City"]);
+        Assert.Equal("Menphina, the Lover", c.Stats["Guardian"]);
+        Assert.Equal("9th Sun of the 2nd Astral Moon", c.Stats["Nameday"]);
+
+        // Summed from the Class/Job page rather than from a number the site prints,
+        // because it does not print one.
+        Assert.True(int.TryParse(c.Stats["JobLevels"].Replace(",", ""), out var levels), c.Stats["JobLevels"]);
+        Assert.True(levels > 0, c.Stats["JobLevels"]);
+        Assert.True(int.Parse(c.Stats["JobsLevelled"]) > 0);
+    }
+
+    [Fact]
+    public async Task Without_the_class_job_page_the_profile_blocks_still_read()
+    {
+        // That page is a second request and is allowed to fail; losing the job totals
+        // must not lose the rest.
+        var c = LodestoneParser.Parse(await CharacterAsync(), null, "https://x.test/c/1/");
+
+        Assert.Equal("Gridania", c.Stats!["City"]);
+        Assert.False(c.Stats.ContainsKey("JobLevels"));
+    }
 }

@@ -35,6 +35,22 @@ public sealed class WowArmoryAdapter(HeraldFetcher fetcher) : IHeraldAdapter
     /// </summary>
     public LeaderboardMetric Metric => new(RankBy.Score, "Achievement points");
 
+    /// <summary>
+    /// What the Armory has beyond the shared fields.
+    ///
+    /// Item level is the one WoW players actually compare and it deliberately is not
+    /// %Score%, because a board covering twenty years should not rank on this
+    /// month's gear. Here it is a token, which is where it belongs.
+    /// </summary>
+    public IReadOnlyList<HeraldStat> Stats { get; } = HeraldStatTokens.Declare(
+        new("ItemLevel", "Average item level", "146"),
+        new("Spec", "Specialisation", "Frost"),
+        new("Faction", "Faction", "Alliance"),
+        new("Server", "Realm, without the faction", "Quel'Thalas"),
+        new("Honor", "Honor level", "4"),
+        new("Renown", "Renown, if the payload has it", "72"),
+        new("Mythic", "Mythic keystone rating", "1,842"));
+
     public string? CoverageNote =>
         "The Armory only lists characters on an account with an active "
         + "subscription. A lapsed account looks the same as a wrong name.";

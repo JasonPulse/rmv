@@ -186,6 +186,43 @@ public class HeraldLiveTests
     }
 
     [Fact]
+    public async Task Each_live_herald_fills_in_the_stats_it_declares()
+    {
+        // A fixture can be out of date about a payload's shape, and a stat the editor
+        // offers that no live herald fills is a token that draws nothing forever.
+        // Every declared key does not have to appear for one character, but something
+        // must.
+        var blackthorn = new BlackthornHeraldAdapter(Fetcher());
+        var daoc = await blackthorn.FetchCharacterAsync(
+            "https://herald.blackthorn-daoc.com", "Enchantress", CancellationToken.None);
+
+        Assert.True(daoc.Ok, daoc.Error);
+        Assert.NotNull(daoc.Character!.Stats);
+        Assert.NotEmpty(daoc.Character.Stats);
+
+        // The one the 2001 generator had, live.
+        Assert.True(daoc.Character.Stats.ContainsKey("LastWeek"),
+            $"no LastWeek in [{string.Join(", ", daoc.Character.Stats.Keys)}]");
+
+        var xi = await ArwenAsync();
+        Assert.NotNull(xi.Character.Stats);
+
+        // Arwen is a level 1 test character, so most counters are zero and absent.
+        // The zone and the nation are not.
+        Assert.True(xi.Character.Stats.ContainsKey("Zone") || xi.Character.Stats.ContainsKey("Nation"),
+            $"nothing in [{string.Join(", ", xi.Character.Stats.Keys)}]");
+
+        var armory = new WowArmoryAdapter(Fetcher());
+        var wow = await armory.FetchCharacterAsync(
+            armory.DefaultBaseUrl, "Syfr-Quel'Thalas", CancellationToken.None);
+
+        Assert.True(wow.Ok, wow.Error);
+        Assert.NotNull(wow.Character!.Stats);
+        Assert.Equal("146", wow.Character.Stats["ItemLevel"]);
+        Assert.Equal("Alliance", wow.Character.Stats["Faction"]);
+    }
+
+    [Fact]
     public async Task HeraldXi_is_refused_when_not_allowlisted()
     {
         // The point of the allowlist. Same host, same adapter, no permission.

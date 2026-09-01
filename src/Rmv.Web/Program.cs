@@ -225,6 +225,8 @@ builder.Services.AddScoped<IHeraldAdapter, HeraldXiAdapter>();
 builder.Services.AddScoped<IHeraldAdapter, LodestoneAdapter>();
 builder.Services.AddScoped<IHeraldAdapter, WowArmoryAdapter>();
 builder.Services.AddScoped<HeraldRegistry>();
+// Every herald's own stats, gathered for the signature editor's palette.
+builder.Services.AddScoped<HeraldStatTokens>();
 builder.Services.AddScoped<CharacterService>();
 builder.Services.AddScoped<Rmv.Web.Gallery.GalleryService>();
 

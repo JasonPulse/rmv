@@ -23,7 +23,8 @@ public sealed record SignatureCharacter(
     string Kills,
     string Deaths,
     string Game,
-    string Seen);
+    string Seen,
+    IReadOnlyDictionary<string, string> Stats);
 
 /// <summary>
 /// What a member adds up to across every herald, which is the part v1 could not do:
@@ -41,7 +42,7 @@ public sealed record SignatureTotals(
 /// <param name="Character">
 /// Null for an element bound to nobody, which is how a line of pure member totals
 /// works. A character token on such an element resolves to nothing rather than
-/// failing the render.
+/// failing the render, and so does a herald's own stat.
 /// </param>
 public sealed record SignatureSubject(
     string User,
@@ -86,7 +87,10 @@ public static class SignatureData
             Kills: Number(c.Kills),
             Deaths: Number(c.Deaths),
             Game: Text(c.Game?.Game),
-            Seen: Text(c.LastOnline));
+            Seen: Text(c.LastOnline),
+            // Whatever this character's own herald publishes. Already formatted by
+            // the adapter that knows what its numbers mean.
+            Stats: Herald.HeraldStats.Read(c.Stats));
     }
 
     /// <summary>

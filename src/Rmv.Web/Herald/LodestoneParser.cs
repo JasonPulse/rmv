@@ -155,12 +155,66 @@ public static class LodestoneParser
             Portrait = Image(character, ".character__detail__image img") is { } portrait
                 ? new HeraldPortrait(portrait)
                 : null,
+            Stats = Stats(character, jobs),
         };
+    }
+
+    /// <summary>
+    /// What the Lodestone publishes that the shared fields have no room for.
+    ///
+    /// The profile column is a stack of labelled blocks and the Class/Job page is
+    /// every job this character has levelled. Total levels across all of them is the
+    /// FFXIV answer to FFXI's total job levels, which is worth having as a token even
+    /// though it is not what the leaderboard ranks on.
+    /// </summary>
+    private static Dictionary<string, string> Stats(IDocument character, IReadOnlyList<LodestoneJob> jobs)
+    {
+        var stats = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (label, key) in new[]
+                 {
+                     ("Grand Company", "GrandCompany"),
+                     ("City-state", "City"),
+                     ("Guardian", "Guardian"),
+                     ("Nameday", "Nameday"),
+                 })
+        {
+            if (Block(character, label) is { Length: > 0 } value)
+            {
+                stats[key] = value;
+            }
+        }
+
+        var levelled = jobs.Where(j => j.Level > 0).ToList();
+
+        if (levelled.Count > 0)
+        {
+            stats["JobLevels"] = levelled
+                .Sum(j => j.Level ?? 0)
+                .ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+
+            stats["JobsLevelled"] = levelled.Count
+                .ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            if (levelled.Count(j => j.Level >= 100) is var capped && capped > 0)
+            {
+                stats["JobsAtCap"] = capped.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+
+        return stats;
     }
 
     /// <summary>
     /// Reads one of the labelled blocks in the profile column by its label, so a
     /// block being added or reordered above it changes nothing.
+    ///
+    /// The value is the element straight after the label, not the first value in the
+    /// surrounding box. That distinction is a bug this had until the Nameday block
+    /// needed reading: Nameday and Guardian share one box, so asking the box for its
+    /// first value gave Nameday the Guardian's deity. It also matters because the two
+    /// use different classes, __birth and __name, and the sibling rule needs to know
+    /// neither.
     /// </summary>
     public static string? Block(IDocument doc, string label)
     {
@@ -171,8 +225,11 @@ public static class LodestoneParser
                 continue;
             }
 
-            var name = title.ParentElement?.QuerySelector(".character-block__name");
-            if (name is null)
+            var name = title.NextElementSibling;
+
+            // A label with nothing after it, or with another label after it, has no
+            // value of its own.
+            if (name is null || name.ClassList.Contains("character-block__title"))
             {
                 continue;
             }

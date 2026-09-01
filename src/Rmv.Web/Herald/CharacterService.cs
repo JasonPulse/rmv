@@ -438,6 +438,7 @@ public sealed class CharacterService(
         target.Deaths = source.Deaths;
         target.LastOnline = source.LastOnline;
         target.HeraldUrl = source.Url;
+        target.Stats = HeraldStats.Serialise(source.Stats);
         target.LastError = null;
     }
 }

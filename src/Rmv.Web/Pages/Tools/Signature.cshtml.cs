@@ -23,7 +23,8 @@ public class SignatureModel(
     CurrentMember me,
     SignatureService signatures,
     SignaturePresets presets,
-    SignatureFonts fonts) : PageModel
+    SignatureFonts fonts,
+    Rmv.Web.Herald.HeraldStatTokens heraldStats) : PageModel
 {
     /// <summary>The design, as JSON. Posted back as JSON, clamped on the way in.</summary>
     [BindProperty]
@@ -48,6 +49,16 @@ public class SignatureModel(
     public IReadOnlyList<SignatureBackground> Uploads { get; private set; } = [];
 
     public IReadOnlyList<SignatureToken> Tokens => SignatureTokens.All;
+
+    /// <summary>
+    /// What each herald publishes on top of the shared tokens, grouped so a member
+    /// can see that relics are a DAoC thing and master level is not.
+    ///
+    /// Offered whether or not they have a character there. A stat from a herald this
+    /// line's character is not on draws nothing, which is the honest answer, and
+    /// seeing the list is how somebody learns what a game they play has.
+    /// </summary>
+    public IReadOnlyList<Rmv.Web.Herald.HeraldStatTokens.Group> HeraldTokens => heraldStats.All;
 
     public IReadOnlyCollection<string> Fonts => fonts.Keys;
 

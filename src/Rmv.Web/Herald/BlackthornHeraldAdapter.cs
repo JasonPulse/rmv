@@ -23,6 +23,31 @@ public sealed class BlackthornHeraldAdapter(HeraldFetcher fetcher) : IHeraldAdap
     /// <summary>Realm points, which is what the herald's own leaderboards rank on.</summary>
     public LeaderboardMetric Metric => new(RankBy.Score, "Realm points");
 
+    /// <summary>
+    /// What this herald has that the others do not, declared for the editor's palette.
+    ///
+    /// The page is a matrix of fourteen stats across five periods, seventy numbers,
+    /// and three of them are the shared %Score%, %Kills% and %Deaths%. These are the
+    /// rest of what anybody would put in a signature. LastWeek is the 2001
+    /// generator's %W, which had no home until heralds could declare their own.
+    /// </summary>
+    public IReadOnlyList<HeraldStat> Stats { get; } = HeraldStatTokens.Declare(
+        new("LastWeek", "Realm points last week", "11,792"),
+        new("ThisWeek", "Realm points this week", "1,230"),
+        new("Ratio", "Kill to death ratio", "2.92"),
+        new("Solo", "Solo kills", "1,217"),
+        new("SoloWeek", "Solo kills this week", "1"),
+        new("DeathBlows", "Death blows", "2,599"),
+        new("Keeps", "Keeps taken", "62"),
+        new("Relics", "Relics taken", "7"),
+        new("AlbionKills", "Albion kills", "2,761"),
+        new("MidgardKills", "Midgard kills", "3,937"),
+        new("HiberniaKills", "Hibernia kills", "1,204"),
+        new("Fights", "Fair group fights", "48"),
+        new("Wins", "Fair fights won", "31"),
+        new("Losses", "Fair fights lost", "15"),
+        new("WinRate", "Fair fight win rate", "65%"));
+
     public async Task<HeraldResult> FetchCharacterAsync(
         string baseUrl, string characterName, CancellationToken ct)
     {

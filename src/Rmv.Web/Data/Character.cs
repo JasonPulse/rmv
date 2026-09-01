@@ -96,4 +96,17 @@ public class Character
 
     /// <summary>Set when the most recent refresh failed. Cleared on success.</summary>
     public string? LastError { get; set; }
+
+    /// <summary>
+    /// Whatever this character's own herald publishes beyond the columns above, as
+    /// JSON, keyed by token name.
+    ///
+    /// A column per stat is not possible: the DAoC herald has seventy numbers, the
+    /// FFXI API has a hundred fields, and each server's are its own. A document
+    /// keeps the schema out of it and the editor's palette knows what to expect
+    /// from IHeraldAdapter.Stats rather than from this.
+    ///
+    /// Null for a hand-typed character and for a herald with nothing extra.
+    /// </summary>
+    public string? Stats { get; set; }
 }

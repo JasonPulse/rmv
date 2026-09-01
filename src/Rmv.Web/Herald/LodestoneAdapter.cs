@@ -32,6 +32,23 @@ public sealed class LodestoneAdapter(HeraldFetcher fetcher) : IHeraldAdapter
     /// </summary>
     public LeaderboardMetric Metric => new(RankBy.Level, "Level");
 
+    /// <summary>
+    /// What the Lodestone has beyond the shared fields.
+    ///
+    /// Total levels across every job is the FFXIV answer to FFXI's total job levels.
+    /// It is not what Metric ranks on, because the Lodestone publishes no cumulative
+    /// number of its own and the active job's level is what a board can compare, but
+    /// it is exactly what somebody would put in a signature.
+    /// </summary>
+    public IReadOnlyList<HeraldStat> Stats { get; } = HeraldStatTokens.Declare(
+        new("JobLevels", "Levels across every job", "1,204"),
+        new("JobsLevelled", "Jobs levelled at all", "21"),
+        new("JobsAtCap", "Jobs at the level cap", "3"),
+        new("GrandCompany", "Grand Company and rank", "Immortal Flames / First Flame Lieutenant"),
+        new("City", "Starting city", "Gridania"),
+        new("Guardian", "Guardian deity", "Menphina, the Lover"),
+        new("Nameday", "Nameday", "9th Sun of the 2nd Astral Moon"));
+
     public async Task<HeraldResult> FetchCharacterAsync(
         string baseUrl, string characterName, CancellationToken ct)
     {

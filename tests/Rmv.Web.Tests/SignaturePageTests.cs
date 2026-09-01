@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Rmv.Web.Data;
+using Rmv.Web.Herald;
 using Rmv.Web.Pages.Tools;
 using Rmv.Web.Signature;
 using SixLabors.ImageSharp;
@@ -67,7 +68,8 @@ public class SignaturePageTests : HeraldDatabaseTests
                 new MemberDirectory(Db, config, NullLogger<MemberDirectory>.Instance)),
             _signatures,
             _presets,
-            _fonts);
+            _fonts,
+            new Rmv.Web.Herald.HeraldStatTokens(new HeraldRegistry([Herald])));
 
         var http = new DefaultHttpContext
         {

@@ -40,6 +40,12 @@ public sealed record SignatureToken(
 /// halves aligned on the longest left part, which was the only way to line up a
 /// label and a value inside a fixed grid of twelve slots. Positioning two elements
 /// does that better, and this model has positioning.
+///
+/// Every herald's own stats are on top of this list rather than in it. Each adapter
+/// declares what it publishes and fills it per character, and Resolve falls back to
+/// the bound character's; see IHeraldAdapter.Stats. That is what makes one signature
+/// able to carry a DAoC line about relics, an FFXI line about master level and a
+/// total across both.
 /// </summary>
 public static class SignatureTokens
 {
@@ -149,9 +155,22 @@ public static class SignatureTokens
             {
                 text.Append(token.Value(subject));
             }
+            else if (subject.Character?.Stats.TryGetValue(name, out var stat) == true)
+            {
+                // The bound character's own herald publishes this one. Checked after
+                // the shared tokens, so no herald can shadow %Name%.
+                text.Append(stat);
+            }
+            else if (Herald.HeraldStatTokens.IsKnown(name))
+            {
+                // A real token, from a herald this line's character is not on. Empty
+                // rather than left as typed: "%Relics%" appearing on an FFXI line is
+                // not a typo to point out, it is a stat that does not apply.
+            }
             else
             {
-                // Left as typed, including the percent signs.
+                // Left as typed, including the percent signs, so a mistyped
+                // %Realmm% is visible rather than a gap somebody has to work out.
                 text.Append(template[i..(close + 1)]);
             }
 

@@ -127,6 +127,10 @@ public class RmvDbContext(DbContextOptions<RmvDbContext> options)
             // CharacterService.VersionOf.
             e.Property(c => c.PortraitVersion).HasMaxLength(32);
             e.Property(c => c.LastError).HasMaxLength(300);
+            // What the character's own herald publishes beyond these columns. jsonb
+            // for the same reason a signature design is: Postgres refuses anything
+            // that is not a document.
+            e.Property(c => c.Stats).HasColumnType("jsonb").HasMaxLength(4_000);
             // Text, like MemberStatus, so the table reads without a lookup.
             e.Property(c => c.Source).HasConversion<string>().HasMaxLength(16).IsRequired();
 

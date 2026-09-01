@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -25,6 +26,27 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
     /// progress the herald's own leaderboards use.
     /// </summary>
     public LeaderboardMetric Metric => new(RankBy.Score, "Total job levels");
+
+    /// <summary>
+    /// What FFXI has that a realm-versus-realm herald does not.
+    ///
+    /// The API returns about thirty fields and a history block; these are the ones a
+    /// signature would carry. Playtime is the one nobody else has and everybody
+    /// quotes: 1,321,045 seconds is fifteen days, and saying it in seconds would be
+    /// a worse signature than saying nothing.
+    /// </summary>
+    public IReadOnlyList<HeraldStat> Stats { get; } = HeraldStatTokens.Declare(
+        new("Playtime", "Time played", "15 days"),
+        new("MasterLevel", "Master level", "20"),
+        new("Merits", "Merit points", "7"),
+        new("JobsAt99", "Jobs at 99", "4"),
+        new("Zone", "Where they logged out", "Eastern Adoulin"),
+        new("Battles", "Battles fought", "5,931"),
+        new("Defeated", "Enemies defeated", "8,297"),
+        new("Distance", "Distance travelled", "887,119"),
+        new("Nation", "Home nation", "Windurst"),
+        new("MainJob", "Main job and level", "MNK 99"),
+        new("SubJob", "Support job and level", "WHM 49"));
 
     private static readonly JsonSerializerOptions Json = new()
     {
@@ -155,7 +177,71 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
             ? "Online now"
             : dto.LastLogout is { } t ? t.ToString("yyyy-MM-dd") : null,
         Url = playerUrl,
+        Stats = MapStats(dto),
     };
+
+    /// <summary>
+    /// The fields this herald publishes that no shared column has a place for.
+    ///
+    /// Formatted here, because this is the code that knows what the numbers mean: a
+    /// playtime in seconds becomes days, and a count gets its separators.
+    /// </summary>
+    public static Dictionary<string, string> MapStats(XiCharacter dto)
+    {
+        ArgumentNullException.ThrowIfNull(dto);
+
+        var stats = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        void Count(string key, long? value)
+        {
+            if (value is { } n && n > 0)
+            {
+                stats[key] = n.ToString("N0", CultureInfo.InvariantCulture);
+            }
+        }
+
+        Count("MasterLevel", dto.MasterLevel);
+        Count("Merits", dto.Merits);
+        Count("JobsAt99", dto.JobsAt99);
+        Count("Battles", dto.History?.BattlesFought);
+        Count("Defeated", dto.History?.EnemiesDefeated);
+        Count("Distance", dto.History?.DistanceTravelled);
+
+        if (Blank(dto.Zone) is { } zone)
+        {
+            stats["Zone"] = zone;
+        }
+
+        if (Blank(dto.Nation) is { } nation)
+        {
+            stats["Nation"] = nation;
+        }
+
+        // The jobs separately as well as together, because a signature might want
+        // the main job on its own line.
+        if (Blank(dto.MainJob) is { } main)
+        {
+            stats["MainJob"] = dto.MainJobLevel > 0 ? $"{main} {dto.MainJobLevel}" : main;
+        }
+
+        if (Blank(dto.SubJob) is { } sub && sub != "---" && dto.SubJobLevel > 0)
+        {
+            stats["SubJob"] = $"{sub} {dto.SubJobLevel}";
+        }
+
+        // Days, not seconds. Fifteen days is a thing to put in a signature; 1,321,045
+        // is not.
+        if (dto.PlaytimeSeconds is { } seconds && seconds > 0)
+        {
+            var span = TimeSpan.FromSeconds(seconds);
+
+            stats["Playtime"] = span.TotalDays >= 1
+                ? $"{(int)span.TotalDays} day{((int)span.TotalDays == 1 ? "" : "s")}"
+                : $"{(int)span.TotalHours} hour{((int)span.TotalHours == 1 ? "" : "s")}";
+        }
+
+        return stats;
+    }
 
     private static string? FormatJob(XiCharacter dto)
     {
@@ -202,6 +288,33 @@ public sealed class HeraldXiAdapter(HeraldFetcher fetcher) : IHeraldAdapter
         public bool Online { get; set; }
 
         [JsonPropertyName("last_logout")] public DateTimeOffset? LastLogout { get; set; }
+
+        // --- what a signature can ask for beyond the shared fields ------------
+
+        [JsonPropertyName("master_level")] public int? MasterLevel { get; set; }
+
+        public int? Merits { get; set; }
+
+        [JsonPropertyName("jobs_at_99")] public int? JobsAt99 { get; set; }
+
+        [JsonPropertyName("playtime_seconds")] public long? PlaytimeSeconds { get; set; }
+
+        public string? Zone { get; set; }
+
+        public XiHistory? History { get; set; }
+    }
+
+    /// <summary>
+    /// The counters this herald keeps for a character's whole life. Only the three a
+    /// signature would quote; the block has fourteen.
+    /// </summary>
+    public sealed class XiHistory
+    {
+        [JsonPropertyName("battles_fought")] public long? BattlesFought { get; set; }
+
+        [JsonPropertyName("enemies_defeated")] public long? EnemiesDefeated { get; set; }
+
+        [JsonPropertyName("distance_travelled")] public long? DistanceTravelled { get; set; }
     }
 
     /// <summary>
