@@ -188,28 +188,29 @@ Storage: about 100KB per rendered signature and at most two backgrounds per memb
 at the canvas size. Twenty members is a few megabytes, against a gallery that
 already holds screenshots.
 
-## Decisions needed
+## Decisions taken
 
-1. **Image library.** ImageSharp or SkiaSharp.
+Asked and answered on 2026-08-30.
 
-   ImageSharp is pure managed, which matters because the Dockerfile's runtime stage
-   deliberately has no `RUN` steps and SkiaSharp's usual Linux package wants
-   fontconfig. SkiaSharp does publish a `NoDependencies` native package that avoids
-   that. On licences, ImageSharp 2.x is Apache 2.0 and 3.x is the Six Labors Split
-   License, which this repo qualifies for free under its open source clause since
-   it is public. SkiaSharp is MIT over BSD Skia with no conditions to read.
+1. **ImageSharp**, for the pure-managed build. The Dockerfile's runtime stage has
+   no `RUN` steps on purpose, to keep QEMU out of a cross-platform build, and
+   SkiaSharp's usual Linux native package wants fontconfig. ImageSharp needs
+   nothing from the base image. Licensing: 2.x is Apache 2.0 and 3.x is the Six
+   Labors Split License, which this repo qualifies for free under its open source
+   clause, the repository being public.
 
-   Recommendation: ImageSharp, pinned, for the pure-managed build. It also covers
-   the gallery thumbnails that are still outstanding.
+2. **A curated set of SIL OFL faces**, including the Vollkorn the site already
+   ships, rather than the 116 from the backup. Most of those are dafont-era
+   freeware whose terms tend to exclude exactly this use: server-side
+   rasterisation on a public site. The TTF cut of Vollkorn goes in beside the
+   woff2 already in wwwroot/fonts, under the same OFL.txt.
 
-2. **Fonts.** A curated set of OFL faces, or specific ones from the old 116. The v1
-   default was Centaur, which is not OFL.
+3. **The 22 v1 preset backgrounds**, which are already 520x160 and make the new
+   one look like the old one. A set built from the guild's own material can follow
+   later as its own piece of work.
 
-3. **Canvas sizes.** One size, 520x160, or a small choice such as 400x120 and
-   520x160.
-
-4. **Backgrounds.** Keep the 22 v1 presets, which are DAoC screenshots of unknown
-   provenance, or start with a set drawn from the site's own kit and the gallery.
+4. Canvas is **520x160**, which is what every v1 preset was and what a forum
+   signature is. A second smaller size can follow once anyone asks.
 
 ## Build order
 
