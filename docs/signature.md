@@ -67,6 +67,44 @@ The default black background auto-sized to the text, minimum 520 wide. Preset
 backgrounds were 520x160. Member uploads ran 520x98 to 576x190. So 520x160 is the
 shape a forum signature is, and the presets are all one size.
 
+## What v2 added, which is less than it sounds
+
+He had a second backup, `daoc_v2.zip`, dated 2014. Compared file by file against
+v1, ignoring line endings, fifteen of the seventeen PHP files are identical and
+the two that differ do so for these reasons:
+
+1. **sig.php learned to recognise crawlers.** If the user agent contains "bot",
+   "spider" or "crawler" it stops short of creating a new design row. So the
+   traffic worry is not hypothetical: v2 was already being crawled hard enough to
+   fill its table with junk designs, and sniffing user agents was the defence.
+2. **customize.php gained Google Analytics.**
+3. `parse.php` is new, and is the roll parser, which the site already has at
+   /tools/daoc/roll-parser.
+4. Thirty-two more member backgrounds in UserBG. The 22 presets are unchanged.
+
+The renderer, the twelve-slot schema, the start-point columns and every token are
+byte for byte the same. The token set is identical in both: no additions, no
+removals.
+
+**Neither version has drag and drop.** v2's editor is the same twelve text inputs
+and the same seven numeric start points; what it added is a preview that updates on
+every keystroke and floats alongside as the page scrolls, which is probably the
+interactivity being remembered. The schema could not express free positions
+anyway: three x values, one per column, and four y values, one per row.
+
+So drag and drop stays new work, and the plan below is unchanged by v2.
+
+### The templates people actually used
+
+From v2's help page, worth offering as starting points in the editor rather than
+leaving somebody with an empty canvas:
+
+```
+%C Level: %L %P %SL %RP
+%AC Level: %AL %CR %AP %AS
+%AC %AS %AP %TRP Realm Points %TRL Realm Levels Earned %TK Total Kills
+```
+
 ## What carries over
 
 Feature parity means all of the above: the twelve slots' worth of expressive
@@ -178,6 +216,12 @@ repeat views are answered at the edge and never reach the homelab at all. The
 tradeoff is a signature up to fifteen minutes stale, which for a stat that updates
 daily is nothing. A per-IP rate limit on the route is the backstop for anything
 pathological.
+
+Crawlers need no special handling here, which is worth saying because v2 sniffed
+user agents for "bot", "spider" and "crawler" to protect itself. It had to: a
+crawler hitting the generator created a database row and every hit on an image
+rendered one. In this design a crawler gets the same cached bytes as anybody else
+and creates nothing, so there is no reason to guess at what it is.
 
 Rendering, per day: one render per signature whose data changed, during the pass
 that already runs. Twenty members is twenty renders of a 520x160 canvas, which is
