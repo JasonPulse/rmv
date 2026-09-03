@@ -34,6 +34,10 @@
                 <dt>Total</dt><dd>@Model.TotalRequests.ToString("N0")</dd>
                 <dt>Human</dt><dd>@Model.HumanRequests.ToString("N0")</dd>
                 <dt>Bot</dt><dd>@((Model.TotalRequests - Model.HumanRequests).ToString("N0"))</dd>
+                @if (Model.OurOwnRequests > 0)
+                {
+                    <dt>Our smoke run</dt><dd>@Model.OurOwnRequests.ToString("N0"), left out</dd>
+                }
             </dl>
 
             @if (Model.PerDay.Count > 0)

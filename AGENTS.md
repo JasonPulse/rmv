@@ -68,7 +68,10 @@ Change these, not their callers:
 - **The order games are listed in.** `GameOrder.Listed()` for lists and pickers,
   `GamePresence.NewestFirst` for the history page and the leaderboards.
 - **Ranking.** `Leaderboard.Rank` and `Leaderboard.Value`, pure and tested offline.
-- **Analytics panels.** `RequestLogQueries.TopAsync`.
+- **Analytics panels.** `RequestLogQueries.TopAsync`. Which rows are our own smoke
+  run is `SmokeRun`, and `.NotOurs()` takes them out of every panel. `tools/smoke.sh`
+  sends `SmokeRun.UserAgent`; `SmokeRunTests` is what keeps the bash string and the
+  constant equal, because nothing else can.
 - **An external URL becoming an href.** `ExternalUrl.TryParse`. Scheme allowlist,
   because Razor escaping does nothing about `javascript:`.
 - **Whether an address may be connected to.** `AddressPolicy.IsAllowed`, enforced in

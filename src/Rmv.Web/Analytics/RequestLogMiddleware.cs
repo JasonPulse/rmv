@@ -122,6 +122,7 @@ public sealed class RequestLogMiddleware(RequestDelegate next, RequestLogWriter 
 
     private static bool LooksLikeBot(string ua) =>
         string.IsNullOrEmpty(ua)
+        || SmokeRun.Sent(ua)
         || BotMarkers.Any(m => ua.Contains(m, StringComparison.OrdinalIgnoreCase));
 
     private static string? NullIfEmpty(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;

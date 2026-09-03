@@ -16,6 +16,14 @@ public class AnalyticsModel(RmvDbContext db) : PageModel
 
     public int HumanRequests { get; private set; }
 
+    /// <summary>
+    /// How many rows in this window were our own smoke run, left out of every panel.
+    ///
+    /// Shown rather than silently dropped, because "the numbers are lower than the
+    /// table" is worse than a line saying where the difference went.
+    /// </summary>
+    public int OurOwnRequests { get; private set; }
+
     public IReadOnlyList<Count> TopPaths { get; private set; } = [];
 
     /// <summary>The question actually asked: what are people trying to hit that is not there.</summary>
@@ -56,11 +64,18 @@ public class AnalyticsModel(RmvDbContext db) : PageModel
 
         var since = DateTimeOffset.UtcNow.AddDays(-Days);
 
-        var all = db.RequestLogs.Where(r => r.At >= since);
+        var window = db.RequestLogs.Where(r => r.At >= since);
+
+        // Our own smoke run is out of every panel below, in both modes. It drives
+        // every route including the ones it expects to miss, so with it in, a third
+        // of the log and a fifth of the misses panel was this repository asserting
+        // that /roster/999999 still 404s. See SmokeRun.
+        var all = window.NotOurs();
         var scoped = ExcludeBots ? all.Where(r => !r.IsBot) : all;
 
         TotalRequests = await all.CountAsync(ct);
         HumanRequests = await all.CountAsync(r => !r.IsBot, ct);
+        OurOwnRequests = await window.CountAsync(ct) - TotalRequests;
 
         TopPaths = await RequestLogQueries.TopAsync(scoped.Where(r => r.Status < 400), r => r.Path, 25, ct);
 

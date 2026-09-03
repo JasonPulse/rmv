@@ -21,6 +21,14 @@ cd "$(dirname "$0")/.."
 BASE="${1:-http://localhost:5080}"
 LOCAL=0
 
+# Every request this script makes says who it is, so the site's own analytics can
+# leave them out. Driving every route a few times a day, including the ones this
+# asserts should 404, was a third of the request log and a fifth of the misses
+# panel. The string has to match SmokeRun.UserAgent; SmokeRunTests checks that it
+# still does.
+AGENT="rmv-smoke/1 (+https://github.com/JasonPulse/rmv)"
+CURL=(curl -sS -A "$AGENT")
+
 teardown() {
     [ "$LOCAL" = 1 ] || return 0
     [ -n "${KEEP:-}" ] && { echo "KEEP set, leaving the stack up"; return 0; }
@@ -77,7 +85,7 @@ if [ "$BASE" = "http://localhost:5080" ]; then
     printf 'waiting for %s ' "$BASE"
     streak=0
     for _ in $(seq 1 60); do
-        if [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$BASE/healthz/ready" || true)" = "200" ]; then
+        if [ "$("${CURL[@]}" -o /dev/null -w '%{http_code}' --max-time 5 "$BASE/healthz/ready" || true)" = "200" ]; then
             streak=$((streak + 1))
             [ "$streak" -ge 2 ] && break
         else
@@ -153,7 +161,7 @@ fails=0
 while read -r path want_local want_remote; do
     [ -z "$path" ] && continue
     want=$([ "$LOCAL" = 1 ] && echo "$want_local" || echo "$want_remote")
-    got=$(curl -s -o /dev/null -w '%{http_code}' --max-time 25 "$BASE$path" || echo "000")
+    got=$("${CURL[@]}" -o /dev/null -w '%{http_code}' --max-time 25 "$BASE$path" || echo "000")
     if [ "$got" = "$want" ]; then
         printf '  ok   %-26s %s\n' "$path" "$got"
     else
@@ -163,7 +171,7 @@ while read -r path want_local want_remote; do
 done <<< "$ROUTES"
 
 if [ -n "$ROSTER_ID" ]; then
-    body=$(curl -s --max-time 25 "$BASE/roster/$ROSTER_ID" || true)
+    body=$("${CURL[@]}" --max-time 25 "$BASE/roster/$ROSTER_ID" || true)
     for want in "Smoke" "Smoketest" "Champion"; do
         if echo "$body" | grep -q "$want"; then
             printf '  ok   %-26s renders %s\n' "/roster/$ROSTER_ID" "$want"
@@ -185,7 +193,7 @@ fi
 # it. Checking the body for absence is worth more than the status code alone: a
 # page that 302s but still renders its content in the response body would pass a
 # status check and leak everything.
-body=$(curl -s --max-time 25 "$BASE/tools/daoc/spellcraft" || true)
+body=$("${CURL[@]}" --max-time 25 "$BASE/tools/daoc/spellcraft" || true)
 for leak in "Item slot" "Pick a slot" "Save template" "Sockets"; do
     if echo "$body" | grep -q "$leak"; then
         printf '  FAIL %-26s leaks %s to an anonymous caller\n' "/tools/daoc/spellcraft" "$leak"
@@ -196,7 +204,7 @@ for leak in "Item slot" "Pick a slot" "Save template" "Sockets"; do
 done
 
 # The shelf still has to say why Open will bounce them.
-shelf=$(curl -s --max-time 25 "$BASE/tools/daoc" || true)
+shelf=$("${CURL[@]}" --max-time 25 "$BASE/tools/daoc" || true)
 if echo "$shelf" | grep -qi "Approved members only"; then
     printf '  ok   %-26s says the calculator is members only\n' "/tools/daoc"
 else
