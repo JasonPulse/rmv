@@ -18,6 +18,29 @@ public static class StoredImage
     /// </summary>
     public const string CacheControl = "public, max-age=31536000, immutable";
 
+    /// <summary>
+    /// Keeps a picture out of an image search.
+    ///
+    /// robots.txt stops the fetch for a crawler that reads it, and this stops the
+    /// indexing for one that found the URL some other way, which is the half that
+    /// actually keeps a screenshot out of Google Images. Not a permission check and
+    /// not a block: a signature is meant to be embedded in a forum post and this
+    /// does not stop that, and a scanner ignores both.
+    /// </summary>
+    public const string Robots = "noindex";
+
+    /// <summary>
+    /// One place, because three routes serve pictures and they must not disagree
+    /// about this: the gallery's screenshots, a character's portrait and a
+    /// member's signature.
+    /// </summary>
+    public static void KeepOutOfSearch(HttpContext http)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+
+        http.Response.Headers["X-Robots-Tag"] = Robots;
+    }
+
     /// <summary>Quoted, which is what an entity tag is.</summary>
     public static string ETagFor(string version) => $"\"{version}\"";
 
@@ -40,6 +63,7 @@ public static class StoredImage
         }
 
         http.Response.Headers.CacheControl = CacheControl;
+        KeepOutOfSearch(http);
 
         return Results.Bytes(bytes, contentType, entityTag: new(etag));
     }

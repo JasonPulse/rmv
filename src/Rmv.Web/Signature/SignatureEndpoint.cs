@@ -98,8 +98,11 @@ public static class SignatureEndpoint
 
             // Not StoredImage.Bytes: a portrait's URL carries its version so it can be
             // immutable for a year, and this URL cannot. A forum post embeds one
-            // address forever, so freshness has to come from revalidation.
+            // address forever, so freshness has to come from revalidation. The one
+            // thing shared with the other pictures is that it stays out of a search
+            // index.
             http.Response.Headers.CacheControl = Caching;
+            StoredImage.KeepOutOfSearch(http);
 
             return Results.Bytes(bytes, "image/png", entityTag: new(etag));
         })

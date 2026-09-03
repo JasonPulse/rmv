@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using Rmv.Web.Data;
 using Rmv.Web.Security;
 
 namespace Rmv.Web.Tests;
@@ -153,5 +154,61 @@ public class SecurityHeaderTests
 
         Assert.Equal("'self'", policy["default-src"]);
         Assert.Equal("'self'", policy["font-src"]);
+    }
+
+    // --- pictures and crawlers ------------------------------------------------
+
+    [Fact]
+    public void A_picture_says_it_does_not_belong_in_an_image_search()
+    {
+        var http = new DefaultHttpContext();
+
+        StoredImage.Bytes(http, [1, 2, 3], "image/png", StoredImage.ETagFor("v1"));
+
+        // robots.txt stops the fetch for a crawler that reads it. This is the half
+        // that keeps a screenshot out of Google Images when it found the URL
+        // somewhere else.
+        Assert.Equal("noindex", http.Response.Headers["X-Robots-Tag"]);
+    }
+
+    [Fact]
+    public void Nothing_is_sent_for_a_picture_that_is_not_there()
+    {
+        var http = new DefaultHttpContext();
+
+        StoredImage.Bytes(http, null, "image/png", StoredImage.ETagFor("v1"));
+
+        Assert.False(http.Response.Headers.ContainsKey("X-Robots-Tag"));
+    }
+
+    [Fact]
+    public void Robots_keeps_crawlers_off_every_route_that_serves_a_picture()
+    {
+        var robots = File.ReadAllText(Path.Combine(
+            RepositoryRoot(), "src", "Rmv.Web", "wwwroot", "robots.txt"));
+
+        // The three picture routes. /characters is already disallowed as a prefix,
+        // which is what covers /characters/1/portrait.
+        Assert.Contains("Disallow: /gallery/*/image", robots);
+        Assert.Contains("Disallow: /sig/", robots);
+        Assert.Contains("Disallow: /characters", robots);
+
+        // And the 2001 generator's paths, which Googlebot-Image was retrying every
+        // couple of days against a file that has not existed since that site did.
+        Assert.Contains("Disallow: /daoc/", robots);
+    }
+
+    private static string RepositoryRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "ResultsMayVary.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        Assert.NotNull(dir);
+
+        return dir.FullName;
     }
 }

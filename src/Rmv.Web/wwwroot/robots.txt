@@ -16,3 +16,18 @@ Disallow: /characters
 Disallow: /gallery/add
 Disallow: /status
 Disallow: /tools/daoc/spellcraft
+
+# Pictures. None of them belong in an image search: the screenshots are the
+# guild's, the portraits are members', and a signature exists to be embedded in
+# one forum post. Disallow is a prefix match, so /characters above already covers
+# /characters/1/portrait. The X-Robots-Tag on the responses says the same thing to
+# a crawler that found a URL some other way, since this file only stops the fetch
+# and not the indexing.
+Disallow: /gallery/*/image
+Disallow: /sig/
+Disallow: /img/
+
+# The 2001 generator's paths. Nothing has lived here for over a decade and nothing
+# will: the characters those old forum signatures name were wiped when that server
+# went down. Googlebot-Image has been retrying one of them for a week.
+Disallow: /daoc/
